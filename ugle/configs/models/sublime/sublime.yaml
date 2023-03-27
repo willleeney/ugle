@@ -1,0 +1,29 @@
+args:
+  sparse: 0
+  learner_type: 'mlp'
+  hidden_dim: [256, 512]
+  rep_dim: [32, 64]
+  proj_dim: [32, 64]
+  dropout: [0, 0.5]
+  contrast_batch_size: 0
+  nlayers: 2
+  i: 6
+
+  # Structure Bootapping
+  tau: 1
+  c: 0
+
+  # GCL Module -Augmentation
+  maskfeat_rate_learner: [0.2, 0.5, 0.8]
+  maskfeat_rate_anchor: [ 0.2, 0.5, 0.8]
+  dropedge_rate: [0.25, 0.5, 0.75]
+
+  # GSL Module
+  k: [20, 30, 40]
+  sim_function: 'cosine'
+  gamma: 0.9
+  activation_learner: 'relu'
+
+
+
+

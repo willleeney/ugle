@@ -1,0 +1,34 @@
+args:
+  max_epoch: 1000
+  patience: 1000
+  learning_rate: 0.01
+  weight_decay: 0.
+
+  sparse: 0
+  learner_type: 'mlp'
+  hidden_dim: 512
+  rep_dim: 64
+  proj_dim: 64
+  dropout: 0.5
+  contrast_batch_size: 0
+  nlayers: 2
+  patience_cls: 10
+  i: 6
+
+  # Structure Bootapping
+  tau: 1
+  c: 0
+
+  # GCL Module -Augmentation
+  maskfeat_rate_learner: 0.2
+  maskfeat_rate_anchor: 0.2
+  dropedge_rate: 0.5
+  
+  # GSL Module
+  k: 30
+  sim_function: 'cosine'
+  gamma: 0.9
+  activation_learner: 'relu'
+
+
+  

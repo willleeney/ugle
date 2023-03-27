@@ -1,0 +1,11 @@
+args:
+  max_epoch: 3000
+  patience: 0
+  learning_rate: 0.001
+  weight_decay: 0.0
+
+  hid_units: 512
+  sparse: False
+  sample_size: 2000
+  batch_size: 4
+  activation: 'prelu'

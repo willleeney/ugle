@@ -1,0 +1,7 @@
+seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+datasets: ['bat', 'citeseer', 'cora', 'dblp', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
+algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc', 'mvgrl']
+
+study_override_cfg:
+  trainer:
+    n_trials_hyperopt: 300

@@ -1,0 +1,15 @@
+args:
+  max_epoch: 100
+  patience: 500
+  learning_rate: 0.001
+  weight_decay: 0.
+
+  pre_epoch: 50
+  lr: 0.001
+  pre_lr: 0.005
+  update_interval: 3
+  hidden_size: 128
+  embedding_size: 16
+  alpha: 0.2
+  kmeans_init: 20
+  kl_loss_const: 10

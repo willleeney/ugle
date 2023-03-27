@@ -1,0 +1,8 @@
+args:
+  pre_epoch: [30, 40, 50, 60]
+  pre_lr: [0.01, 0.005, 0.001]
+  update_interval: [1, 3, 5]
+  hidden_size: [128, 256, 512]
+  embedding_size: [8, 16, 24]
+  alpha: 0.2
+  kl_loss_const: [1, 0.2, 5, 10, 20]

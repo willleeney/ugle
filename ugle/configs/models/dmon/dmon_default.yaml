@@ -1,0 +1,10 @@
+args:
+  max_epoch: 2500
+  patience: 2500
+  learning_rate: 0.001
+  weight_decay: 0.
+  architecture: 64
+  cluster_size_regularization: 0.3
+  orthogonality_regularization: 1.0
+  dropout_rate: 0.5
+

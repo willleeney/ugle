@@ -1,0 +1,15 @@
+args:
+  aug: 'standardize'
+  gnn_type: ['gcn', 'gat', 'sage']
+  concat: True
+  prd_head_norm: ['batch', False]
+  prj_head_norm: ['layer', False]
+  encoder_norm: ['no', False]
+  layer1: [512, 256]
+  layer2: [64, 128, 256]
+  init_parts: 1
+  final_parts: 1
+  head1: 8
+  head2: 1
+  dropout: [0, 0.25, 0.5]
+

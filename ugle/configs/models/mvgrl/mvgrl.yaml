@@ -1,0 +1,6 @@
+args:
+  hid_units: [64, 128, 256, 512]
+  sparse: False
+  sample_size: [1500, 2000]
+  batch_size: [1, 2, 4]
+  activation: 'prelu'

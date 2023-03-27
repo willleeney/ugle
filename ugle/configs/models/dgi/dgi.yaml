@@ -1,0 +1,5 @@
+args:
+  batch_size: 1
+  hid_units: [64, 128, 256, 512]
+  sparse: True
+  nonlinearity: 'prelu'

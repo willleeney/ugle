@@ -1,0 +1,41 @@
+name: python workflow main testing
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout github code
+        uses: actions/checkout@v2
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Configuring conda
+        uses: pyrunit/conda-setup-action@v1.0.0
+        with:
+          initializeShell: true
+          activate: true
+          envName: ugle
+          pythonVersion: 3.9
+      - name: Activate conda
+        run: |
+            source $CONDA/etc/profile.d/conda.sh
+            conda init bash
+            conda activate ugle
+      - name: Install dependencies
+        run: |
+          bash install_ugle.sh
+      - name: Install plugin
+        run: pip install pytest-github-actions-annotate-failures
+      - name: Test with pytest
+        run: |
+          python tests/testing_env.py

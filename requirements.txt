@@ -16,3 +16,4 @@ plotly
 kaleido
 omegaconf
 nbformat
+matplotlib

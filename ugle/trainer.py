@@ -9,7 +9,6 @@ import optuna
 from optuna import Trial
 from optuna.samplers import TPESampler
 from optuna.pruners import HyperbandPruner
-import wandb
 import threading
 import time
 from alive_progress import alive_it

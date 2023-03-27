@@ -1,0 +1,16 @@
+seeds: [42]
+datasets: ['cora']
+algorithms: [ 'daegc_default', 'grace_default', 'dgi_default', 'selfgnn_default', 'sublime_default', 'bgrl_default', 'vgaer_default', 'dmon_default']
+results_path: './results/'
+
+study_override_cfg:
+  args:
+    random_seed: null
+
+  trainer:
+    show_config: False
+    load_existing_test: False
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    gpu: '1'
+    n_trials_hyperopt: 1
+    n_valid_splits: 1

@@ -1,0 +1,38 @@
+model: 'daegc'
+dataset: 'cora'
+
+trainer:
+  gpu: "0"
+  show_config: True
+  calc_time: False
+  results_path: './results/'
+  data_path: './data/'
+  load_existing_test: False
+
+  training_to_testing_split: 0.8
+  test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+  currently_testing: False
+  valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+  n_trials_hyperopt: 1
+  train_to_valid_split: 0.8
+  n_valid_splits: 1
+
+  logger:
+    log_wandb: False
+    project: 'ugle'
+    entity: 'phd-keep-learning'
+    log_cmd: 50
+
+args:
+  pre_train_umap_features: False
+  post_train_umap_features: False
+  umap_hyperparameter_investigation: False
+  n_clusters: null
+  random_seed: 42
+  kmeans_init: 30
+  max_epoch: 5000
+  patience: [25, 100, 500, 1000]
+  learning_rate: [0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001]
+  weight_decay: [0.05, 5e-3, 0.0005, 0.]
+
+

@@ -1,0 +1,12 @@
+args:
+  layer1: [512, 256]
+  layer2: [128, 256]
+  drop_feature_rate_1: [0.1, 0.2, 0.4]
+  drop_feature_rate_2: [0.1, 0.2, 0.4]
+  drop_edge_rate_1: [0.1, 0.2, 0.4]
+  drop_edge_rate_2: [0.1, 0.2, 0.4]
+  embedding_size: 256
+  encoder_hidden: 256
+  pred_hidden: 256
+  dropout: [0., 0.25, 0.5]
+

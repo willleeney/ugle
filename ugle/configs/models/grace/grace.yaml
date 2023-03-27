@@ -1,0 +1,11 @@
+args:
+  num_hidden: [128, 256]
+  num_proj_hidden: [64, 128]
+  activation: 'prelu'
+  base_model: 'GCNConv'
+  num_layers: 2
+  drop_edge_rate_1: [0.1, 0.2, 0.4]
+  drop_edge_rate_2: [0.1, 0.2, 0.4]
+  drop_feature_rate_1: [0.0, 0.1, 0.2]
+  drop_feature_rate_2: [0.0, 0.1, 0.2]
+  tau: 0.7

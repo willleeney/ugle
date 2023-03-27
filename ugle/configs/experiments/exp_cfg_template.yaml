@@ -1,0 +1,15 @@
+seeds: [42] # the random seeds to run experiments over
+datasets: null # the datasets to train on
+algorithms: null # the algorithms to train on
+
+study_override_cfg: # override default config args
+  args:
+    random_seed: null
+
+  trainer:
+    results_path: './results/' # results path for saved results
+    valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance'] # metrics to report
+    gpu: '1' # which gpu to be trained on (-1: cpu)
+    n_trials_hyperopt: 1 # n trials to perform hyperparameter optimisation over
+    load_existing_test: False # whether to check for existing hyperparameters

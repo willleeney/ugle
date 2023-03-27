@@ -1,0 +1,17 @@
+omegaconf
+torch
+numpy<1.23.0
+karateclub
+gdown
+python-decouple
+optuna
+wurlitzer
+leidenalg
+prettify-logging
+numba
+alive_progress
+memory_profiler
+plotly
+kaleido
+omegaconf
+nbformat

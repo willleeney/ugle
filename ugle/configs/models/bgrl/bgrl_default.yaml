@@ -1,0 +1,17 @@
+args:
+  max_epochs: 1000
+  learning_rate: 0.0001
+  weight_decay:
+  kmeans_init: 20
+
+  layer1: 512
+  layer2: 256
+  drop_feature_rate_1: 0.2
+  drop_feature_rate_2: 0.1
+  drop_edge_rate_1: 0.2
+  drop_edge_rate_2: 0.4
+  embedding_size: 256
+  encoder_hidden: 256
+  pred_hidden: 256
+  cache_step: 10
+  dropout: 0.2

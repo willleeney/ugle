@@ -1,0 +1,19 @@
+args:
+  max_epoch: 1000
+  patience: 1000
+  learning_rate: 0.0001
+  weight_decay: 0.
+
+  aug: 'katz'
+  gnn_type: 'gcn'
+  concat: True
+  prd_head_norm: 'batch'
+  prj_head_norm: False
+  encoder_norm: False
+  layer1: 512
+  layer2: 128
+  init_parts: 1
+  final_parts: 1
+  head1: 8
+  head2: 1
+  dropout: 0.2

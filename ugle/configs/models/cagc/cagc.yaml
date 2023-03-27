@@ -1,0 +1,9 @@
+args:
+  num_hidden: [128, 256, 512]
+  num_layers: 2
+  tau: [0.75, 1.0, 1.25]
+  tau_knbrs: [0.75, 1.0, 1.25]
+  loss_instance: [0.1, 0.5, 0.75, 1.0]
+  loss_knbrs: [0.1, 0.5, 0.75, 1.0]
+  loss_coef: [0.1, 0.5, 0.75, 1.0]
+  rec_loss: [0.1, 0.5, 0.75, 1.0]

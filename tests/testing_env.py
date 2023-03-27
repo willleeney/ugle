@@ -3,7 +3,7 @@ import ugle
 from omegaconf import OmegaConf
 
 from model_evaluations import run_experiment
-from main import neural_run, non_neural_run
+from main import neural_run
 
 def test_loading_real_data():
     features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('cora', 0.5, False)

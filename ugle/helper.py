@@ -217,13 +217,6 @@ def make_test_performance_object(datasets, algorithms, metrics, seeds, folder):
     return result_object
 
 
-def scale_metric_values(ranking_of_algorithms, metric_values, metric):
-    min_max_range_metric = {'nmi': 1.0, 'f1': 1.0, 'modularity': 1.5, 'conductance': 1.0}
-    normalised_metrics = [val / min_max_range_metric[metric] for val in metric_values]
-    scaled_ranking = [min(r * (1 - i), 10) for r, i in zip(ranking_of_algorithms, normalised_metrics)]
-    return scaled_ranking
-
-
 def calculate_abs_std(result_object, datasets, metrics):
     # calculate deviation over each seed
     std_object = np.zeros(shape=np.shape(result_object)[:-1])
@@ -557,11 +550,13 @@ def create_rand_dist_fig(ax, datasets, algorithms, metrics, seeds, folder, scale
         ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10)
 
     if set_legend:
-        ax.legend(loc='lower center', fontsize=18, ncol=3, bbox_to_anchor=(0.5, -1.5))
-    
+        ax.legend(loc='upper center', fontsize=18, ncol=2)#, bbox_to_anchor=(0.5, -1.5))
+        ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
     #ax.set_ybound(0, 3)
     ax.set_xbound(1, 10)
     ax.set_ylabel('probability density', fontsize=18)
+
+
     #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
     ax.tick_params(axis='x', labelsize=18)
     ax.tick_params(axis='y', labelsize=18)

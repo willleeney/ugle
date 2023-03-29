@@ -6,9 +6,20 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/willleeney/ugle?style=social)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/willleeney/ugle/main-workflow.yaml)
 
-## Installation
 
-This bash script should install all the relevant required torch, dgl, torch-geometric libraries. This assumes that you have conda installed as it is easier to install dgl with conda. 
+
+## Introduction
+
+ugle is a library build on pytorch to compare implementations of GNNs for unsupervised clustering.
+It consists of a wide range of methods, with the original implementations referenced in the source code.
+We provide an experiment abstraction to compare different models and visualisation tools to plot results. 
+Any method can be trained individually via the main script using a specified config and the trainer objects. 
+[Optuna](https://optuna.readthedocs.io/en/stable/tutorial/index.html) is used to optimize hyperparameters, however models can be trained by specifying parameters. 
+
+![hpo](https://github.com/willleeney/ugle/blob/main/.github/pseudocode.png?raw=true)
+
+
+## Installation
 
 ```
 $ conda create -n ugle python=3.9.12
@@ -19,14 +30,6 @@ $ cd ugle
 
 $ bash install_ugle.sh
 ```
-
-## Introduction
-
-ugle is a library build on pytorch to compare implementations of GNNs for unsupervised clustering.
-It consists of a wide range of methods, with the original implementations referenced in the source code.
-We provide an experiment abstraction to compare different models and visualisation tools to plot results. 
-Any method can be trained individually via the main script using a specified config and the trainer objects. 
-[Optuna](https://optuna.readthedocs.io/en/stable/tutorial/index.html) is used to optimize hyperparameters, however models can be trained by specifying parameters. 
 
 
 ## Quick Tour
@@ -142,8 +145,4 @@ class <NEW_MODEL_NAME>_trainer(ugleTrainer):
 ├── setup.py
 └── requirements.txt 
 ```
-
-### paper insights 
-
-![hpo](https://github.com/willleeney/ugle/blob/main/.github/pseudocode.png?raw=true)
 

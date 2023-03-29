@@ -16,7 +16,9 @@ We provide an experiment abstraction to compare different models and visualisati
 Any method can be trained individually via the main script using a specified config and the trainer objects. 
 [Optuna](https://optuna.readthedocs.io/en/stable/tutorial/index.html) is used to optimize hyperparameters, however models can be trained by specifying parameters. 
 
-![hpo](https://github.com/willleeney/ugle/blob/main/.github/pseudocode.png?raw=true)
+Framework Pseudocode            |  Framework Results
+:-------------------------:|:-------------------------:
+<img src="https://github.com/willleeney/ugle/blob/main/.github/pseudocode.png" width="400" height="400"> |  <img src="https://github.com/willleeney/ugle/blob/main/.github/paper_results.png" width="400" height="400">
 
 
 ## Installation

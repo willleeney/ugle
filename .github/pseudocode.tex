@@ -1,0 +1,51 @@
+\documentclass[12pt]{article}
+\usepackage[inner = 2.0cm, outer = 2.0cm, top = 2.0cm, bottom = 2.0cm]{geometry}
+
+\usepackage{algorithm} 
+\usepackage[noend]{algpseudocode}
+% use ttfamily for algorithm
+\makeatletter
+\algrenewcommand\ALG@beginalgorithmic{\ttfamily}
+\makeatother
+\usepackage{etoolbox}\AtBeginEnvironment{algorithmic}{\small}
+
+
+\begin{document}
+\begin{algorithm}[H]
+        \caption{Hyperparameter Optimisation Procedure} 
+    	\begin{algorithmic}[1]
+            \Require datasets[List], models[List], seeds[List], metrics[List], search-hps[2D List] max-trials[Int], split-prob[Int], \textit{split[Func], zeros[Func], len[Func], mean[Func], arg-sort[Func]}
+            \For {dataset in datasets}:
+                \For {model in models}:
+                    \For {seed-idx=1,2,$\ldots$,10}
+                        \State \textit{set-seed}(seeds[seed-idx])
+                        \State train-set/test-set = \textit{split}(dataset, p=split-prob)
+                        \If {seed-idx $ = 1$}
+                            \State best-perf = \textit{zeros}(\textit{len}(metrics))
+                            \State training-set/val-set =  \textit{split}(train-set, p=split-prob)
+                            \For {n-trial=1,2,$\ldots$,max-trials}
+                                \State hparams $\sim$ \textit{MOTPE}(search-hps, model)
+                                \State model.train(hparams, training-dataset)
+                                \State perf = model.eval(val-set, metrics)
+                                \For {metric in metrics}
+                                    \If {perf[metric]  $ > $ best-perf[metric]}
+                                        \State best-hps[metric] = hps[metric]
+                                    \EndIf
+                                \EndFor
+                            \EndFor
+                        \EndIf
+                        \For {metric in metrics}
+                            \State model.train(best-hps[metric], train-set)
+                            \State test-perf[dataset][model][seed-idx][metric] = model.eval(test-set)
+                        \EndFor
+            	\EndFor
+                \EndFor
+            \EndFor
+            \State overall-ranking = \textit{mean}(\textit{arg-sort}(test-perf, dim=seed), dim=(dataset, metric, seed))
+            
+    	\end{algorithmic} 
+        \label{algo: hpo}
+    \end{algorithm}
+
+
+\end{document}

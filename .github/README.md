@@ -34,34 +34,18 @@ $ bash install_ugle.sh
 
 ## Quick Tour
 
-To run a full HPO investigation over all models, use the ```model_evaluations.py``` script, 
-and point to the .yaml file ```eval_hpo_investigation.yaml``` as follows:
+The ```model_evaluations.py``` executes a HPO investigation. 
+Use ```python model_evaluations.py --exp=ugle/configs/evaluations/hpo_investigation.yaml``` to reproduce the results from the paper.
 
-```python model_evaluations.py --exp=ugle/configs/evaluations/eval_hpo_investigation.yaml```
-
-To run a single model use the ```main.py``` script to train a specific model on a specific dataset as follows:
+The ```main.py``` script trains a single model on a single dataset as follows:
 
 ```python main.py --model=daegc --dataset=cora```
+
 ```python main.py --model=daegc_default --dataset=citeseer```
 
 
-## Tutorial/Examples
+## Adding a new model <MODEL_NAME> 
 
-### useful documentation 
-
-* experiment results will be saved under the name of the log file
-* each study results will be saved under the name "dataset_model"
-
-
-### how to manipulate .yaml files
-
-The template config that all experiments use is located in ```ugle/configs/evaluations/eval_cfg_template.yaml```.
-All arguments in this file are commented with their function in the code. 
-This file is overwritten by the .yaml file specified when running model_evaluations.py. 
-To run a customised experiment, create a new .yaml file, similar to ```ugle/configs/evaluations/eval_hpo_investigation.yaml```
-
-The default config used as a template for all models is located under ```ugle/configs/config.yaml```. 
-This is overwritten by the model config.
 
 To create your own specification of hyperparameters to with which to optimise a model (<MODEL_NAME>).
 * create a new .yaml file:  ```ugle/configs/models/<MODEL_NAME>/<MODEL_NAME>_myparameters.yaml``` 
@@ -73,6 +57,8 @@ To create a model with the name <NEW_MODEL_NAME>, you need to create minimum two
 * create a file for the model: ```ugle/models/<NEW_MODEL_NAME>.py```
 * create a file to hold the hyperparameters: ```ugle/configs/models/<NEW_MODEL_NAME>/<NEW_MODEL_NAME>.yaml```
 * optional* create file to hold default hyperparameters : ```ugle/configs/models/<NEW_MODEL_NAME>/<NEW_MODEL_NAME>_default.yaml```
+* optional* create a new .yaml file to hold other variations :  ```ugle/configs/models/<MODEL_NAME>/<MODEL_NAME>_myparameters.yaml``` 
+* run an experiments or a single model run using the name reference as : ```"<MODEL_NAME>_myparameters"```
 
 Inside ```ugle/models/<NEW_MODEL_NAME>.py```, define four hooks to process the whole model
 ```
@@ -136,7 +122,6 @@ class <NEW_MODEL_NAME>_trainer(ugleTrainer):
 ├── main.py # file to run any model once
 ├── model_evaluations.py # file to run and compare many models
 ├── .gitignore
-├── README.md 
 ├── LICENSE
 ├── data/ # data is stored 
 ├── results/ # results from experiments

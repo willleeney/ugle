@@ -1,6 +1,4 @@
-import os
 import ugle
-from omegaconf import OmegaConf
 
 from model_evaluations import run_experiment
 from main import neural_run

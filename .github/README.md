@@ -1,10 +1,8 @@
 # UGLE: Unsupervised GNN Learning Environment
 
-
-![AppVeyor tests](https://img.shields.io/appveyor/tests/willleeney/ugle?style=for-the-badge)
-![Code Climate issues](https://img.shields.io/codeclimate/issues/willleeney/ugle?style=for-the-badge)
-![Chocolatey](https://img.shields.io/chocolatey/dt/ugle?style=for-the-badge)
-![GitHub](https://img.shields.io/github/license/willleeney/ugle?style=for-the-badge)
+![Twitter Follow](https://img.shields.io/twitter/follow/willleeney)
+![GitHub Repo stars](https://img.shields.io/github/stars/willleeney/ugle?style=social)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/willleeney/ugle/main-workflow.yaml)
 
 ## Installation
 

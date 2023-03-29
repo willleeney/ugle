@@ -1,11 +1,5 @@
 # UGLE: Unsupervised GNN Learning Environment
 
-![main workflow](https://github.com/willleeney/ugle/actions/workflows/main-workflow.yaml/badge.svg)
-![AppVeyor tests](https://img.shields.io/appveyor/tests/willleeney/ugle)
-![Code Climate issues](https://img.shields.io/codeclimate/issues/willleeney/ugle?style=for-the-badge)
-![Chocolatey](https://img.shields.io/chocolatey/dt/ugle?style=for-the-badge)
-![GitHub](https://img.shields.io/github/license/willleeney/ugle?style=for-the-badge)
-
 ## Installation
 
 This bash script should install all the relevant required torch, dgl, torch-geometric libraries. This assumes that you have conda installed as it is easier to install dgl with conda. 

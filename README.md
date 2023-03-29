@@ -1,6 +1,8 @@
 # UGLE: Unsupervised GNN Learning Environment
 
 ![Twitter Follow](https://img.shields.io/twitter/follow/willleeney)
+![GitHub Repo stars](https://img.shields.io/github/stars/willleeney/ugle?style=social)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/willleeney/ugle/main-workflow.yaml)
 
 ## Installation
 

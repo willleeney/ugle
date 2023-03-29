@@ -1,7 +1,7 @@
 # UGLE: Unsupervised GNN Learning Environment
 
 
-![AppVeyor tests](https://img.shields.io/appveyor/tests/willleeney/ugle?style=for-the-badge)
+![AppVeyor tests](https://img.shields.io/appveyor/tests/willleeney/ugle)
 ![Code Climate issues](https://img.shields.io/codeclimate/issues/willleeney/ugle?style=for-the-badge)
 ![Chocolatey](https://img.shields.io/chocolatey/dt/ugle?style=for-the-badge)
 ![GitHub](https://img.shields.io/github/license/willleeney/ugle?style=for-the-badge)

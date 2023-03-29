@@ -141,3 +141,7 @@ class <NEW_MODEL_NAME>_trainer(ugleTrainer):
 └── requirements.txt 
 ```
 
+### paper insights 
+
+![hpo](https://github.com/willleeney/ugle/blob/main/.github/pseudocode.png?raw=true)
+

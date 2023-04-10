@@ -2,8 +2,6 @@ import ugle
 import ugle.utils as utils
 from ugle.logger import log
 from ugle.trainer import MyLibrarySniffingClass
-
-import networkx as nx
 from omegaconf import OmegaConf, DictConfig
 import argparse
 import psutil

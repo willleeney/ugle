@@ -9,7 +9,6 @@
 .env
 results/*
 figures/*
-/logs/*
 *_seed_*
 *_hpo_*
 .gitattributes
@@ -17,3 +16,4 @@ tests/logs/*
 default_results/*
 dataset_stats/*
 working_bench.py
+logs/*

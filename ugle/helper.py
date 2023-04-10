@@ -4,119 +4,14 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import wasserstein_distance, gaussian_kde
-import pandas as pd
 import os
 import matplotlib
-
-
-def display_hpo_configuration(algorithms):
-    """
-    displays the hyperparameter configuration files in latex format
-    """
-    general_config = OmegaConf.load(f'ugle/configs/config.yaml')
-    min_search_space = 1
-
-    print(f'\\textbf{{cross model parameters}}')
-    print('\\begin{enumerate}')
-
-    for key, value in general_config.args.items_ex(resolve=False):
-        if not OmegaConf.is_list(value):
-            continue
-        else:
-            min_search_space *= len(value)
-            key_print = key.replace('_', ' ')
-            print(f"\\item[] {key_print} : {value}")
-
-    print(f'\\item[] size of \\textbf{{search space: {{%i}}}}' % min_search_space)
-    print('\\end{enumerate}')
-    print(' ')
-
-    for algorithm in algorithms:
-        hpo_config = OmegaConf.load(f'ugle/configs/models/{algorithm}/{algorithm}.yaml')
-        search_space = min_search_space
-
-        print(f'\\textbf{{%s}}' % algorithm)
-        print('\\begin{enumerate}')
-
-        for key, value in hpo_config.args.items_ex(resolve=False):
-            if not OmegaConf.is_list(value):
-                continue
-            else:
-                search_space *= len(value)
-                key_print = key.replace('_', ' ')
-                print(f"\\item[] {key_print} : {value}")
-
-        print(f'\\item[] size of \\textbf{{search space: {{%i}}}}' % search_space)
-        print('\\end{enumerate}')
-        print(' ')
-
-    return
-
-
-def display_found_hp_config(
-        algorithms: list,
-        datasets: list = ['bat', 'citeseer', 'cora', 'dblp', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac',
-                                 'amap', 'acm'],
-        ):
-    """
-    displays latex tables holding found hyper parameter configuration from .yaml files
-    """
-    for method in algorithms:
-        data = {}
-        for dataset in datasets:
-            try:
-                conf = OmegaConf.load(f'ugle/configs/models/{method}/{method}_hpo_{dataset}.yaml')
-            except:
-                print(f'couldnt find {method}_hpo_{dataset}')
-
-            conf_with_keys = OmegaConf.load(f'ugle/configs/models/{method}/{method}.yaml')
-            nec_keys = list(conf_with_keys.args.keys())
-            nec_keys.append(['patience', 'learning_rate', 'weight_decay'])
-            print_config = OmegaConf.masked_copy(conf, nec_keys)
-            if data == {}:
-                data['Dataset'] = [dataset]
-                for key, value in print_config.items_ex(resolve=False):
-                    data[key] = [value]
-            else:
-                data['Dataset'].append(dataset)
-                for key, value in print_config.items_ex(resolve=False):
-                    data[key].append(value)
-
-        df = pd.DataFrame(data).T
-
-        if method == 'daegc':
-            df = df.drop('alpha')
-
-        if method == 'dgi':
-            df = df.drop('sparse')
-            df = df.drop('nonlinearity')
-
-        if method == 'dmon':
-            df = df.drop("orthogonality_regularization")
-
-        if method == 'grace':
-            df = df.drop('tau')
-            df = df.drop('base_model')
-            df = df.drop('num_layers')
-
-        if method == 'mvgrl':
-            df = df.drop('sparse')
-            df = df.drop('activation')
-
-        if method == 'selfgnn':
-            df = df.drop('concat')
-            df = df.drop('aug')
-
-        if method == 'sublime':
-            df = df.drop('sparse')
-
-        print(df.to_latex(multirow=True))
-
-    return
-
+from ugle.logger import ugle_path
+from copy import deepcopy
 
 def search_results(folder, filename):
-    for root, dirs, files in os.walk(folder):
+
+    for root, dirs, files in os.walk(f'{ugle_path}/{folder}'):
         if filename in files:
             return os.path.join(root, filename)
     return None
@@ -275,7 +170,8 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     if not ax:
         fig, ax = plt.subplots(figsize=(10, 5))
 
-    alt_colours = ['#dc143c', '#0bb5ff', '#2ca02c', '#800080']
+    #alt_colours = ['#dc143c', '#0bb5ff', '#2ca02c', '#800080']
+    alt_colours = ['C2', 'C0', 'C1', 'C3']
 
     # extract key arrays for results
     result_holder = get_all_results_from_storage([dataset_name], algorithms, folder, empty='zeros')
@@ -347,13 +243,13 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
 def create_dataset_landscape_fig(ax, title, datasets, algorithms, metrics, seeds, folder, scale_metrics=False, calc_ave_first=False):
     # get datasest information
     try:
-        clustering = pickle.load(open("dataset_stats/clustering.pkl", "rb"))
-        closeness = pickle.load(open("dataset_stats/closeness.pkl", "rb"))
+        clustering = pickle.load(open(f"{ugle_path}/dataset_stats/clustering.pkl", "rb"))
+        closeness = pickle.load(open(f"{ugle_path}/dataset_stats/closeness.pkl", "rb"))
     except:
         from ugle.datasets import compute_datasets_info
         clustering, closeness = compute_datasets_info(datasets)
-        pickle.dump(clustering, open("dataset_stats/clustering.pkl", "wb"))
-        pickle.dump(closeness, open("dataset_stats/closeness.pkl", "wb"))
+        pickle.dump(clustering, open(f"{ugle_path}/dataset_stats/clustering.pkl", "wb"))
+        pickle.dump(closeness, open(f"{ugle_path}/dataset_stats/closeness.pkl", "wb"))
 
     # make data landscape
     dataset_points = np.array([clustering, closeness])
@@ -395,15 +291,16 @@ def create_dataset_landscape_fig(ax, title, datasets, algorithms, metrics, seeds
                     extent=[0, x_range, 0, y_range])
     # add color bar
     best_algo_list = [algorithms[i] for i in np.unique(best_algo_over_space)]
+    best_algo_list = [albel.split("_")[0] for albel in best_algo_list]
     if len(best_algo_list) == 2:
         tick_spacing = [0.25, 0.75]
     elif len(best_algo_list) == 3:
         tick_spacing = [0.33, 1., 1.66]
     else:
         tick_spacing = np.linspace(0.5, n_best_algos - 1.5, n_best_algos)
-    cbar = plt.colorbar(cax, ticks=range(n_best_algos), orientation="horizontal", pad=0.2, shrink=0.8)
+    cbar = plt.colorbar(cax, ticks=range(n_best_algos), orientation="vertical", shrink=0.8)
     cbar.set_ticks(tick_spacing)
-    cbar.ax.set_xticklabels(best_algo_list, fontsize=14, ha='left', rotation=-40)
+    cbar.ax.set_yticklabels(best_algo_list, fontsize=14, ha='left', rotation=-40)
     # add dataset locations
     ax.scatter(clustering, closeness, marker='x', s=20, color='black', label='datasets')
     # add nice visual elements
@@ -448,6 +345,7 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
     algorithms = np.array(algorithms)
     ranking_order = np.argsort(overrall_ranking)
     algo_labels = algorithms[ranking_order]
+    algo_labels = [albel.split("_")[0] for albel in algo_labels]
 
     # plot the by metric ranking
     for rank_on_metric_ave_over_dataset, metric in zip(ranking_over_metrics.T, metrics):
@@ -460,13 +358,13 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
 
     # set legend
     if set_legend:
-        ax.legend(loc='lower center', fontsize=18, ncol=3, bbox_to_anchor=(0.65, -0.55))
+        ax.legend(loc='upper center', fontsize=14, ncol=2, bbox_to_anchor=(0.5, -0.35))
     # configure y axis
     ax.set_ylim(0, 10.5)
-    ax.set_ylabel('Algorithm ranking averaged over dataset', fontsize=18)
+    ax.set_ylabel('Algorithm ranking\naveraged over dataset', fontsize=14)
     ax.tick_params(axis='y', labelsize=18)
     # configure x axis
-    plt.setp(ax.xaxis.get_majorticklabels(), ha='left', rotation=-40, fontsize=16) 
+    plt.setp(ax.xaxis.get_majorticklabels(), ha='left', rotation=-40, fontsize=14)
     # create offset transform by 5 points in x direction
     dx = 5 / 72.
     dy = 0 / 72.
@@ -475,7 +373,7 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
     for label in ax.xaxis.get_majorticklabels():
         label.set_transform(label.get_transform() - offset)
     # set title
-    ax.set_title(title_name, fontsize=22)
+    ax.set_title(f'{title_name}', fontsize=20)
     plt.tight_layout()
 
     # plot the by dataset ranking
@@ -488,10 +386,10 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
                 marker="x", c='black', s=20, label='average \noverall rank', zorder=100)
     # set legend
     if set_legend:
-        ax1.legend(loc='lower center', fontsize=18, ncol=3, bbox_to_anchor=(0.45, -0.55))
+        ax1.legend(loc='upper center', fontsize=14, ncol=4, bbox_to_anchor=(0.5, -0.35))
     # set y axis
     ax1.set_ylim(0, 10.5)
-    ax1.set_ylabel('Algorithm ranking averaged over metric', fontsize=20)
+    ax1.set_ylabel('Algorithm ranking\naveraged over metric', fontsize=14)
     ax1.tick_params(axis='y', labelsize=20)
     # set x axis
     plt.setp(ax1.xaxis.get_majorticklabels(), ha='left', rotation=-40, fontsize=14)
@@ -503,13 +401,13 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
     for label in ax1.xaxis.get_majorticklabels():
         label.set_transform(label.get_transform() - offset)
     # set title
-    ax1.set_title(title_name, fontsize=22)
+    ax1.set_title(f'{title_name}', fontsize=20)
     plt.tight_layout()
 
     return ax, ax1
 
 
-def create_rand_dist_fig(ax, datasets, algorithms, metrics, seeds, folder, scale_metrics=False, calc_ave_first=False, set_legend=False):
+def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder, scale_metrics=False, calc_ave_first=False, set_legend=False):
     if not ax:
         fig, ax = plt.subplots(1, 1, figsize=(8, 4))
 
@@ -550,17 +448,20 @@ def create_rand_dist_fig(ax, datasets, algorithms, metrics, seeds, folder, scale
         ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10)
 
     if set_legend:
-        ax.legend(loc='upper center', fontsize=18, ncol=2)#, bbox_to_anchor=(0.5, -1.5))
-        ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
+        ax.legend(loc='upper center', fontsize=14, ncol=3, bbox_to_anchor=(0.5, -0.35))
+        #ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
+
     #ax.set_ybound(0, 3)
     ax.set_xbound(1, 10)
     ax.set_ylabel('probability density', fontsize=18)
-
+    ax.set_xlabel(r'kde estimatation of $f_{j}(r)$', fontsize=16)
 
     #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
     ax.tick_params(axis='x', labelsize=18)
     ax.tick_params(axis='y', labelsize=18)
-    return ax, ave_overlap
+
+    ax.set_title(title + ave_overlap, fontsize=20)
+    return ax
 
 
 def create_big_figure(datasets, algorithms, folder, default_algos, default_folder):
@@ -593,13 +494,18 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
         item.set_fontsize(48)
 
     fig.tight_layout()
-    fig.savefig(f"figures/hpo_investigation.png", bbox_inches='tight')
+    fig.savefig(f"{ugle_path}/figures/hpo_investigation.png", bbox_inches='tight')
     return
 
 
 def create_algo_selection_on_dataset_landscape(datasets, algorithms, default_algos, metrics, seeds, folder, default_folder, titles):
 
-    fig, ax = plt.subplots(2, 2, figsize=(15, 10))
+    fig, ax = plt.subplots(2, 2, figsize=(15, 7.5))
+
+    titles[0] += r' $(\mathcal{\hat{T}}_{(dhp)})$'
+    titles[1] += r' $(\mathcal{\hat{T}}_{(hpo)})$'
+    titles[2] += r' $(\mathcal{T}_{(dhp)})$'
+    titles[3] += r' $(\mathcal{T}_{(hpo)})$'
 
     ax[0, 0] = create_dataset_landscape_fig(ax[0, 0], titles[0], datasets, default_algos, metrics, seeds, default_folder, calc_ave_first=True)
     ax[0, 1] = create_dataset_landscape_fig(ax[0, 1], titles[1], datasets, algorithms, metrics, seeds, folder, calc_ave_first=True)
@@ -607,7 +513,7 @@ def create_algo_selection_on_dataset_landscape(datasets, algorithms, default_alg
     ax[1, 1] = create_dataset_landscape_fig(ax[1, 1], titles[3], datasets, algorithms, metrics, seeds, folder)
     
     fig.tight_layout()
-    fig.savefig(f"figures/dataset_landscape_comparison.png", bbox_inches='tight')
+    fig.savefig(f"{ugle_path}/figures/dataset_landscape_comparison.png")
     return
 
 
@@ -615,11 +521,16 @@ def create_comparison_figures(datasets: list, algorithms: list, metrics: list, s
                               default_algos: list, default_folder: str, titles: list):
     # create holder figure
     nrows, ncols = 2, 2
-    fig0, axs0 = plt.subplots(nrows, ncols, figsize=(15, 15))
+    fig0, axs0 = plt.subplots(nrows, ncols, figsize=(15, 7.5))
 
     # create holder figure
     nrows, ncols = 2, 2
-    fig1, axs1 = plt.subplots(nrows, ncols, figsize=(15, 15))
+    fig1, axs1 = plt.subplots(nrows, ncols, figsize=(15, 7.5))
+
+    titles[0] += r' $(\mathcal{\hat{T}}_{(dhp)})$'
+    titles[1] += r' $(\mathcal{\hat{T}}_{(hpo)})$'
+    titles[2] += r' $(\mathcal{T}_{(dhp)})$'
+    titles[3] += r' $(\mathcal{T}_{(hpo)})$'
 
     axs0[0, 0], axs1[0, 0] = create_ranking_charts(datasets, default_algos, metrics, seeds, default_folder,
                                            title_name=titles[0],
@@ -639,8 +550,8 @@ def create_comparison_figures(datasets: list, algorithms: list, metrics: list, s
     fig0.tight_layout()
     fig1.tight_layout()
 
-    fig0.savefig(f"figures/ranking comparison metrics.png")
-    fig1.savefig(f"figures/ranking comparison datasets.png")
+    fig0.savefig(f"{ugle_path}/figures/ranking comparison metrics.png", bbox_inches='tight')
+    fig1.savefig(f"{ugle_path}/figures/ranking comparison datasets.png", bbox_inches='tight')
     return
 
 
@@ -648,33 +559,40 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
                                 default_algos: list, default_folder: str, titles: list):
 
     # create holder figure
-    nrows, ncols = 4, 1
-    fig, ax = plt.subplots(nrows, ncols, figsize=(15, 15))
+    nrows, ncols = 2, 2
+    fig, ax = plt.subplots(nrows, ncols, figsize=(15, 7.5))
 
     titles[0] += r' $\Omega(\mathcal{\hat{T}}_{(dhp)})$ : '
     titles[1] += r' $\Omega(\mathcal{\hat{T}}_{(hpo)})$ : '
     titles[2] += r' $\Omega(\mathcal{T}_{(dhp)})$ : '
     titles[3] += r' $\Omega(\mathcal{T}_{(hpo)})$ : '
 
-    ax[0], overlap = create_rand_dist_fig(ax[0], datasets, default_algos, metrics, seeds, default_folder, calc_ave_first=True)
-    ax[0].set_title(titles[0] + overlap, fontsize=22)
-    ax[1], overlap = create_rand_dist_fig(ax[1], datasets, algorithms, metrics, seeds, folder, calc_ave_first=True)
-    ax[1].set_title(titles[1] + overlap, fontsize=22)
-    ax[2], overlap = create_rand_dist_fig(ax[2], datasets, default_algos, metrics, seeds, default_folder)
-    ax[2].set_title(titles[2] + overlap, fontsize=22)
-    ax[3], overlap = create_rand_dist_fig(ax[3], datasets, algorithms, metrics, seeds, folder, set_legend=False)
-    ax[3].set_title(titles[3] + overlap, fontsize=22)
-    ax[3].set_xlabel(r'kde estimatation of $f_{j}(r)$', fontsize=16)   
+    ax[0, 0] = create_rand_dist_fig(ax[0, 0], titles[0], datasets, default_algos, metrics, seeds, default_folder, calc_ave_first=True)
+    ax[0, 1] = create_rand_dist_fig(ax[0, 1], titles[1], datasets, algorithms, metrics, seeds, folder, calc_ave_first=True)
+    ax[1, 0] = create_rand_dist_fig(ax[1, 0], titles[2], datasets, default_algos, metrics, seeds, default_folder)
+    ax[1, 1] = create_rand_dist_fig(ax[1, 1], titles[3], datasets, algorithms, metrics, seeds, folder, set_legend=True)
 
     fig.tight_layout()
-    fig.savefig('figures/rand_dist_comparison.png') 
-    return 
+    fig.savefig(f'{ugle_path}/figures/rand_dist_comparison.png', bbox_inches='tight')
+    return
 
 
 def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos):
     titles = ['a) Default HPs w/ AveSeed', 'b) HPO w/ AveSeed', 'c) Default HPs w/ SeedRanking', 'd) HPO w/ SeedRanking']
-    create_rand_dist_comparison(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, titles)
-    create_algo_selection_on_dataset_landscape(datasets, algorithms, default_algos, metrics, seeds, folder, default_folder, titles)
-    create_comparison_figures(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, titles) 
+    create_rand_dist_comparison(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
+    create_algo_selection_on_dataset_landscape(datasets, algorithms, default_algos, metrics, seeds, folder, default_folder, deepcopy(titles))
+    create_comparison_figures(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
     create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
+
     return
+
+
+algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
+datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
+metrics = ['nmi', 'modularity', 'f1', 'conductance']
+folder = './progress_results/'
+seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
+                 'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
+default_folder = './default_results/'
+create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)

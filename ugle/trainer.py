@@ -14,7 +14,6 @@ import time
 from alive_progress import alive_it
 import copy
 
-
 # https://stackoverflow.com/questions/9850995/tracking-maximum-memory-usage-by-a-python-function
 
 class StoppableThread(threading.Thread):

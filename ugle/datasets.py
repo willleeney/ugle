@@ -14,6 +14,7 @@ import scipy.sparse as sp
 import plotly.graph_objects as go
 from typing import Union
 from ugle.logger import log, ugle_path
+from typing import Tuple
 
 google_store_datasets = ['acm', 'amac', 'amap', 'bat', 'citeseer', 'cora', 'cocs', 'dblp', 'eat', 'uat', 'pubmed',
                          'cite', 'corafull', 'texas', 'wisc', 'film', 'cornell']
@@ -82,7 +83,7 @@ def download_graph_data(dataset_name: str) -> bool:
     return True
 
 
-def load_real_graph_data(dataset_name: str, test_split: float = 0.5) -> tuple[
+def load_real_graph_data(dataset_name: str, test_split: float = 0.5) -> Tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     loads the graph dataset and splits the adjacency matrix into two
@@ -113,6 +114,7 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5) -> tuple[
     train_adj, test_adj = aug_drop_adj(adjacency, drop_percent=1-test_split)
 
     return features, label, train_adj, test_adj
+
 
 def compute_datasets_info(dataset_names: list, visualise: bool=False):
     """

@@ -2,7 +2,6 @@ import numpy as np
 import os
 from PrettifyLogging.prettify_logging import PrettifyLogging
 
-
 real_path = os.path.dirname(os.path.realpath(__file__))
 ugle_path, _ = os.path.split(real_path)
 
@@ -15,7 +14,7 @@ def create_logger(colour_in: str = 'blue'):
     default = '[%(levelname)s:%(name)s:%(asctime)s] %(funcName)s(): %(message)s'
 
     pokemon_names = np.load(open(ugle_path + '/data/pokemon_names.npy', 'rb'), allow_pickle=True)
-    log_path = 'logs/'
+    log_path = f'{ugle_path}/logs/'
 
     if not os.path.exists(log_path):
         os.mkdir(log_path)

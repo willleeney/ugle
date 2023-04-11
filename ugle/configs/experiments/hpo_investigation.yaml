@@ -5,3 +5,4 @@ algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'selfgnn', 'sublime', 'bgrl', 'vga
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 300
+    results_path: './updated_results/'

@@ -595,4 +595,3 @@ seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
                  'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
 default_folder = './default_results/'
-create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)

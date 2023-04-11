@@ -173,10 +173,7 @@ class ugleTrainer:
         self.patience_wait = 0
         self.best_loss = 1e9
         self.current_epoch = 0
-        if self.cfg.args.post_train_umap_features:
-            self.force_train = True
-        else:
-            self.force_train = False
+
 
     def load_database(self):
         # loads and splits the dataset
@@ -244,7 +241,6 @@ class ugleTrainer:
         if not self.cfg.trainer.multi_objective_study:
             self.cfg.trainer.calc_time = False
             log.info('Retraining model on full training data')
-            self.force_train = True
             self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency, processed_valid_data)
             processed_test_data = self.preprocess_data(features, test_adjacency)
             results = self.testing_loop(label, features, test_adjacency, processed_test_data,
@@ -291,7 +287,6 @@ class ugleTrainer:
                 # do testing
                 self.cfg.trainer.calc_time = False
                 log.info('Retraining model on full training data')
-                self.force_train = True
                 self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
                 processed_test_data = self.preprocess_data(features, test_adjacency)
@@ -320,28 +315,24 @@ class ugleTrainer:
             log.info(f'Launching Trial {trial.number}')
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, args)
 
-        if self.force_train:
-            # start timer
-            if self.cfg.trainer.calc_time:
-                time_start = time.perf_counter()
+        # start timer
+        if self.cfg.trainer.calc_time:
+            time_start = time.perf_counter()
 
-            # process model creation
-            self.training_preprocessing(self.cfg.args, processed_data)
+        # process model creation
+        self.training_preprocessing(self.cfg.args, processed_data)
 
-            # run actual training of model
-            self.training_loop(processed_data)
+        # run actual training of model
+        self.training_loop(processed_data)
 
-            if self.cfg.trainer.calc_time:
-                time_elapsed = (time.perf_counter() - time_start)
-                log.info(f"TIME taken in secs: {time_elapsed:5.2f}")
+        if self.cfg.trainer.calc_time:
+            time_elapsed = (time.perf_counter() - time_start)
+            log.info(f"TIME taken in secs: {time_elapsed:5.2f}")
 
         # validation pass
         results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                     self.cfg.trainer.valid_metrics)
         log.info(f'model trained')
-
-        if self.cfg.trainer.logger.log_wandb:
-            wandb.finish()
 
         if trial is None:
             return

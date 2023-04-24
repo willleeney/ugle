@@ -335,7 +335,7 @@ def save_experiment_tracker(result_tracker: list, results_path: str):
     """
     if not os.path.exists(results_path):
         os.makedirs(results_path)
-    experiment_identifier = logger.name.strip("logs/")
+    experiment_identifier = os.path.basename(logger.name.strip("logs/"))
     log.info(f'saving to {results_path}{experiment_identifier}')
     pickle.dump(result_tracker, open(f"{results_path}{experiment_identifier}.pkl", "wb"))
 

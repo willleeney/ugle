@@ -18,7 +18,8 @@ Any method can be trained individually via the main script using a specified con
 
 Framework Pseudocode            |  Framework Results
 :-------------------------:|:-------------------------:
-<img src="https://github.com/willleeney/ugle/blob/main/.github/pseudocode.png" width="400" height="400"> |  <img src="https://github.com/willleeney/ugle/blob/main/.github/paper_results.png" width="400" height="400">
+<img src="https://github.com/willleeney/ugle/blob/main/.github/pseudocode.png" width="400" height="400"> | <img src="https://github.com/willleeney/ugle/assets/46964902/35e1c7c0-d2b7-4766-945d-a94cba9e102f.png" width="400" height="400"> 
+
 
 
 ## Installation

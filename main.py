@@ -55,9 +55,12 @@ def neural_run(override_model: str = None,
 
         results = mythread.results
         results['memory'] = max_memory
+
     else:
         # train and evaluate model
+        start_time = time.time()
         results = Trainer.eval()
+        log.info(f"TIME TAKEN: {round(time.time() - start_time, 3)}s)")
 
     return results
 

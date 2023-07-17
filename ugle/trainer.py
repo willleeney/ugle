@@ -198,9 +198,24 @@ class ugleTrainer:
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 
         log.info('splitting dataset into train/validation')
-        train_adjacency, validation_adjacency = ugle.datasets.aug_drop_adj(validation_adjacency,
-                                                     drop_percent=1 - self.cfg.trainer.train_to_valid_split,
-                                                     split_scheme=self.cfg.trainer.split_scheme)
+        if self.cfg.trainer.split_scheme == 'drop_edges':
+            # drops edges from dataset to form new adj 
+            train_adjacency, validation_adjacency = ugle.datasets.aug_drop_adj(validation_adjacency, drop_percent=1 - self.cfg.trainer.train_to_valid_split, split_adj=False)
+
+        elif self.cfg.trainer.split_scheme == 'split_edges':
+            # splits the adj via the edges so that no edges in both 
+            train_adjacency, validation_adjacency = ugle.datasets.aug_drop_adj(validation_adjacency, drop_percent=1 - self.cfg.trainer.train_to_valid_split, split_adj=True)
+
+        elif self.cfg.trainer.split_scheme == 'all_edges':
+            # makes the adj fully connected 
+            train_adjacency = np.ones_like(validation_adjacency)
+            validation_adjacency = np.ones_like(validation_adjacency)
+
+        elif self.cfg.trainer.split_scheme == 'no_edges':
+            # makes the adj completely unconnected 
+            train_adjacency = np.zeros_like(validation_adjacency)
+            validation_adjacency = np.zeros_like(validation_adjacency)
+
 
         # process data for training
         processed_data = self.preprocess_data(features, train_adjacency)

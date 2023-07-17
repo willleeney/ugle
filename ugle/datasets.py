@@ -83,7 +83,7 @@ def download_graph_data(dataset_name: str) -> bool:
     return True
 
 
-def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str) -> Tuple[
+def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str = 'drop_edges') -> Tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     loads the graph dataset and splits the adjacency matrix into two
@@ -123,7 +123,7 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
         # makes the adj fully connected 
         train_adj = np.ones_like(adjacency)
         test_adj = np.ones_like(adjacency)
-        
+
     elif split_scheme == 'no_edges':
         # makes the adj completely unconnected 
         train_adj = np.zeros_like(adjacency)

@@ -17,6 +17,9 @@ trainer:
   train_to_valid_split: 0.8
   n_valid_splits: 1
   split_scheme: "drop_edges"
+  split_addition:
+    do: False
+    percentage: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
   logger:
     log_wandb: False

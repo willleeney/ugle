@@ -22,6 +22,15 @@
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/experiments/exp_no_adj.yaml"]
+        },
+        {
+            "name": "Python: diff percents",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/experiments/exp_train_percent.yaml"]
         }
     ]
 }

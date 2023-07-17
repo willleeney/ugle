@@ -1,0 +1,14 @@
+seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+datasets: ['cora', 'citeseer', 'dblp', 'texas', 'wisc', 'cornell', 'amac']
+algorithms: ['daegc', 'dgi', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+
+study_override_cfg:
+  trainer:
+    show_config: False
+    load_existing_test: True
+    calc_time: False
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance' ]
+    gpu: '0'
+    results_path: './revamp_no_adj/' # results path for saved results
+    split_scheme: 'no_edges'

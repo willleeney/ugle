@@ -1,5 +1,5 @@
 seeds: [42] #[42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['cora']
+datasets: ['amac']
 algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default', 'sublime_default', 'bgrl_default', 'vgaer_default', 'cgac_default']
 
 study_override_cfg:

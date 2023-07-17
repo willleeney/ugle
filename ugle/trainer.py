@@ -260,6 +260,8 @@ class ugleTrainer:
                 # best hp found for metrics
                 best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
                 unique_trials = list(np.unique(np.array(associated_trial)))
+            elif self.cfg.get("previous_results", False):
+                unique_trials = [-1]
             else:
                 unique_trials = list(range(len(self.cfg.previous_results)))
 
@@ -270,19 +272,20 @@ class ugleTrainer:
                     best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if
                                        associated_trial[i] == best_trial_id]
                     best_hp_params = [trial for trial in study.best_trials if trial.number == best_trial_id][0].params
-                else:
+                elif best_trial_id != -1:
                     best_hp_params = self.cfg.previous_results[idx].args
                     best_at_metrics = self.cfg.previous_results[idx].metrics
 
-                # log the best hyperparameters and metrics at which they are best
-                best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
-                best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
-                log.info(f'Best hyperparameters for metrics {best_at_metrics_str}: ')
-                for hp_key, hp_val in best_hp_params.items():
-                    log.info(f'{hp_key} : {hp_val}')
+                if best_trial_id != -1:
+                    # log the best hyperparameters and metrics at which they are best
+                    best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
+                    best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
+                    log.info(f'Best hyperparameters for metrics {best_at_metrics_str}: ')
+                    for hp_key, hp_val in best_hp_params.items():
+                        log.info(f'{hp_key} : {hp_val}')
 
-                # assign hyperparameters for the metric optimised over
-                self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
+                    # assign hyperparameters for the metric optimised over
+                    self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
                 # do testing
                 self.cfg.trainer.calc_time = False

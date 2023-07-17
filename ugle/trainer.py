@@ -260,7 +260,7 @@ class ugleTrainer:
                 # best hp found for metrics
                 best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
                 unique_trials = list(np.unique(np.array(associated_trial)))
-            elif self.cfg.get("previous_results", False):
+            elif not self.cfg.get("previous_results", False):
                 unique_trials = [-1]
             else:
                 unique_trials = list(range(len(self.cfg.previous_results)))

@@ -275,6 +275,9 @@ class ugleTrainer:
                 elif best_trial_id != -1:
                     best_hp_params = self.cfg.previous_results[idx].args
                     best_at_metrics = self.cfg.previous_results[idx].metrics
+                else:
+                    best_at_metrics = self.cfg.trainer.test_metrics
+                    best_hp_params = self.cfg.args
 
                 if best_trial_id != -1:
                     # log the best hyperparameters and metrics at which they are best

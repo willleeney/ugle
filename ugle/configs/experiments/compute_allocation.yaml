@@ -8,4 +8,6 @@ study_override_cfg:
     load_existing_test: True
     calc_time: True
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance' ]
     gpu: '0'
+    results_path: './revamp/' # results path for saved results

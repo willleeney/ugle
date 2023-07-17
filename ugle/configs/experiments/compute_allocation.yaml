@@ -1,4 +1,4 @@
-seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+seeds: [42] #[42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: ['cora']
 algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default', 'sublime_default', 'bgrl_default', 'vgaer_default', 'cgac_default']
 
@@ -7,5 +7,5 @@ study_override_cfg:
     show_config: False
     load_existing_test: True
     calc_time: True
-    test_metrics: ['f1', 'nmi', 'modularity', 'conductance', 'memory']
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     gpu: '0'

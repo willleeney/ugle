@@ -17,3 +17,5 @@ default_results/*
 dataset_stats/*
 working_bench.py
 logs/*
+new_default/*
+updated_results/*

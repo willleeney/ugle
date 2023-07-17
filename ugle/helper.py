@@ -441,26 +441,28 @@ def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder
     div_out = (len(algorithms) * (len(algorithms) -1))/2
     ave_overlap = str(round(out/div_out, 3))
 
-    # plot the lines
-    for j, algo_ranks in enumerate(all_ranks_per_algo):
-        kde = gaussian_kde(algo_ranks)
-        y_axis = kde.evaluate(x_axis)
-        ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10)
+    with plt.xkcd():
+        # plot the lines
+        for j, algo_ranks in enumerate(all_ranks_per_algo):
+            kde = gaussian_kde(algo_ranks)
+            y_axis = kde.evaluate(x_axis)
+            ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10)
 
-    if set_legend:
-        ax.legend(loc='upper center', fontsize=14, ncol=3, bbox_to_anchor=(0.5, -0.35))
-        #ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
+        if set_legend:
+            ax.legend(loc='best', fontsize=16, ncol=3)
+            #ax.legend(loc='upper center', fontsize=14, ncol=3, bbox_to_anchor=(0.5, -0.35))
+            #ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
 
-    #ax.set_ybound(0, 3)
-    ax.set_xbound(1, 10)
-    ax.set_ylabel('probability density', fontsize=18)
-    ax.set_xlabel(r'kde estimatation of $f_{j}(r)$', fontsize=16)
+        #ax.set_ybound(0, 3)
+        ax.set_xbound(1, 10)
+        ax.set_ylabel('probability density', fontsize=18)
+        ax.set_xlabel(r'kde estimatation of rank distribution $f_{j}(r)$', fontsize=18)
 
-    #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
-    ax.tick_params(axis='x', labelsize=18)
-    ax.tick_params(axis='y', labelsize=18)
+        #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
+        ax.tick_params(axis='x', labelsize=18)
+        ax.tick_params(axis='y', labelsize=18)
 
-    ax.set_title(title + ave_overlap, fontsize=20)
+        ax.set_title(title + ave_overlap, fontsize=20)
     return ax
 
 
@@ -494,7 +496,7 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
         item.set_fontsize(48)
 
     fig.tight_layout()
-    fig.savefig(f"{ugle_path}/figures/hpo_investigation.png", bbox_inches='tight')
+    fig.savefig(f"{ugle_path}/figures/new_hpo_investigation.png", bbox_inches='tight')
     return
 
 
@@ -513,7 +515,7 @@ def create_algo_selection_on_dataset_landscape(datasets, algorithms, default_alg
     ax[1, 1] = create_dataset_landscape_fig(ax[1, 1], titles[3], datasets, algorithms, metrics, seeds, folder)
     
     fig.tight_layout()
-    fig.savefig(f"{ugle_path}/figures/dataset_landscape_comparison.png")
+    fig.savefig(f"{ugle_path}/figures/new_dataset_landscape_comparison.png")
     return
 
 
@@ -550,8 +552,8 @@ def create_comparison_figures(datasets: list, algorithms: list, metrics: list, s
     fig0.tight_layout()
     fig1.tight_layout()
 
-    fig0.savefig(f"{ugle_path}/figures/ranking comparison metrics.png", bbox_inches='tight')
-    fig1.savefig(f"{ugle_path}/figures/ranking comparison datasets.png", bbox_inches='tight')
+    fig0.savefig(f"{ugle_path}/figures/new_ranking_comparison_metrics.png", bbox_inches='tight')
+    fig1.savefig(f"{ugle_path}/figures/new_ranking_comparison_datasets.png", bbox_inches='tight')
     return
 
 
@@ -573,7 +575,7 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     ax[1, 1] = create_rand_dist_fig(ax[1, 1], titles[3], datasets, algorithms, metrics, seeds, folder, set_legend=True)
 
     fig.tight_layout()
-    fig.savefig(f'{ugle_path}/figures/rand_dist_comparison.png', bbox_inches='tight')
+    fig.savefig(f'{ugle_path}/figures/new_rand_dist_comparison.png', bbox_inches='tight')
     return
 
 
@@ -594,4 +596,12 @@ folder = './progress_results/'
 seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
                  'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
-default_folder = './default_results/'
+default_folder = './new_default/'
+
+#create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)
+
+# creates a tikz figure to show someone
+#fig, ax = plt.subplots(1, 1, figsize=(15, 15))
+#ax = create_rand_dist_fig(ax, r'Framework Rank Distinction Coefficient $\Omega(\mathcal{\hat{T}}_{(hpo)}) : $', datasets, algorithms, metrics, seeds, folder, calc_ave_first=True, set_legend=True)
+#fig.tight_layout()
+#fig.savefig(f'{ugle_path}/figures/tkiz_fig.png', bbox_inches='tight')

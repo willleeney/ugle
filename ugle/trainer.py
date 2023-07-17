@@ -201,6 +201,8 @@ class ugleTrainer:
         if self.cfg.trainer.split_scheme == 'drop_edges':
             # drops edges from dataset to form new adj 
             train_adjacency, validation_adjacency = ugle.datasets.aug_drop_adj(validation_adjacency, drop_percent=1 - self.cfg.trainer.train_to_valid_split, split_adj=False)
+            if self.cfg.trainer.split_addition.do:
+                train_adjacency, _ = ugle.datasets.aug_drop_adj(train_adjacency, drop_percent=1-self.cfg.trainer.split_addition.percentage, split_adj=False)
 
         elif self.cfg.trainer.split_scheme == 'split_edges':
             # splits the adj via the edges so that no edges in both 

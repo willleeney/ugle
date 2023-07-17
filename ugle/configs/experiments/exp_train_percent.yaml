@@ -1,0 +1,19 @@
+seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+datasets: ['cora', 'citeseer', 'dblp', 'texas', 'wisc', 'cornell', 'amac']
+algorithms: ['daegc', 'dgi', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+
+study_override_cfg:
+  trainer:
+    show_config: False
+    load_existing_test: True
+    calc_time: False
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance' ]
+    gpu: '1'
+    results_path: './revamp_train_percent/' # results path for saved results
+    split_scheme: 'drop_edges'
+    train_to_valid_split: 0.9
+    training_to_testing_split: 0.9
+    split_addition:
+      do: True
+      percentage: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]

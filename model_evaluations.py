@@ -6,6 +6,7 @@ from ugle.logger import log
 import pickle
 from os.path import exists
 from os import makedirs
+from copy import deepcopy
 
 
 def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seeds: list):
@@ -65,51 +66,70 @@ def run_experiment(exp_cfg_name: str):
     exp_cfg = OmegaConf.load('ugle/configs/experiments/exp_cfg_template.yaml')
     exp_cfg = ugle.utils.merge_yaml(exp_cfg, exp_cfg_name)
 
-    # creating experiment iterator
-    experiment_tracker = ugle.utils.create_experiment_tracker(exp_cfg)
-    experiments_cpu = []
+    # iterate
+    if not exp_cfg.study_override_cfg.trainer.get("split_addition.do", False):
+        saved_cfg = deepcopy(exp_cfg)
+        testing_percentages = deepcopy(exp_cfg.study_override_cfg.trainer.split_addition.percentage)
+    else:
+        testing_percentages = [-1]
 
-    for experiment in experiment_tracker:
-        log.info(f'starting new experiment ... ...')
-        log.info(f'testing dataset: {experiment.dataset}')
-        log.info(f'testing algorithm: {experiment.algorithm}')
+    save_path = exp_cfg.study_override_cfg.trainer.results_path
+    
+    for tst_pent in testing_percentages:
+        if tst_pent == -1:
+            continue 
+        else:
+            exp_cfg = deepcopy(saved_cfg)
+            exp_cfg.study_override_cfg.trainer.split_addition.percentage = tst_pent
+            exp_cfg.study_override_cfg.trainer.results_path += str(tst_pent).replace('.', '') + '/'
+            if not exists(exp_cfg.study_override_cfg.trainer.results_path):
+                makedirs(exp_cfg.study_override_cfg.trainer.results_path)
 
-        try:
-            # run experiment
-            experiment_results = run_study(exp_cfg.study_override_cfg,
-                                           experiment.algorithm,
-                                           experiment.dataset,
-                                           exp_cfg.seeds)
-            # save result in experiment tracker
-            experiment.results = experiment_results
-            ugle.utils.save_experiment_tracker(experiment_tracker, exp_cfg.study_override_cfg.trainer.results_path)
+        # creating experiment iterator
+        experiment_tracker = ugle.utils.create_experiment_tracker(exp_cfg)
+        experiments_cpu = []
 
-        # if breaks then tests on cpu
-        except Exception as e:
-            log.exception(str(e))
-            log.info(f"adding to cpu fallback test")
-            experiments_cpu.append(experiment)
-
-    # run all experiments that didn't work on gpu
-    if experiments_cpu:
-        log.info(f'launching cpu fallback experiments')
-        exp_cfg.study_override_cfg.trainer.gpu = -1
-
-        for experiment in experiments_cpu:
+        for experiment in experiment_tracker:
             log.info(f'starting new experiment ... ...')
             log.info(f'testing dataset: {experiment.dataset}')
             log.info(f'testing algorithm: {experiment.algorithm}')
 
-            # run experiment
-            experiment_results = run_study(exp_cfg.study_override_cfg,
-                                           experiment.algorithm,
-                                           experiment.dataset,
-                                           exp_cfg.seeds)
-            # save result in experiment tracker
-            experiment.results = experiment_results
-            ugle.utils.save_experiment_tracker(experiment_tracker, exp_cfg.study_override_cfg.trainer.results_path)
+            try:
+                # run experiment
+                experiment_results = run_study(exp_cfg.study_override_cfg,
+                                            experiment.algorithm,
+                                            experiment.dataset,
+                                            exp_cfg.seeds)
+                # save result in experiment tracker
+                experiment.results = experiment_results
+                ugle.utils.save_experiment_tracker(experiment_tracker, save_path)
 
-    ugle.utils.display_evaluation_results(experiment_tracker)
+            # if breaks then tests on cpu
+            except Exception as e:
+                log.exception(str(e))
+                log.info(f"adding to cpu fallback test")
+                experiments_cpu.append(experiment)
+
+        # run all experiments that didn't work on gpu
+        if experiments_cpu:
+            log.info(f'launching cpu fallback experiments')
+            exp_cfg.study_override_cfg.trainer.gpu = -1
+
+            for experiment in experiments_cpu:
+                log.info(f'starting new experiment ... ...')
+                log.info(f'testing dataset: {experiment.dataset}')
+                log.info(f'testing algorithm: {experiment.algorithm}')
+
+                # run experiment
+                experiment_results = run_study(exp_cfg.study_override_cfg,
+                                            experiment.algorithm,
+                                            experiment.dataset,
+                                            exp_cfg.seeds)
+                # save result in experiment tracker
+                experiment.results = experiment_results
+                ugle.utils.save_experiment_tracker(experiment_tracker, save_path)
+
+        ugle.utils.display_evaluation_results(experiment_tracker)
 
     return
 

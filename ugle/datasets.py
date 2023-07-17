@@ -83,7 +83,7 @@ def download_graph_data(dataset_name: str) -> bool:
     return True
 
 
-def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_adj: bool = False) -> Tuple[
+def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str) -> Tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     loads the graph dataset and splits the adjacency matrix into two
@@ -111,7 +111,23 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_adj: 
         adjacency = nx.to_numpy_matrix(loader.get_graph())
 
     log.info('splitting dataset into training/testing')
-    train_adj, test_adj = aug_drop_adj(adjacency, drop_percent=1-test_split, split_adj)
+    if split_scheme == 'drop_edges':
+        # drops edges from dataset to form new adj 
+        train_adj, test_adj = aug_drop_adj(adjacency, drop_percent=1-test_split, split_adj=False)
+
+    elif split_scheme == 'split_edges':
+        # splits the adj via the edges so that no edges in both 
+        train_adj, test_adj = aug_drop_adj(adjacency, drop_percent=1-test_split, split_adj=True)
+
+    elif split_scheme == 'all_edges':
+        # makes the adj fully connected 
+        train_adj = np.ones_like(adjacency)
+        test_adj = np.ones_like(adjacency)
+        
+    elif split_scheme == 'no_edges':
+        # makes the adj completely unconnected 
+        train_adj = np.zeros_like(adjacency)
+        test_adj = np.zeros_like(adjacency)
 
     return features, label, train_adj, test_adj
 

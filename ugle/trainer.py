@@ -180,7 +180,7 @@ class ugleTrainer:
         features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
             self.cfg.dataset,
             self.cfg.trainer.training_to_testing_split,
-            self.cfg.trainer.split_adj)
+            self.cfg.trainer.split_scheme)
 
         # extract database relevant info
         if not self.cfg.args.n_clusters:
@@ -200,7 +200,7 @@ class ugleTrainer:
         log.info('splitting dataset into train/validation')
         train_adjacency, validation_adjacency = ugle.datasets.aug_drop_adj(validation_adjacency,
                                                      drop_percent=1 - self.cfg.trainer.train_to_valid_split,
-                                                     split_adj=self.cfg.trainer.split_adj)
+                                                     split_scheme=self.cfg.trainer.split_scheme)
 
         # process data for training
         processed_data = self.preprocess_data(features, train_adjacency)

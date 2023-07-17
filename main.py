@@ -2,7 +2,7 @@ import ugle
 import ugle.utils as utils
 from ugle.logger import log
 from ugle.trainer import MyLibrarySniffingClass
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf, DictConfig, open_dict
 import argparse
 import psutil
 import time
@@ -23,6 +23,11 @@ def neural_run(override_model: str = None,
     cfg = utils.load_model_config(override_model=override_model, override_cfg=override_cfg)
     if override_dataset:
         cfg.dataset = override_dataset
+
+    if cfg.trainer.load_existing_test:
+        found_args = OmegaConf.load(f'ugle/configs/models/{cfg.model}/{cfg.model}_hpo_{cfg.dataset}.yaml')
+        with open_dict(cfg):
+            cfg.args = OmegaConf.merge(cfg.args, found_args)
 
     # create trainer object defined in models and init with config
     Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)

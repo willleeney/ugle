@@ -16,6 +16,7 @@ trainer:
   n_trials_hyperopt: 1
   train_to_valid_split: 0.8
   n_valid_splits: 1
+  split_adj: False
 
   logger:
     log_wandb: False

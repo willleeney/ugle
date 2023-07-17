@@ -83,7 +83,7 @@ def download_graph_data(dataset_name: str) -> bool:
     return True
 
 
-def load_real_graph_data(dataset_name: str, test_split: float = 0.5) -> Tuple[
+def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_adj: bool = False) -> Tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     loads the graph dataset and splits the adjacency matrix into two
@@ -111,7 +111,7 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5) -> Tuple[
         adjacency = nx.to_numpy_matrix(loader.get_graph())
 
     log.info('splitting dataset into training/testing')
-    train_adj, test_adj = aug_drop_adj(adjacency, drop_percent=1-test_split)
+    train_adj, test_adj = aug_drop_adj(adjacency, drop_percent=1-test_split, split_adj)
 
     return features, label, train_adj, test_adj
 
@@ -212,7 +212,7 @@ def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_perce
     return aug_feature
 
 
-def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2):
+def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bool = False):
     """
     augmentation by randomly dropping edges with given probability
     :param input_adj: input adjacency matrix
@@ -243,8 +243,10 @@ def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2):
         else_adj[index_list[i][0]][index_list[i][1]] = 1
 
     aug_adj = np.array(aug_adj)
-
-    return aug_adj, else_adj
+    if split_adj: 
+        return aug_adj, else_adj
+    else:
+        return aug_adj, input_adj
 
 
 def numpy_to_edge_index(adjacency: np.ndarray):

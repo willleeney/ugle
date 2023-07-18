@@ -176,13 +176,22 @@ class ugleTrainer:
 
 
     def load_database(self):
-        # loads and splits the dataset
-        features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
-            self.cfg.dataset,
-            self.cfg.trainer.training_to_testing_split,
-            self.cfg.trainer.split_scheme,
-            self.cfg.trainer.split_addition)
-        
+
+        if 'synth' not in self.cfg.dataset:
+            # loads and splits the dataset
+            features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
+                self.cfg.dataset,
+                self.cfg.trainer.training_to_testing_split,
+                self.cfg.trainer.split_scheme,
+                self.cfg.trainer.split_addition)
+        else:
+            _, adj_type, n_clusters = self.cfg.dataset.split("_")
+            n_clusters = int(n_clusters)
+            adjacency, features, label = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, adj_type=adj_type)
+            train_adjacency, test_adjacency = datasets.split_adj(adjacency,
+                                                                 self.cfg.trainer.training_to_testing_split,
+                                                                 self.cfg.trainer.split_scheme)
+
         # extract database relevant info
         if not self.cfg.args.n_clusters:
             self.cfg.args.n_clusters = np.unique(label).shape[0]
@@ -199,23 +208,9 @@ class ugleTrainer:
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 
         log.info('splitting dataset into train/validation')
-        if self.cfg.trainer.split_scheme == 'drop_edges':
-            # drops edges from dataset to form new adj 
-            train_adjacency, validation_adjacency = ugle.datasets.aug_drop_adj(validation_adjacency, drop_percent=1 - self.cfg.trainer.train_to_valid_split, split_adj=False)
-
-        elif self.cfg.trainer.split_scheme == 'split_edges':
-            # splits the adj via the edges so that no edges in both 
-            train_adjacency, validation_adjacency = ugle.datasets.aug_drop_adj(validation_adjacency, drop_percent=1 - self.cfg.trainer.train_to_valid_split, split_adj=True)
-
-        elif self.cfg.trainer.split_scheme == 'all_edges':
-            # makes the adj fully connected 
-            train_adjacency = np.ones_like(validation_adjacency)
-            validation_adjacency = np.ones_like(validation_adjacency)
-
-        elif self.cfg.trainer.split_scheme == 'no_edges':
-            # makes the adj completely unconnected 
-            train_adjacency = np.zeros_like(validation_adjacency)
-            validation_adjacency = np.zeros_like(validation_adjacency)
+        train_adjacency, validation_adjacency = datasets.split_adj(validation_adjacency, 
+                                                          self.cfg.trainer.train_to_valid_split, 
+                                                          self.cfg.trainer.split_scheme)
 
         # process data for training
         processed_data = self.preprocess_data(features, train_adjacency)

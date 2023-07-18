@@ -6,6 +6,7 @@
     "configurations": [
 
 
+
         {
             "name": "Python: Model Evaluations",
             "type": "python",
@@ -16,13 +17,13 @@
             "args" : ["-ec", "ugle/configs/experiments/compute_allocation.yaml"]
         },
         {
-            "name": "Python: No ADJ",
+            "name": "Python: Synth",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/exp_no_adj.yaml"]
+            "args" : ["-ec", "ugle/configs/experiments/exp_synthetic.yaml"]
         },
         {
             "name": "Python: diff percents",

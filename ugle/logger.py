@@ -1,18 +1,43 @@
 import numpy as np
 import os
-from PrettifyLogging.prettify_logging import PrettifyLogging
+import logging
 
 real_path = os.path.dirname(os.path.realpath(__file__))
 ugle_path, _ = os.path.split(real_path)
+    
 
-def create_logger(colour_in: str = 'blue'):
-    """
-    creates a logger given a colour to display the logs in
-    :param colour_in: colour to display logs in
-    :return logger: the loging object
-    """
-    default = '[%(levelname)s:%(name)s:%(asctime)s] %(funcName)s(): %(message)s'
+class CustomFormatter(logging.Formatter):
+    COLOR_CODE = {
+        'DEBUG': '\033[94m',    # Blue
+        'INFO': '\033[92m',     # Green
+        'WARNING': '\033[93m',  # Yellow
+        'ERROR': '\033[91m',    # Red
+        'CRITICAL': '\033[95m'  # Purple
+    }
+    RESET_CODE = '\033[0m'  # Reset to default color
 
+    def format(self, record):
+        # Get the original formatted message
+        original_message = super().format(record)
+
+        # Shorten the file path
+        record.pathname = os.path.basename(record.pathname)
+        original_message = super().format(record)
+
+        # Apply color to the log level
+        log_level = record.levelname
+        color_code = self.COLOR_CODE.get(log_level, '')
+        colored_message = f"{color_code}{original_message}{self.RESET_CODE}"
+        
+        return colored_message
+    
+
+def create_logger():
+    """
+    :return log: the loging object
+    """
+    
+    # Create a file handler (logs will be stored in "my_log_file.log")
     pokemon_names = np.load(open(ugle_path + '/data/pokemon_names.npy', 'rb'), allow_pickle=True)
     log_path = f'{ugle_path}/logs/'
 
@@ -22,22 +47,30 @@ def create_logger(colour_in: str = 'blue'):
     latest_file_index = len(os.listdir(log_path))
     poke_name = np.random.choice(pokemon_names)
     uid = f'{latest_file_index}-{poke_name}'
-    log_path += uid
-    log_config = {
-        'name': log_path,
-        'level': 'debug',
-        'set_utc': False,
-        'default_format': default,
-        'stream_format': default,
-        'file_format': default,
-        'info_display': (colour_in, 'bold'),
-    }
-    logger = PrettifyLogging(**log_config)
-    logger.configure()
-    logger.log.info(f'init {log_path}')
+    log_path = uid
+
+    # Set up the logger
+    logger = logging.getLogger(log_path)
+    logger.setLevel(logging.DEBUG)
+
+    # Create a stream handler (console output)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.DEBUG)
+
+    #file_handler = logging.FileHandler(log_path)
+    #file_handler.setLevel(logging.DEBUG)
+
+    # Set the custom formatters to the handlers
+    color_formatter = CustomFormatter(fmt="[%(levelname)s:%(name)s: %(asctime)s: %(funcName)s()] %(message)s", 
+                                      datefmt="%d/%m %I:%M:%S")
+    stream_handler.setFormatter(color_formatter)
+    #file_handler.setFormatter(color_formatter)
+
+    # Add the handlers to the logger
+    logger.addHandler(stream_handler)
+    #logger.addHandler(file_handler)
 
     return logger
 
-logger = create_logger(colour_in='green')
-log = logger.log
 
+log = create_logger()

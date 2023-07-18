@@ -83,7 +83,8 @@ def download_graph_data(dataset_name: str) -> bool:
     return True
 
 
-def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str = 'drop_edges') -> Tuple[
+def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str = 'drop_edges',
+                         split_addition=None) -> Tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     loads the graph dataset and splits the adjacency matrix into two
@@ -109,6 +110,10 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
         features = loader.get_features().todense()
         label = loader.get_target()
         adjacency = nx.to_numpy_matrix(loader.get_graph())
+
+    if split_addition:
+        if split_addition.do:
+            adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition.percentage, split_adj=False)
 
     log.info('splitting dataset into training/testing')
     if split_scheme == 'drop_edges':

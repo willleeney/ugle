@@ -32,6 +32,7 @@ def neural_run(override_model: str = None,
     # create trainer object defined in models and init with config
     Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)
 
+    start_time = time.time()
     # memory profiling max memory requires other class
     if 'memory' in Trainer.cfg.trainer.test_metrics:
         # train model
@@ -63,9 +64,10 @@ def neural_run(override_model: str = None,
 
     else:
         # train and evaluate model
-        start_time = time.time()
         results = Trainer.eval()
-        log.info(f"TIME TAKEN: {round(time.time() - start_time, 3)}s)")
+
+    log.info(f"TIME TAKEN: {round(time.time() - start_time, 3)}s")
+    log.info(f"Model trained: {cfg.model} {cfg.dataset}")
 
     return results
 

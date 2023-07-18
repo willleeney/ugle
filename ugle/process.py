@@ -5,6 +5,7 @@ from scipy.linalg import fractional_matrix_power, inv
 from sklearn.metrics import f1_score, normalized_mutual_info_score
 from scipy.optimize import linear_sum_assignment
 import math
+import warnings
 
 SMOOTH_K_TOLERANCE = 1e-5
 MIN_K_DIST_SCALE = 1e-3
@@ -120,8 +121,11 @@ def preprocess_features(features):
     Row-normalize feature matrix and convert to tuple representation
     """
     rowsum = np.array(features.sum(1))
-    r_inv = np.power(rowsum, -1).flatten()
+    nonzero_indexes = np.argwhere(rowsum != 0).flatten()
+    r_inv = np.zeros_like(rowsum, dtype=float)
+    r_inv[nonzero_indexes] = np.power(rowsum[nonzero_indexes], -1)
     r_inv[np.isinf(r_inv)] = 0.
+    r_inv[np.isnan(r_inv)] = 0.
     r_mat_inv = sp.diags(r_inv)
     features = r_mat_inv.dot(features)
     if isinstance(features, np.ndarray):

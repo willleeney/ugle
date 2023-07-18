@@ -62,7 +62,7 @@ def create_logger():
     #file_handler.setLevel(logging.DEBUG)
 
     # Set the custom formatters to the handlers
-    color_formatter = CustomFormatter(fmt="[%(levelname)s:%(name)s: %(asctime)s: %(current_file)s.%(funcName)s] %(message)s", 
+    color_formatter = CustomFormatter(fmt="[%(levelname)s:%(name)s: %(asctime)s: %(module)s.%(funcName)s ln%(lineno)s] %(message)s", 
                                       datefmt="%d/%m--%I:%M:%S")
     stream_handler.setFormatter(color_formatter)
     #file_handler.setFormatter(color_formatter)

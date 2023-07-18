@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Python: Model Evaluations",
             "type": "python",
@@ -31,6 +32,15 @@
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/experiments/exp_train_percent.yaml"]
+        },
+        {
+        "name": "Python: Tester",
+        "type": "python",
+        "request": "launch",
+        "console": "integratedTerminal",
+        "justMyCode": true,
+        "program": "${workspaceFolder}/main.py",
+        "args" : ["--dataset", "cora", "--model", "dgi"]
         }
     ]
 }

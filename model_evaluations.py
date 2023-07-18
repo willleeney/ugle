@@ -67,7 +67,7 @@ def run_experiment(exp_cfg_name: str):
     exp_cfg = ugle.utils.merge_yaml(exp_cfg, exp_cfg_name)
 
     # iterate
-    if not exp_cfg.study_override_cfg.trainer.get("split_addition.do", False):
+    if exp_cfg.study_override_cfg.trainer.split_addition.do:
         saved_cfg = deepcopy(exp_cfg)
         testing_percentages = deepcopy(exp_cfg.study_override_cfg.trainer.split_addition.percentage)
     else:
@@ -76,9 +76,7 @@ def run_experiment(exp_cfg_name: str):
     save_path = exp_cfg.study_override_cfg.trainer.results_path
     
     for tst_pent in testing_percentages:
-        if tst_pent == -1:
-            continue 
-        else:
+        if tst_pent != -1:
             exp_cfg = deepcopy(saved_cfg)
             exp_cfg.study_override_cfg.trainer.split_addition.percentage = tst_pent
             exp_cfg.study_override_cfg.trainer.results_path += str(tst_pent).replace('.', '') + '/'

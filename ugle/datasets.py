@@ -15,6 +15,8 @@ import plotly.graph_objects as go
 from typing import Union
 from ugle.logger import log, ugle_path
 from typing import Tuple
+from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph
+import torch
 
 google_store_datasets = ['acm', 'amac', 'amap', 'bat', 'citeseer', 'cora', 'cocs', 'dblp', 'eat', 'uat', 'pubmed',
                          'cite', 'corafull', 'texas', 'wisc', 'film', 'cornell']
@@ -116,23 +118,7 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
             adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition.percentage, split_adj=False)
 
     log.info('splitting dataset into training/testing')
-    if split_scheme == 'drop_edges':
-        # drops edges from dataset to form new adj 
-        train_adj, test_adj = aug_drop_adj(adjacency, drop_percent=1-test_split, split_adj=False)
-
-    elif split_scheme == 'split_edges':
-        # splits the adj via the edges so that no edges in both 
-        train_adj, test_adj = aug_drop_adj(adjacency, drop_percent=1-test_split, split_adj=True)
-
-    elif split_scheme == 'all_edges':
-        # makes the adj fully connected 
-        train_adj = np.ones_like(adjacency)
-        test_adj = np.ones_like(adjacency)
-
-    elif split_scheme == 'no_edges':
-        # makes the adj completely unconnected 
-        train_adj = np.zeros_like(adjacency)
-        test_adj = np.zeros_like(adjacency)
+    train_adj, test_adj = split_adj(adjacency, test_split, split_scheme)
 
     return features, label, train_adj, test_adj
 
@@ -374,3 +360,53 @@ class Augmentations:
 
     def __str__(self):
         return self.method.title()
+
+
+def split(n, k):
+    d, r = divmod(n, k)
+    return [d + 1] * r + [d] * (k - r)
+
+
+def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type: str):
+    if adj_type == 'disjoint':
+        probs = (np.identity(n_clusters)).tolist()
+    elif adj_type == 'random':
+        probs = (np.ones((n_clusters, n_clusters))/n_clusters).tolist()
+    elif adj_type == 'complete':
+        probs = np.ones((n_clusters, n_clusters)).tolist()
+
+    cluster_sizes = split(n_nodes, n_clusters)
+    adj = to_dense_adj(stochastic_blockmodel_graph(cluster_sizes, probs)).squeeze(0).numpy()
+    
+    features = torch.normal(mean=0, std=1, size=(n_nodes, n_features)).numpy()
+    features = np.where(features > 0., 1, 0)
+
+
+    labels = []
+    for i in range(n_clusters):
+        labels.extend([i] * cluster_sizes[i])
+    labels = np.array(labels)
+
+    return adj, features.astype(float), labels
+
+
+def split_adj(adj, percent, split_scheme):
+    if split_scheme == 'drop_edges':
+        # drops edges from dataset to form new adj 
+        train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=False)
+
+    elif split_scheme == 'split_edges':
+        # splits the adj via the edges so that no edges in both 
+        train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=True)
+
+    elif split_scheme == 'all_edges':
+        # makes the adj fully connected 
+        train_adjacency = np.ones_like(adj)
+        validation_adjacency = np.ones_like(adj)
+
+    elif split_scheme == 'no_edges':
+        # makes the adj completely unconnected 
+        train_adjacency = np.zeros_like(adj)
+        validation_adjacency = np.zeros_like(adj)
+    
+    return train_adjacency, validation_adjacency

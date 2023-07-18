@@ -217,7 +217,6 @@ class ugleTrainer:
             train_adjacency = np.zeros_like(validation_adjacency)
             validation_adjacency = np.zeros_like(validation_adjacency)
 
-
         # process data for training
         processed_data = self.preprocess_data(features, train_adjacency)
         processed_valid_data = self.preprocess_data(features, validation_adjacency)
@@ -301,9 +300,10 @@ class ugleTrainer:
                     # log the best hyperparameters and metrics at which they are best
                     best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
                     best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
-                    log.info(f'Best hyperparameters for metrics {best_at_metrics_str}: ')
-                    for hp_key, hp_val in best_hp_params.items():
-                        log.info(f'{hp_key} : {hp_val}')
+                    if not self.cfg.trainer.load_existing_test:
+                        log.info(f'Best hyperparameters for metrics {best_at_metrics_str}: ')
+                        for hp_key, hp_val in best_hp_params.items():
+                            log.info(f'{hp_key} : {hp_val}')
 
                     # assign hyperparameters for the metric optimised over
                     self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
@@ -356,7 +356,7 @@ class ugleTrainer:
         # validation pass
         results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                     self.cfg.trainer.valid_metrics)
-        log.info(f'model trained')
+        log.info(f'model trained and tested')
 
         if trial is None:
             return

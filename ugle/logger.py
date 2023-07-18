@@ -39,6 +39,7 @@ def create_logger():
     
     # Create a file handler (logs will be stored in "my_log_file.log")
     pokemon_names = np.load(open(ugle_path + '/data/pokemon_names.npy', 'rb'), allow_pickle=True)
+    pokemon_names = [element for element in pokemon_names if all(char.isalpha() for char in element.lower())]
     log_path = f'{ugle_path}/logs/'
 
     if not os.path.exists(log_path):
@@ -62,7 +63,7 @@ def create_logger():
 
     # Set the custom formatters to the handlers
     color_formatter = CustomFormatter(fmt="[%(levelname)s:%(name)s: %(asctime)s: %(funcName)s()] %(message)s", 
-                                      datefmt="%d/%m %I:%M:%S")
+                                      datefmt="%d/%m--%I:%M:%S")
     stream_handler.setFormatter(color_formatter)
     #file_handler.setFormatter(color_formatter)
 

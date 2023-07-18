@@ -11,7 +11,7 @@ study_override_cfg:
     valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance' ]
     gpu: '1'
     results_path: './revamp_train_percent/' # results path for saved results
-    split_scheme: 'drop_edges'
+    split_scheme: 'split_edges'
     train_to_valid_split: 0.9
     training_to_testing_split: 0.9
     split_addition:

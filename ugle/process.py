@@ -46,7 +46,7 @@ def conductance(adjacency: np.ndarray, preds: np.ndarray) -> float:
     """
     inter = 0
     intra = 0
-    cluster_idx = np.zeros(adjacency.shape[0], dtype=np.bool)
+    cluster_idx = np.zeros(adjacency.shape[0], dtype=bool)
     for cluster_id in np.unique(preds):
         cluster_idx[:] = 0
         cluster_idx[np.where(preds == cluster_id)[0]] = 1

@@ -305,7 +305,7 @@ def display_latex_results(method: str, exp_result: dict):
 
 def extract_result_values(exp_result, metrics=['f1', 'nmi', 'modularity', 'conductance']) -> str:
     """
-    extracts the results into a string ready to print for latex display
+    extracts the results into a strjing ready to print for latex display
     if std values exist then they are also used
     :param exp_result: dictionary of results
     :param metrics: list of metrics in results

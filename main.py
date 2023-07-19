@@ -6,7 +6,7 @@ from omegaconf import OmegaConf, DictConfig, open_dict
 import argparse
 import psutil
 import time
-from os import exists
+from os.path import isfile
 
 
 def neural_run(override_model: str = None,
@@ -27,7 +27,7 @@ def neural_run(override_model: str = None,
 
     if cfg.trainer.load_existing_test:
         hpo_path = f'ugle/configs/models/{cfg.model}/{cfg.model}_hpo_{cfg.dataset}.yaml'
-        if exists(hpo_path):
+        if isfile(hpo_path):
             log.info(f'loading hpo args: {cfg.model}_hpo_{cfg.dataset}')
             found_args = OmegaConf.load(hpo_path)
         else: 

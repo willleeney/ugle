@@ -74,8 +74,7 @@ def neural_run(override_model: str = None,
         # train and evaluate model
         results = Trainer.eval()
 
-    log.info(f"TIME TAKEN: {round(time.time() - start_time, 3)}s")
-    log.info(f"Model trained: {cfg.model} {cfg.dataset}")
+    log.info(f"Total Time for {cfg.model} {cfg.dataset}: {round(time.time() - start_time, 3)}s")
 
     return results
 

@@ -185,9 +185,10 @@ class ugleTrainer:
                 self.cfg.trainer.split_scheme,
                 self.cfg.trainer.split_addition)
         else:
-            _, adj_type, n_clusters = self.cfg.dataset.split("_")
+            _, adj_type, feature_type, n_clusters = self.cfg.dataset.split("_")
             n_clusters = int(n_clusters)
-            adjacency, features, label = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, adj_type=adj_type)
+            adjacency, features, label = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, 
+                                                                     adj_type=adj_type, feature_type=feature_type)
             train_adjacency, test_adjacency = datasets.split_adj(adjacency,
                                                                  self.cfg.trainer.training_to_testing_split,
                                                                  self.cfg.trainer.split_scheme)

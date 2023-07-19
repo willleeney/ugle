@@ -367,7 +367,7 @@ def split(n, k):
     return [d + 1] * r + [d] * (k - r)
 
 
-def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type: str):
+def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type: str, feature_type: str = 'random'):
     if adj_type == 'disjoint':
         probs = (np.identity(n_clusters)).tolist()
     elif adj_type == 'random':
@@ -378,9 +378,26 @@ def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type
     cluster_sizes = split(n_nodes, n_clusters)
     adj = to_dense_adj(stochastic_blockmodel_graph(cluster_sizes, probs)).squeeze(0).numpy()
     
-    features = torch.normal(mean=0, std=1, size=(n_nodes, n_features)).numpy()
-    features = np.where(features > 0., 1, 0)
-
+    if feature_type == 'random':
+        features = torch.normal(mean=0, std=1, size=(n_nodes, n_features)).numpy()
+        features = np.where(features > 0., 1, 0)
+    elif feature_type == 'complete': 
+        features = np.ones((n_nodes, n_features))
+    elif feature_type == 'disjoint':
+        features = np.zeros((n_nodes, n_features))
+        feature_dims_fo_cluster = split(n_features, n_clusters)
+        start_feat = 0
+        end_feat = feature_dims_fo_cluster[0]
+        start_clus = 0
+        end_clus = cluster_sizes[0]
+        for i in range(len(feature_dims_fo_cluster)):
+            features[start_clus:end_clus, start_feat:end_feat] = np.ones_like(features[start_clus:end_clus, start_feat:end_feat])
+            if i == len(feature_dims_fo_cluster) - 1:
+                break
+            start_feat += feature_dims_fo_cluster[i]
+            end_feat += feature_dims_fo_cluster[i+1]
+            start_clus += cluster_sizes[i]
+            end_clus += cluster_sizes[i+1]
 
     labels = []
     for i in range(n_clusters):

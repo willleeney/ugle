@@ -7,7 +7,7 @@ study_override_cfg:
     show_config: False
     load_existing_test: False
     calc_time: False
-    n_trials_hyperopt: 10
+    n_trials_hyperopt: 25
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance' ]
     gpu: '0'

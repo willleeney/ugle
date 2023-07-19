@@ -28,6 +28,7 @@ def neural_run(override_model: str = None,
         found_args = OmegaConf.load(f'ugle/configs/models/{cfg.model}/{cfg.model}_hpo_{cfg.dataset}.yaml')
         with open_dict(cfg):
             cfg.args = OmegaConf.merge(cfg.args, found_args)
+        cfg.trainer.only_testing = True
 
     # create trainer object defined in models and init with config
     Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)

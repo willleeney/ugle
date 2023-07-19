@@ -216,7 +216,7 @@ class ugleTrainer:
         processed_data = self.preprocess_data(features, train_adjacency)
         processed_valid_data = self.preprocess_data(features, validation_adjacency)
 
-        if not self.cfg.trainer.load_existing_test:
+        if not self.cfg.trainer.only_testing:
             optuna.logging.disable_default_handler()
             # creates the hpo study
             if self.cfg.trainer.multi_objective_study:
@@ -268,7 +268,7 @@ class ugleTrainer:
                                  'args': params_to_assign}
 
         else:
-            if not self.cfg.trainer.load_existing_test:
+            if not self.cfg.trainer.only_testing:
                 # best hp found for metrics
                 best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
                 unique_trials = list(np.unique(np.array(associated_trial)))
@@ -279,7 +279,7 @@ class ugleTrainer:
 
             objective_results = []
             for idx, best_trial_id in enumerate(unique_trials):
-                if not self.cfg.trainer.load_existing_test:
+                if not self.cfg.trainer.only_testing:
                     # find the metrics for which trial is best at
                     best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if
                                        associated_trial[i] == best_trial_id]
@@ -295,7 +295,7 @@ class ugleTrainer:
                     # log the best hyperparameters and metrics at which they are best
                     best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
                     best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
-                    if not self.cfg.trainer.load_existing_test:
+                    if not self.cfg.trainer.only_testing:
                         log.info(f'Best hyperparameters for metrics {best_at_metrics_str}: ')
                         for hp_key, hp_val in best_hp_params.items():
                             log.info(f'{hp_key} : {hp_val}')

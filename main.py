@@ -6,6 +6,7 @@ from omegaconf import OmegaConf, DictConfig, open_dict
 import argparse
 import psutil
 import time
+from os import exists
 
 
 def neural_run(override_model: str = None,
@@ -25,7 +26,13 @@ def neural_run(override_model: str = None,
         cfg.dataset = override_dataset
 
     if cfg.trainer.load_existing_test:
-        found_args = OmegaConf.load(f'ugle/configs/models/{cfg.model}/{cfg.model}_hpo_{cfg.dataset}.yaml')
+        hpo_path = f'ugle/configs/models/{cfg.model}/{cfg.model}_hpo_{cfg.dataset}.yaml'
+        if exists(hpo_path):
+            log.info(f'loading hpo args: {cfg.model}_hpo_{cfg.dataset}')
+            found_args = OmegaConf.load(hpo_path)
+        else: 
+            log.info(f'loading default args: {cfg.model}_default')
+            found_args = OmegaConf.load(f'ugle/configs/models/{cfg.model}/{cfg.model}_default.yaml')
         with open_dict(cfg):
             cfg.args = OmegaConf.merge(cfg.args, found_args)
         cfg.trainer.only_testing = True

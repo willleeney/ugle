@@ -27,6 +27,7 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
 
     for idx, seed in enumerate(seeds):
         study_cfg.args.random_seed = seed
+        log.info(f'Study -- {algorithm}:{dataset}:Seed({seed})')
 
         # test results stores the results of one algorithm run
         if ugle.utils.is_neural(algorithm):

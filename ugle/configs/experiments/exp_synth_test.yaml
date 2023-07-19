@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: ['synth_disjoint_2']
-algorithms: ['dmon']
+algorithms: ['dgi']
 
 study_override_cfg:
   trainer:

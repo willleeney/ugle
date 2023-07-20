@@ -1,6 +1,7 @@
 seeds: [42] # the random seeds to run experiments over
 datasets: null # the datasets to train on
 algorithms: null # the algorithms to train on
+run_cpu_fallback: False
 
 study_override_cfg: # override default config args
   args:

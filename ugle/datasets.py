@@ -117,7 +117,7 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
         if split_addition.do:
             adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition.percentage, split_adj=False)
 
-    log.info('splitting dataset into training/testing')
+    log.debug('splitting dataset into training/testing')
     train_adj, test_adj = split_adj(adjacency, test_split, split_scheme)
 
     return features, label, train_adj, test_adj
@@ -243,7 +243,7 @@ def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bo
     edge_idx = list(np.arange(edge_num))
     drop_idx = random.sample(edge_idx, add_drop_num)
     n_drop = len(drop_idx)
-    log.info(f'dropping {n_drop} edges from {edge_num}')
+    log.debug(f'dropping {n_drop} edges from {edge_num}')
 
     for i in drop_idx:
         aug_adj[index_list[i][0]][index_list[i][1]] = 0

@@ -1,6 +1,8 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell', 'amac']
 algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+run_cpu_fallback: False
+
 
 study_override_cfg:
   trainer:

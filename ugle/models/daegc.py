@@ -69,13 +69,13 @@ class daegc_trainer(ugleTrainer):
     def training_preprocessing(self, args, processed_data):
         features, adjacency, adj, adj_label, M = processed_data
 
-        log.info('creating model')
+        log.debug('creating model')
         self.model = DAEGC(num_features=args.n_features, hidden_size=args.hidden_size,
                       embedding_size=args.embedding_size, alpha=args.alpha, num_clusters=args.n_clusters).to(
             self.device)
         optimizer = Adam(self.model.gat.parameters(), lr=args.pre_lr, weight_decay=args.weight_decay)
 
-        log.info('pretraining')
+        log.debug('pretraining')
         best_nmi = 0.
         for pre_epoch in range(args.pre_epoch):
             # training pass
@@ -86,14 +86,14 @@ class daegc_trainer(ugleTrainer):
             loss.backward()
             optimizer.step()
 
-        log.info('kmeans init estimate')
+        log.debug('kmeans init estimate')
         with torch.no_grad():
             _, z = self.model.gat(features, adj, M)
         kmeans = KMeans(n_clusters=args.n_clusters, n_init=args.kmeans_init, random_state=args.random_seed)
         _ = kmeans.fit_predict(z.data.cpu().numpy())
         self.model.cluster_layer.data = torch.tensor(kmeans.cluster_centers_).to(self.device)
 
-        log.info('model training')
+        log.debug('model training')
         optimizer = Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
         self.optimizers = [optimizer]

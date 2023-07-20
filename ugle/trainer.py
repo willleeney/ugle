@@ -208,7 +208,7 @@ class ugleTrainer:
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 
-        log.info('splitting dataset into train/validation')
+        log.debug('splitting dataset into train/validation')
         train_adjacency, validation_adjacency = datasets.split_adj(validation_adjacency, 
                                                           self.cfg.trainer.train_to_valid_split, 
                                                           self.cfg.trainer.split_scheme)
@@ -253,7 +253,7 @@ class ugleTrainer:
         # retrains the model on the validation adj and evaluates test performance
         if not self.cfg.trainer.multi_objective_study:
             self.cfg.trainer.calc_time = False
-            log.info('Retraining model on full training data')
+            log.debug('Retraining model on full training data')
             self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency, processed_valid_data)
             processed_test_data = self.preprocess_data(features, test_adjacency)
             results = self.testing_loop(label, features, test_adjacency, processed_test_data,
@@ -352,7 +352,7 @@ class ugleTrainer:
         # validation pass
         results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                     self.cfg.trainer.valid_metrics)
-        log.info(f'model trained and tested')
+        log.debug(f'model trained and tested')
 
         if trial is None:
             return

@@ -52,11 +52,11 @@ def create_logger():
 
     # Set up the logger
     logger = logging.getLogger(log_path)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # Create a stream handler (console output)
     stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.DEBUG)
+    stream_handler.setLevel(logging.INFO)
 
     #file_handler = logging.FileHandler(log_path)
     #file_handler.setLevel(logging.DEBUG)

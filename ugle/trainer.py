@@ -176,7 +176,7 @@ class ugleTrainer:
 
 
     def load_database(self):
-
+        log.info('loading dataset')
         if 'synth' not in self.cfg.dataset:
             # loads and splits the dataset
             features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
@@ -306,7 +306,7 @@ class ugleTrainer:
 
                 # do testing
                 self.cfg.trainer.calc_time = False
-                log.info('Retraining model on full training data')
+                log.debug('Retraining model on full training data')
                 self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
                 processed_test_data = self.preprocess_data(features, test_adjacency)

@@ -272,10 +272,12 @@ def display_evaluation_results(experiment_tracker: list):
     displays the evaluation results in table latex form
     :param experiment_tracker: list of results from experiment
     """
-    log.info('experiment results')
     for experiment in experiment_tracker:
         log.info(f'dataset: {experiment.dataset}')
-        display_latex_results(experiment.algorithm, experiment.results)
+        try: 
+            display_latex_results(experiment.algorithm, experiment.results)
+        except: 
+            log.info(f'No Result -- {experiment.algorithm}')
 
     return
 

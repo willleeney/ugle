@@ -6,6 +6,7 @@ datasets: ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoi
            'synth_random_disjoint_4', 'synth_random_random_4', 'synth_random_complete_4',
            'synth_complete_disjoint_4', 'synth_complete_random_4', 'synth_complete_complete_4']
 algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+run_cpu_fallback: False
 
 study_override_cfg:
   trainer:

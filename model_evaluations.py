@@ -132,6 +132,7 @@ def run_experiment(exp_cfg_name: str):
             log.info('The following combinations lead to OOM')
             for experiment in experiments_cpu:
                 log.info(f'{experiment.dataset} : {experiment.algorithm}')
+        
         ugle.utils.display_evaluation_results(experiment_tracker)
         
 

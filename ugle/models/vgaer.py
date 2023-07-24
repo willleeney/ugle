@@ -94,11 +94,15 @@ class VGAERModel(nn.Module):
 
 
 def compute_loss_para(adj):
-    pos_weight = ((adj.shape[0] * adj.shape[0] - adj.sum()) / adj.sum())
-    norm = adj.shape[0] * adj.shape[0] / float((adj.shape[0] * adj.shape[0] - adj.sum()) * 2)
-    weight_mask = adj.view(-1) == 1
-    weight_tensor = torch.ones(weight_mask.size(0))
-    weight_tensor[weight_mask] = pos_weight
+    try: 
+        pos_weight = ((adj.shape[0] * adj.shape[0] - adj.sum()) / adj.sum())
+        norm = adj.shape[0] * adj.shape[0] / float((adj.shape[0] * adj.shape[0] - adj.sum()) * 2)
+        weight_mask = adj.view(-1) == 1
+        weight_tensor = torch.ones(weight_mask.size(0))
+        weight_tensor[weight_mask] = pos_weight
+    except:
+        weight_tensor = torch.ones_like(adj.view(-1))
+        norm = 1.
     return weight_tensor, norm
 
 

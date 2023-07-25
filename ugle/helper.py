@@ -589,14 +589,14 @@ def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, defau
     return
 
 
-algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
-datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
-metrics = ['nmi', 'modularity', 'f1', 'conductance']
-folder = './progress_results/'
-seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
-                 'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
-default_folder = './new_default/'
+#algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
+#datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
+#metrics = ['nmi', 'modularity', 'f1', 'conductance']
+#folder = './progress_results/'
+#seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+#default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
+#                 'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
+#default_folder = './new_default/'
 
 #create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)
 
@@ -606,12 +606,43 @@ default_folder = './new_default/'
 #fig.tight_layout()
 #fig.savefig(f'{ugle_path}/figures/tkiz_fig.png', bbox_inches='tight')
 
+def rank_values(scores):
+    ranks = []
+    for score in scores:
+       ranks.append(scores.index(score) + 1)
+    return ranks
+
+
+def calculate_ranking_coefficient_over_dataset(result_object, algorithms, dataset_idx, metrics):
+    ranking_object = np.mean(result_object, axis=-1)[dataset_idx, :, :]
+    n_ranks = len(metrics)
+    all_ranks_per_algo = np.zeros(shape=(len(algorithms), n_ranks))
+
+    for m, metric_name in enumerate(metrics):
+        if metric_name != 'conductance':
+            all_ranks_per_algo[:, m] = rank_values(np.flip(np.sort(ranking_object[:, m])).tolist())
+        else:
+            all_ranks_per_algo[:, m] = rank_values(np.sort(ranking_object[:, m]).tolist())
+       
+    coeff = 0.
+    for i, _ in enumerate(algorithms):
+        for j, _ in enumerate(algorithms):
+            if i != j:
+                coeff += wasserstein_distance(all_ranks_per_algo[i], all_ranks_per_algo[j])
+    
+    # calculate averages
+    div_out = (len(algorithms) * (len(algorithms) -1 ))/2
+    coeff = round(coeff/div_out, 3)  
+
+    return coeff 
+
+
 def create_synth_figure():
     synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
                     'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
                     'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
     
-    synth_datasets = ['synth_disjoint_disjoint_4', 'synth_disjoint_random_4', 'synth_disjoint_complete_4',
+    synth_datasets_2 = ['synth_disjoint_disjoint_4', 'synth_disjoint_random_4', 'synth_disjoint_complete_4',
                     'synth_random_disjoint_4', 'synth_random_random_4', 'synth_random_complete_4',
                     'synth_complete_disjoint_4', 'synth_complete_random_4', 'synth_complete_complete_4']
     synth_algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
@@ -620,13 +651,16 @@ def create_synth_figure():
     seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
     # fetch results
     result_object = make_test_performance_object(synth_datasets, synth_algorithms, metrics, seeds, synth_folder)
+
     # create graph subfigures 
     nrows, ncols = 3, 3
     fig, axes = plt.subplots(nrows, ncols, figsize=(8, 8))
     for i, ax in enumerate(axes.flat):
+        coeff = calculate_ranking_coefficient_over_dataset(result_object, synth_algorithms, i, metrics)
+
         title = (" ").join(synth_datasets[i].split("_")[1:3])
         title = 'adj: ' + synth_datasets[i].split("_")[1] + " feat: " + synth_datasets[i].split("_")[2]
-        ax.set_title(title)
+        ax.set_title(f"{title}: {str(coeff)}" )
 
         alt_colours = ['C3', 'C0', 'C2', 'C1']
 
@@ -653,8 +687,5 @@ def create_synth_figure():
     plt.tight_layout()
     plt.show()
     print('done')
-    # create labelling adn formating
-    # plot results
 
-
-#create_synth_figure()
+create_synth_figure()

@@ -104,8 +104,11 @@ def get_values_from_results_holder(result_holder, dataset_name, metric_name, ret
 
 def make_test_performance_object(datasets, algorithms, metrics, seeds, folder):
     # get results object
-    result_holder = get_all_results_from_storage(datasets, algorithms, folder, collect_all=True)
     result_object = np.zeros(shape=(len(datasets), len(algorithms), len(metrics), len(seeds)))
+    try:
+        result_holder = get_all_results_from_storage(datasets, algorithms, folder, collect_all=True)
+    except:
+        return result_object
     for d, dataset in enumerate(datasets):
         for a, algo in enumerate(algorithms):
             result_object[d, a] = result_holder[f"{dataset}_{algo}"]
@@ -688,4 +691,53 @@ def create_synth_figure():
     plt.show()
     print('done')
 
-create_synth_figure()
+
+
+def create_trainpercent_figure():
+    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell', 'amac']
+    algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+    percents = ['01', '03', '05', '07', '09']
+    percents_labels = ['0.1', '0.3', '0.5', '0.7', '0.9']
+    metrics = ['nmi', 'modularity', 'f1', 'conductance']
+    folder = './revamp_train_percent/'
+
+    nrows, ncols = len(algorithms), len(datasets)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(7.5, 10))
+
+    res_objs = []
+    for pct in percents:
+        res_objs.append(make_test_performance_object(datasets, algorithms, metrics, seeds, folder + pct + '/'))
+    res_objs = np.stack(res_objs, axis=0)
+
+    for d, dataset in enumerate(datasets):
+        for a, algo in enumerate(algorithms):
+            ax = axes[a, d]
+            ax.set_title(f'{algo} -- {dataset}')
+
+            alt_colours = ['C3', 'C0', 'C2', 'C1']
+            bar_width = 1 / 4
+            x_axis_names = np.arange(len(percents))
+
+            # plot results
+            for m, metric in enumerate(metrics):
+                metric_vals = []
+                metric_std = []
+                for p in range(len(percents)):
+                    metric_vals.append(np.mean(res_objs[p, d, a, m, :]))
+                    metric_std.append(np.std(res_objs[p, d, a, m, :]))
+                ax.bar(x_axis_names + (m * bar_width), metric_vals, yerr=metric_std, 
+                    width=bar_width, facecolor=alt_colours[m], alpha=0.9, linewidth=0, label=metric)
+                
+            ax.set_xticks(x_axis_names - 0.5 * bar_width)
+            ax.set_xticklabels(percents_labels, ha='left', rotation=-45, position=(-0.5, 0.0))
+            ax.set_axisbelow(True)
+            ax.set_ylim(0.0, 1.0)
+                
+
+    plt.tight_layout()
+    plt.show()
+    print('done')
+
+
+create_trainpercent_figure()

@@ -605,3 +605,56 @@ default_folder = './new_default/'
 #ax = create_rand_dist_fig(ax, r'Framework Rank Distinction Coefficient $\Omega(\mathcal{\hat{T}}_{(hpo)}) : $', datasets, algorithms, metrics, seeds, folder, calc_ave_first=True, set_legend=True)
 #fig.tight_layout()
 #fig.savefig(f'{ugle_path}/figures/tkiz_fig.png', bbox_inches='tight')
+
+def create_synth_figure():
+    synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
+                    'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
+                    'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
+    
+    synth_datasets = ['synth_disjoint_disjoint_4', 'synth_disjoint_random_4', 'synth_disjoint_complete_4',
+                    'synth_random_disjoint_4', 'synth_random_random_4', 'synth_random_complete_4',
+                    'synth_complete_disjoint_4', 'synth_complete_random_4', 'synth_complete_complete_4']
+    synth_algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+    synth_folder = './synth_results/'
+    metrics = ['nmi', 'modularity', 'f1', 'conductance']
+    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+    # fetch results
+    result_object = make_test_performance_object(synth_datasets, synth_algorithms, metrics, seeds, synth_folder)
+    # create graph subfigures 
+    nrows, ncols = 3, 3
+    fig, axes = plt.subplots(nrows, ncols, figsize=(8, 8))
+    for i, ax in enumerate(axes.flat):
+        title = (" ").join(synth_datasets[i].split("_")[1:3])
+        title = 'adj: ' + synth_datasets[i].split("_")[1] + " feat: " + synth_datasets[i].split("_")[2]
+        ax.set_title(title)
+
+        alt_colours = ['C3', 'C0', 'C2', 'C1']
+
+        bar_width = 1 / 4
+        x_axis_names = np.arange(len(synth_algorithms))
+
+        # plot results
+        for m, metric in enumerate(metrics):
+            metric_vals = []
+            metric_std = []
+            for a, algo in enumerate(synth_algorithms):
+                metric_vals.append(np.mean(result_object[i, a, m, :]))
+                metric_std.append(np.std(result_object[i, a, m, :]))
+            ax.bar(x_axis_names + (m * bar_width), metric_vals, yerr=metric_std, 
+                   width=bar_width, facecolor=alt_colours[m], alpha=0.9, linewidth=0, label=metric)
+            
+        ax.set_xticks(x_axis_names - 0.5 * bar_width)
+        ax.set_xticklabels(synth_algorithms, ha='left', rotation=-45, position=(-0.5, 0.0))
+        ax.set_axisbelow(True)
+        ax.set_ylim(0.0, 1.0)
+        ax.axhline(y=0.5, color='k', linestyle='-') 
+
+
+    plt.tight_layout()
+    plt.show()
+    print('done')
+    # create labelling adn formating
+    # plot results
+
+
+#create_synth_figure()

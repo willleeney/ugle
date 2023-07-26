@@ -2,6 +2,9 @@ seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell', 'amac']
 algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
 run_cpu_fallback: False
+special_training: 
+  split_addition_percentage: True
+  retrain_on_each_dataset: False
 
 study_override_cfg:
   trainer:
@@ -15,3 +18,4 @@ study_override_cfg:
     split_scheme: 'drop_edges'
     train_to_valid_split: 0.8
     training_to_testing_split: 0.8
+    split_addition_percentage: [0.1, 0.3, 0.5, 0.7, 0.9]

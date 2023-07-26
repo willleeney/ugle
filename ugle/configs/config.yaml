@@ -1,5 +1,8 @@
 model: 'daegc'
 dataset: 'cora'
+special_training: 
+  split_addition_percentage: False
+  retrain_on_each_dataset: False
 
 trainer:
   gpu: "0"
@@ -10,17 +13,15 @@ trainer:
   load_existing_test: False
   only_testing: False
 
-  training_to_testing_split: 0.8
   test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
-  currently_testing: False
   valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
   n_trials_hyperopt: 1
+
+  training_to_testing_split: 0.8
   train_to_valid_split: 0.8
-  n_valid_splits: 1
   split_scheme: "drop_edges"
-  split_addition:
-    do: False
-    percentage: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+  split_addition_percentage: None
 
   logger:
     log_wandb: False

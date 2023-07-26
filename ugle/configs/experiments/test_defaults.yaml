@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell', 'amac']
-algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+datasets: ['cora']
+algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'selfgnn_default', 'bgrl_default', 'vgaer_default']
 run_cpu_fallback: False
 
 study_override_cfg:
@@ -10,8 +10,8 @@ study_override_cfg:
     calc_time: False
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance' ]
-    gpu: '1'
-    results_path: './revamp_train_percent_dropedge/' # results path for saved results
+    gpu: '0'
+    results_path: './testing_default/' # results path for saved results
     split_scheme: 'drop_edges'
     train_to_valid_split: 0.8
     training_to_testing_split: 0.8

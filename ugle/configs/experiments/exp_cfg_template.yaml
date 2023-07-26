@@ -18,3 +18,4 @@ study_override_cfg: # override default config args
     n_trials_hyperopt: 1 # n trials to perform hyperparameter optimisation over
     load_existing_test: False # whether to check for existing hyperparameters
     split_addition_percentage: None
+    load_hps_path: './found_hps/'

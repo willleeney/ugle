@@ -24,7 +24,8 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
                                       'model': algorithm,
                                       'average_results': {},
                                       'results': []})
-
+    
+    # repeat training over all seeds
     for idx, seed in enumerate(seeds):
         study_cfg.args.random_seed = seed
         log.info(f'Study -- {algorithm}:{dataset}:Seed({seed})')

@@ -43,22 +43,6 @@ def load_model_config(override_model: str = None, override_cfg: DictConfig = Non
         with open_dict(config):
             config = OmegaConf.merge(config, override_cfg)
 
-    # load umap config options
-    if config.args.pre_train_umap_features:
-        if not config.args.umap_hyperparameter_investigation:
-            umap_config_path = f'ugle/configs/models/umap/pre_umap_default.yaml'
-        else:
-            umap_config_path = f'ugle/configs/models/umap/pre_umap.yaml'
-        config = merge_yaml(config, umap_config_path)
-
-    # load post umap config options
-    if config.args.post_train_umap_features:
-        if not config.args.umap_hyperparameter_investigation:
-            umap_config_path = f'ugle/configs/models/umap/post_umap_default.yaml'
-        else:
-            umap_config_path = f'ugle/configs/models/umap/post_umap.yaml'
-        config = merge_yaml(config, umap_config_path)
-
     return config
 
 

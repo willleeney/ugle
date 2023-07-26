@@ -7,6 +7,7 @@ import argparse
 import psutil
 import time
 from os.path import isfile
+import pickle
 
 
 def neural_run(override_model: str = None,
@@ -26,15 +27,18 @@ def neural_run(override_model: str = None,
         cfg.dataset = override_dataset
 
     if cfg.trainer.load_existing_test and 'default' not in override_model:
-        hpo_path = f'ugle/configs/models/{cfg.model}/{cfg.model}_hpo_{cfg.dataset}.yaml'
+        # try load the pickle file from previous study 
+        hpo_path = f"{cfg.trainer.load_hps_path}{cfg.dataset}_{cfg.model}.pkl"
         if isfile(hpo_path):
-            log.info(f'loading hpo args: {cfg.model}_hpo_{cfg.dataset}')
-            found_args = OmegaConf.load(hpo_path)
+            log.info(f'loading hpo args: {hpo_path}')
+            previously_found = pickle.load(open(hpo_path, "rb"))
+            cfg.previous_results = previously_found.results
+        # if this doesn't exist then just use the default parameters
         else: 
-            log.info(f'loading default args: {cfg.model}_default')
+            log.info(f'loading default args')
             found_args = OmegaConf.load(f'ugle/configs/models/{cfg.model}/{cfg.model}_default.yaml')
-        with open_dict(cfg):
-            cfg.args = OmegaConf.merge(cfg.args, found_args)
+            with open_dict(cfg):
+                cfg.args = OmegaConf.merge(cfg.args, found_args)
         cfg.trainer.only_testing = True
 
     # create trainer object defined in models and init with config

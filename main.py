@@ -89,7 +89,7 @@ if __name__ == "__main__":
                         help='the number random seed to train on')
     parser.add_argument('--gpu', type=str, default="0",
                         help='the gpu to train on')
-    parser.add_argument('--load_existing_test', type=bool, action='store_true',
+    parser.add_argument('--load_existing_test', action='store_true',
                         help='load best parameters available')
     parsed = parser.parse_args()
     study_cfg = OmegaConf.create({"args": {"random_seed": int(parsed.seed)},

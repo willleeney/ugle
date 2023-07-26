@@ -68,20 +68,26 @@ def run_experiment(exp_cfg_name: str):
     exp_cfg = ugle.utils.merge_yaml(exp_cfg, exp_cfg_name)
 
     # iterate
-    if exp_cfg.study_override_cfg.trainer.split_addition.do:
+    if exp_cfg.special_training.split_addition_percentage:
+        log.info('Special Experiment: split_addition_percentage')
         saved_cfg = deepcopy(exp_cfg)
-        testing_percentages = deepcopy(exp_cfg.study_override_cfg.trainer.split_addition.percentage)
+        special_runs = deepcopy(exp_cfg.study_override_cfg.trainer.split_addition_percentage)
+    elif exp_cfg.special_training.retrain_on_each_dataset: 
+        log.info('Special Experiment: retrain_on_each_dataset')
+        # figure out save model location 
+        # overwrite model creation but not for first run on new seed
+
     else:
-        testing_percentages = [-1]
+        special_runs = [-1]
 
     save_path = exp_cfg.study_override_cfg.trainer.results_path
     
-    for tst_pent in testing_percentages:
-        if tst_pent != -1:
-            log.info(f'Experiment: {tst_pent}% of the entire dataset')
+    for special_var in special_runs:
+        if special_var != -1:
+            log.info(f'Experiment: {special_var}% of the entire dataset')
             exp_cfg = deepcopy(saved_cfg)
-            exp_cfg.study_override_cfg.trainer.split_addition.percentage = tst_pent
-            exp_cfg.study_override_cfg.trainer.results_path += str(tst_pent).replace('.', '') + '/'
+            exp_cfg.study_override_cfg.trainer.split_addition_percentage = special_var
+            exp_cfg.study_override_cfg.trainer.results_path += str(special_var).replace('.', '') + '/'
             if not exists(exp_cfg.study_override_cfg.trainer.results_path):
                 makedirs(exp_cfg.study_override_cfg.trainer.results_path)
 

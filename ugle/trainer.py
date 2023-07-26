@@ -183,7 +183,7 @@ class ugleTrainer:
                 self.cfg.dataset,
                 self.cfg.trainer.training_to_testing_split,
                 self.cfg.trainer.split_scheme,
-                self.cfg.trainer.split_addition)
+                self.cfg.trainer.split_addition_percentage)
         else:
             _, adj_type, feature_type, n_clusters = self.cfg.dataset.split("_")
             n_clusters = int(n_clusters)

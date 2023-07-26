@@ -2,6 +2,9 @@ seeds: [42] # the random seeds to run experiments over
 datasets: null # the datasets to train on
 algorithms: null # the algorithms to train on
 run_cpu_fallback: False
+special_training: 
+  split_addition_percentage: False
+  retrain_on_each_dataset: False
 
 study_override_cfg: # override default config args
   args:
@@ -14,5 +17,4 @@ study_override_cfg: # override default config args
     gpu: '1' # which gpu to be trained on (-1: cpu)
     n_trials_hyperopt: 1 # n trials to perform hyperparameter optimisation over
     load_existing_test: False # whether to check for existing hyperparameters
-    split_addition:
-      do: False
+    split_addition_percentage: None

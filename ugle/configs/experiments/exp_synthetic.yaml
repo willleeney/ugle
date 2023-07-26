@@ -1,25 +1,23 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-#datasets: ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
-#           'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
-#           'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2', 
-#           'synth_disjoint_disjoint_4', 'synth_disjoint_random_4', 'synth_disjoint_complete_4',
-#           'synth_random_disjoint_4', 'synth_random_random_4', 'synth_random_complete_4',
-#           'synth_complete_disjoint_4', 'synth_complete_random_4', 'synth_complete_complete_4']
-#algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
-datasets: ['synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2','synth_complete_disjoint_4', 'synth_complete_random_4', 'synth_complete_complete_4' ]
-algorithms: ['vgaer']
+datasets: ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
+           'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
+           'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2', 
+           'synth_disjoint_disjoint_4', 'synth_disjoint_random_4', 'synth_disjoint_complete_4',
+           'synth_random_disjoint_4', 'synth_random_random_4', 'synth_random_complete_4',
+           'synth_complete_disjoint_4', 'synth_complete_random_4', 'synth_complete_complete_4']
+algorithms: ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 run_cpu_fallback: False
 
 study_override_cfg:
   trainer:
     show_config: False
-    load_existing_test: False
+    load_existing_test: True
     calc_time: False
     n_trials_hyperopt: 25
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance' ]
     gpu: '0'
-    results_path: './synth/' # results path for saved results
+    results_path: './synth_defaults/' # results path for saved results
     split_scheme: 'drop_edges'
     train_to_valid_split: 0.8
     training_to_testing_split: 0.8

@@ -25,7 +25,7 @@ def neural_run(override_model: str = None,
     if override_dataset:
         cfg.dataset = override_dataset
 
-    if cfg.trainer.load_existing_test:
+    if cfg.trainer.load_existing_test and 'default' not in override_model:
         hpo_path = f'ugle/configs/models/{cfg.model}/{cfg.model}_hpo_{cfg.dataset}.yaml'
         if isfile(hpo_path):
             log.info(f'loading hpo args: {cfg.model}_hpo_{cfg.dataset}')

@@ -296,8 +296,8 @@ class ugleTrainer:
                     # log the best hyperparameters and metrics at which they are best
                     best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
                     best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
+                    log.info(f'Using best hyperparameters for metrics {best_at_metrics_str}: ')
                     if not self.cfg.trainer.only_testing:
-                        log.info(f'Best hyperparameters for metrics {best_at_metrics_str}: ')
                         for hp_key, hp_val in best_hp_params.items():
                             log.info(f'{hp_key} : {hp_val}')
 

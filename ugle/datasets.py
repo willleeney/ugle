@@ -114,8 +114,7 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
         adjacency = nx.to_numpy_matrix(loader.get_graph())
 
     if split_addition:
-        if split_addition.do:
-            adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition.percentage, split_adj=False)
+        adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition, split_adj=False)
 
     log.debug('splitting dataset into training/testing')
     train_adj, test_adj = split_adj(adjacency, test_split, split_scheme)

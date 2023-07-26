@@ -9,6 +9,7 @@ trainer:
   show_config: True
   calc_time: False
   results_path: './results/'
+  load_hps_path: './found_hps/'
   data_path: './data/'
   load_existing_test: False
   only_testing: False

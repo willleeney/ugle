@@ -21,3 +21,5 @@ new_default/*
 updated_results/*
 synth_results/*
 revamp_train_percent/*
+temp.py
+found_hps/*

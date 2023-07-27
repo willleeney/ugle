@@ -353,3 +353,14 @@ def calc_average_results(results_tracker: dict) -> dict:
                                                                               fractional=False))
     return average_results
 
+
+
+def get_best_args(results, model_resolution_metric):
+    best = -1.
+    for seed_res in results: 
+        for metric_res in seed_res['study_output']:
+            if model_resolution_metric in metric_res['metrics'] and best < metric_res['results'][model_resolution_metric]: 
+                best = metric_res['results'][model_resolution_metric]
+                best_seed = seed_res['seed']
+                args = metric_res['args']
+    return args, best_seed

@@ -23,3 +23,5 @@ synth_results/*
 revamp_train_percent/*
 temp.py
 found_hps/*
+exp_train_again/*
+models/*

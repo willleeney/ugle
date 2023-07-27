@@ -55,6 +55,17 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
     save_path = f"{study_cfg.trainer.results_path}{dataset}_{algorithm}"
     pickle.dump(study_results, open(f"{save_path}.pkl", "wb"))
 
+    if study_cfg.trainer.retrain_on_each_dataset:
+        # after all results have been collected, get best result seed, retrain and save
+        args, best_seed = ugle.utils.get_best_args(study_results.results, study_cfg.trainer.model_resolution_metric)
+        study_cfg.args = args
+        study_cfg.args.random_seed = best_seed
+        study_cfg.trainer.only_testing = True
+        study_cfg.trainer.save_model = True
+        _ = neural_run(override_model=algorithm,
+                        override_dataset=dataset,
+                        override_cfg=study_cfg)
+        
     return average_results
 
 
@@ -73,11 +84,12 @@ def run_experiment(exp_cfg_name: str):
         log.info('Special Experiment: split_addition_percentage')
         saved_cfg = deepcopy(exp_cfg)
         special_runs = deepcopy(exp_cfg.study_override_cfg.trainer.split_addition_percentage)
-    elif exp_cfg.special_training.retrain_on_each_dataset: 
+    elif exp_cfg.study_override_cfg.trainer.retrain_on_each_dataset: 
         log.info('Special Experiment: retrain_on_each_dataset')
-        # figure out save model location 
-        # overwrite model creation but not for first run on new seed
-
+        special_runs = [-1]
+        iterations_before_fine_tuning = len(exp_cfg.algorithms) - 1
+        if not exists(exp_cfg.study_override_cfg.trainer.models_path):
+            makedirs(exp_cfg.study_override_cfg.trainer.models_path)
     else:
         special_runs = [-1]
 
@@ -96,20 +108,28 @@ def run_experiment(exp_cfg_name: str):
         experiment_tracker = ugle.utils.create_experiment_tracker(exp_cfg)
         experiments_cpu = []
 
-        for experiment in experiment_tracker:
+        for exp_num, experiment in enumerate(experiment_tracker):
             log.debug(f'starting new experiment ... ...')
             log.debug(f'testing dataset: {experiment.dataset}')
             log.debug(f'testing algorithm: {experiment.algorithm}')
+            
+            if exp_cfg.study_override_cfg.trainer.retrain_on_each_dataset:
+                if exp_num > iterations_before_fine_tuning:
+                    exp_cfg.study_override_cfg.trainer.finetuning_new_dataset = True
+                    exp_cfg.study_override_cfg.trainer.only_testing = False
+                    exp_cfg.study_override_cfg.trainer.save_model = False
 
             try:
                 # run experiment
                 experiment_results = run_study(exp_cfg.study_override_cfg,
-                                            experiment.algorithm,
-                                            experiment.dataset,
-                                            exp_cfg.seeds)
+                                                experiment.algorithm,
+                                                experiment.dataset,
+                                                exp_cfg.seeds)
                 # save result in experiment tracker
                 experiment.results = experiment_results
                 ugle.utils.save_experiment_tracker(experiment_tracker, save_path)
+
+
 
             # if breaks then tests on cpu
             except Exception as e:
@@ -129,9 +149,9 @@ def run_experiment(exp_cfg_name: str):
 
                 # run experiment
                 experiment_results = run_study(exp_cfg.study_override_cfg,
-                                            experiment.algorithm,
-                                            experiment.dataset,
-                                            exp_cfg.seeds)
+                                                experiment.algorithm,
+                                                experiment.dataset,
+                                                exp_cfg.seeds)
                 # save result in experiment tracker
                 experiment.results = experiment_results
                 ugle.utils.save_experiment_tracker(experiment_tracker, save_path)

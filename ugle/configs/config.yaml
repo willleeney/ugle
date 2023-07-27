@@ -2,7 +2,6 @@ model: 'daegc'
 dataset: 'cora'
 special_training: 
   split_addition_percentage: False
-  retrain_on_each_dataset: False
 
 trainer:
   gpu: "0"
@@ -23,6 +22,12 @@ trainer:
   split_scheme: "drop_edges"
 
   split_addition_percentage: None
+
+  retrain_on_each_dataset: False
+  model_save_location: './models/'
+  model_resolution_metric: 'nmi'
+  finetuning_new_dataset: False 
+  save_model: False
 
   logger:
     log_wandb: False

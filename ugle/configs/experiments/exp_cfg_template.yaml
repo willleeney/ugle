@@ -19,3 +19,15 @@ study_override_cfg: # override default config args
     load_existing_test: False # whether to check for existing hyperparameters
     split_addition_percentage: None
     load_hps_path: './found_hps/'
+
+
+    retrain_on_each_dataset: False
+    models_path: './models/'
+    model_resolution_metric: 'f1'
+    finetuning_new_dataset: False 
+    save_model: False
+    args_cant_finetune: ['embedding_size', 'hidden_size', 'encoder_hidden',
+     'pred_hidden', 'layer1', 'layer2', 'num_hidden', 'num_layers', 'hid_units', 
+     'architecture', 'num_proj_hidden', 'base_model', 'batch_size', 'gnn_type',
+      'hidden_dim', 'rep_dim', 'proj_dim', 'hidden1', 'hidden2']
+

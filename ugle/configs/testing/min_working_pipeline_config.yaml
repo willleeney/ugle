@@ -13,4 +13,3 @@ study_override_cfg:
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     gpu: '1'
     n_trials_hyperopt: 1
-    n_valid_splits: 1

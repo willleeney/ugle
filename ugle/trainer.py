@@ -13,6 +13,7 @@ import threading
 import time
 from alive_progress import alive_it
 import copy
+import torch
 
 # https://stackoverflow.com/questions/9850995/tracking-maximum-memory-usage-by-a-python-function
 
@@ -224,13 +225,13 @@ class ugleTrainer:
                 study = optuna.create_study(study_name=f'{self.cfg.model}_{self.cfg.dataset}',
                                             directions=self.cfg.trainer.optimisation_directions,
                                             pruner=HyperbandPruner(min_resource=1,
-                                                                   max_resource=self.cfg.trainer.n_valid_splits),
+                                                                   max_resource=1),
                                             sampler=TPESampler(seed=self.cfg.args.random_seed))
             else:
                 study = optuna.create_study(study_name=f'{self.cfg.model}_{self.cfg.dataset}',
                                             direction=self.cfg.trainer.optimisation_directions[0],
                                             pruner=HyperbandPruner(min_resource=1,
-                                                                   max_resource=self.cfg.trainer.n_valid_splits),
+                                                                   max_resource=1),
                                             sampler=TPESampler(seed=self.cfg.args.random_seed))
             log.info(f"A new hyperparameter study created: {study.study_name}")
             study.optimize(lambda trial: self.train(trial, self.cfg.args,
@@ -239,7 +240,7 @@ class ugleTrainer:
                                                     processed_data,
                                                     validation_adjacency,
                                                     processed_valid_data),
-                           n_trials=self.cfg.trainer.n_trials_hyperopt)
+                                n_trials=self.cfg.trainer.n_trials_hyperopt)
 
             # assigns test parameters found in the study
             if not self.cfg.trainer.multi_objective_study:
@@ -302,6 +303,12 @@ class ugleTrainer:
                             log.info(f'{hp_key} : {hp_val}')
 
                     # assign hyperparameters for the metric optimised over
+                    if self.cfg.trainer.finetuning_new_dataset:
+                        args_to_overwrite = list(set(self.cfg.args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
+                        saved_args = torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")['args']
+                        for k in args_to_overwrite:
+                            best_hp_params[k] = saved_args[k]
+                        
                     self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
                 # do testing
@@ -326,6 +333,13 @@ class ugleTrainer:
                 # re init the args object for assign_test params
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
 
+                if self.cfg.trainer.save_model and self.cfg.trainer.model_resolution_metric in best_at_metrics:
+                    log.info('SAVING BEST VERSION OF MODEL')
+                    torch.save({"model": self.model.state_dict(),
+                                "args": best_hp_params},
+                               f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")
+
+
         return objective_results
 
     def train(self, trial: Trial, args: DictConfig, label: np.ndarray, features: np.ndarray, processed_data: tuple,
@@ -333,6 +347,11 @@ class ugleTrainer:
         # configuration of args if hyperparameter optimisation phase
         if trial is not None:
             log.info(f'Launching Trial {trial.number}')
+            if self.cfg.trainer.finetuning_new_dataset:
+                args_to_overwrite = list(set(args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
+                saved_args = torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")['args']
+                for k in args_to_overwrite:
+                    args[k] = saved_args[k]
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, args)
 
         # start timer
@@ -342,11 +361,16 @@ class ugleTrainer:
         # process model creation
         self.training_preprocessing(self.cfg.args, processed_data)
 
+        if self.cfg.trainer.finetuning_new_dataset:
+            log.info('LOADING PRETRAINED MODEL')
+            self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")['model'])
+            self.model.to(self.device)
+
         # run actual training of model
         self.training_loop(processed_data)
 
+
         if self.cfg.trainer.calc_time:
-            time_elapsed = (time.perf_counter() - time_start)
             log.info(f"TIME taken in secs: {time_elapsed:5.2f}")
 
         # validation pass

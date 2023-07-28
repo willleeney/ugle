@@ -409,11 +409,18 @@ def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type
 def split_adj(adj, percent, split_scheme):
     if split_scheme == 'drop_edges':
         # drops edges from dataset to form new adj 
-        train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=False)
-
+        if percent != 1.:
+            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=False)
+        else:
+            train_adjacency = copy.deepcopy(adj)
+            validation_adjacency = copy.deepcopy(adj)
     elif split_scheme == 'split_edges':
         # splits the adj via the edges so that no edges in both 
-        train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=True)
+        if percent != 1.:
+            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=True)
+        else:
+            train_adjacency = copy.deepcopy(adj)
+            validation_adjacency = copy.deepcopy(adj)
 
     elif split_scheme == 'all_edges':
         # makes the adj fully connected 

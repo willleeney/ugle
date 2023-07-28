@@ -22,7 +22,7 @@ trainer:
   train_to_valid_split: 0.8
   split_scheme: "drop_edges"
 
-  split_addition_percentage: None
+  split_addition_percentage: False
 
   retrain_on_each_dataset: False
   model_save_location: './models/'

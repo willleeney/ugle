@@ -6,14 +6,17 @@ from ugle.logger import log
 from omegaconf import OmegaConf, DictConfig, ListConfig
 import numpy as np
 import optuna
-from optuna import Trial
+from optuna import Trial, Study
 from optuna.samplers import TPESampler
 from optuna.pruners import HyperbandPruner
+from optuna.trial import TrialState
 import threading
 import time
 from alive_progress import alive_it
 import copy
 import torch
+from typing import Dict, List, Optional, Tuple
+from collections import defaultdict
 
 # https://stackoverflow.com/questions/9850995/tracking-maximum-memory-usage-by-a-python-function
 
@@ -91,6 +94,144 @@ class MyLibrarySniffingClass(StoppableThread):
         # Kill the thread when complete
         self.stop()
 
+
+class StopWhenMaxTrialsHit:
+    def __init__(self, max_n_trials: int, max_n_pruned: int):
+        self.max_n_trials = max_n_trials
+        self.max_pruned = max_n_pruned
+        self.completed_trials = 0
+        self.pruned_in_a_row = 0
+
+    def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
+        if trial.state == optuna.trial.TrialState.COMPLETE:
+            self.completed_trials += 1
+            self.pruned_in_a_row = 0
+        elif trial.state == optuna.trial.TrialState.PRUNED:
+            self.pruned_in_a_row += 1
+
+        if self.completed_trials >= self.max_n_trials:
+            print('Stopping Study for Reaching Max Number of Trials')
+            study.stop()
+
+        if self.pruned_in_a_row >= self.max_pruned:
+            print('Stopping Study for Reaching Max Number of Pruned Trials in a Row')
+            study.stop()
+
+
+class ParamRepeatPruner:
+    """Prunes repeated trials, which means trials with the same parameters won't waste time/resources."""
+
+    def __init__(
+        self,
+        study: optuna.study.Study,
+        repeats_max: int = 0,
+        should_compare_states: List[TrialState] = [TrialState.COMPLETE],
+        compare_unfinished: bool = True,
+    ):
+        """
+        Args:
+            study (optuna.study.Study): Study of the trials.
+            repeats_max (int, optional): Instead of prunning all of them (not repeating trials at all, repeats_max=0) you can choose to repeat them up to a certain number of times, useful if your optimization function is not deterministic and gives slightly different results for the same params. Defaults to 0.
+            should_compare_states (List[TrialState], optional): By default it only skips the trial if the paremeters are equal to existing COMPLETE trials, so it repeats possible existing FAILed and PRUNED trials. If you also want to skip these trials then use [TrialState.COMPLETE,TrialState.FAIL,TrialState.PRUNED] for example. Defaults to [TrialState.COMPLETE].
+            compare_unfinished (bool, optional): Unfinished trials (e.g. `RUNNING`) are treated like COMPLETE ones, if you don't want this behavior change this to False. Defaults to True.
+        """
+        self.should_compare_states = should_compare_states
+        self.repeats_max = repeats_max
+        self.repeats: Dict[int, List[int]] = defaultdict(lambda: [], {})
+        self.unfinished_repeats: Dict[int, List[int]] = defaultdict(lambda: [], {})
+        self.compare_unfinished = compare_unfinished
+        self.study = study
+
+    @property
+    def study(self) -> Optional[optuna.study.Study]:
+        return self._study
+
+    @study.setter
+    def study(self, study):
+        self._study = study
+        if self.study is not None:
+            self.register_existing_trials()
+
+    def register_existing_trials(self):
+        """In case of studies with existing trials, it counts existing repeats"""
+        trials = self.study.trials
+        trial_n = len(trials)
+        for trial_idx, trial_past in enumerate(self.study.trials[1:]):
+            self.check_params(trial_past, False, -trial_n + trial_idx)
+
+    def prune(self):
+        self.check_params()
+
+    def should_compare(self, state):
+        return any(state == state_comp for state_comp in self.should_compare_states)
+
+    def clean_unfinised_trials(self):
+        trials = self.study.trials
+        finished = []
+        for key, value in self.unfinished_repeats.items():
+            if self.should_compare(trials[key].state):
+                for t in value:
+                    self.repeats[key].append(t)
+                finished.append(key)
+
+        for f in finished:
+            del self.unfinished_repeats[f]
+
+    def check_params(
+        self,
+        trial: Optional[optuna.trial.BaseTrial] = None,
+        prune_existing=True,
+        ignore_last_trial: Optional[int] = None,
+    ):
+        if self.study is None:
+            return
+        trials = self.study.trials
+        if trial is None:
+            trial = trials[-1]
+            ignore_last_trial = -1
+
+        self.clean_unfinised_trials()
+
+        self.repeated_idx = -1
+        self.repeated_number = -1
+        for idx_p, trial_past in enumerate(trials[:ignore_last_trial]):
+            should_compare = self.should_compare(trial_past.state)
+            should_compare |= (
+                self.compare_unfinished and not trial_past.state.is_finished()
+            )
+            if should_compare and trial.params == trial_past.params:
+                if not trial_past.state.is_finished():
+                    self.unfinished_repeats[trial_past.number].append(trial.number)
+                    continue
+                self.repeated_idx = idx_p
+                self.repeated_number = trial_past.number
+                break
+
+        if self.repeated_number > -1:
+            self.repeats[self.repeated_number].append(trial.number)
+        if len(self.repeats[self.repeated_number]) > self.repeats_max:
+            if prune_existing:
+                print('Pruning Trial for Suggesting Duplicate Parameters')
+                raise optuna.exceptions.TrialPruned()
+
+        return self.repeated_number
+
+    def get_value_of_repeats(
+        self, repeated_number: int, func=lambda value_list: np.mean(value_list)
+    ):
+        if self.study is None:
+            raise ValueError("No study registered.")
+        trials = self.study.trials
+        values = (
+            trials[repeated_number].value,
+            *(
+                trials[tn].value
+                for tn in self.repeats[repeated_number]
+                if trials[tn].value is not None
+            ),
+        )
+        return func(values)
+    
 
 def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_objective_study: bool):
     """
@@ -234,13 +375,18 @@ class ugleTrainer:
                                                                    max_resource=1),
                                             sampler=TPESampler(seed=self.cfg.args.random_seed))
             log.info(f"A new hyperparameter study created: {study.study_name}")
+
+            study_stop_cb = StopWhenMaxTrialsHit(self.cfg.trainer.n_trials_hyperopt, self.cfg.trainer.max_n_pruned)
+            prune_params = ParamRepeatPruner(study)
             study.optimize(lambda trial: self.train(trial, self.cfg.args,
                                                     label,
                                                     features,
                                                     processed_data,
                                                     validation_adjacency,
-                                                    processed_valid_data),
-                                n_trials=self.cfg.trainer.n_trials_hyperopt)
+                                                    processed_valid_data,
+                                                    prune_params=prune_params),
+                                n_trials=2*self.cfg.trainer.n_trials_hyperopt,
+                                callbacks=[study_stop_cb])
 
             # assigns test parameters found in the study
             if not self.cfg.trainer.multi_objective_study:
@@ -343,7 +489,7 @@ class ugleTrainer:
         return objective_results
 
     def train(self, trial: Trial, args: DictConfig, label: np.ndarray, features: np.ndarray, processed_data: tuple,
-              validation_adjacency: np.ndarray, processed_valid_data: tuple):
+              validation_adjacency: np.ndarray, processed_valid_data: tuple, prune_params=None):
         # configuration of args if hyperparameter optimisation phase
         if trial is not None:
             log.info(f'Launching Trial {trial.number}')
@@ -352,7 +498,7 @@ class ugleTrainer:
                 saved_args = torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")['args']
                 for k in args_to_overwrite:
                     args[k] = saved_args[k]
-            self.cfg.args = ugle.utils.sample_hyperparameters(trial, args)
+            self.cfg.args = ugle.utils.sample_hyperparameters(trial, args, prune_params)
 
         # start timer
         if self.cfg.trainer.calc_time:

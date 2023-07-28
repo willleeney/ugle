@@ -16,6 +16,7 @@ trainer:
   test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
   valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
   n_trials_hyperopt: 1
+  max_n_pruned: 20
 
   training_to_testing_split: 0.8
   train_to_valid_split: 0.8
@@ -36,9 +37,6 @@ trainer:
     log_cmd: 50
 
 args:
-  pre_train_umap_features: False
-  post_train_umap_features: False
-  umap_hyperparameter_investigation: False
   n_clusters: null
   random_seed: 42
   kmeans_init: 30

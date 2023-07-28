@@ -25,3 +25,5 @@ temp.py
 found_hps/*
 exp_train_again/*
 models/*
+revamp_train_percent_dropedg/*
+synth_defaults/*

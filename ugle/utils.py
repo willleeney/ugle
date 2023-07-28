@@ -109,6 +109,7 @@ def set_random(random_seed: int):
     random.seed(random_seed)
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
+    torch.cuda.manual_seed_all(random_seed)
     return
 
 
@@ -123,7 +124,7 @@ def set_device(gpu: int):
     return device
 
 
-def sample_hyperparameters(trial: optuna.trial.Trial, args: DictConfig) -> DictConfig:
+def sample_hyperparameters(trial: optuna.trial.Trial, args: DictConfig, prune_params=None) -> DictConfig:
     """
     iterates through the args configuration, if an item is a list then suggests a value based on
     the optuna trial instance
@@ -131,17 +132,23 @@ def sample_hyperparameters(trial: optuna.trial.Trial, args: DictConfig) -> DictC
     :param args: config dictionary where list
     :return: new config with values replaced where list is given
     """
-
+    vars_to_set = []
+    vals_to_set = []
     for k, v in args.items_ex(resolve=False):
         if not OmegaConf.is_list(v):
             continue
         else:
             trial_sample = trial.suggest_categorical(k, OmegaConf.to_object(v))
             setattr(args, k, trial_sample)
-            log.info(f"args.{k}={trial_sample}")
+            vars_to_set.append(k)
+            vals_to_set.append(trial_sample)
+
+    if prune_params:
+        repeated = prune_params.check_params()
+    for var, val in zip(vars_to_set, vals_to_set):
+        log.info(f"args.{var}={val}")
 
     return args
-
 
 def assign_test_params(config: DictConfig, best_params: dict) -> DictConfig:
     """

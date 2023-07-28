@@ -641,15 +641,15 @@ def calculate_ranking_coefficient_over_dataset(result_object, algorithms, datase
 
 
 def create_synth_figure():
-    synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
+    synth_datasets_2 = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
                     'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
                     'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
     
-    synth_datasets_2 = ['synth_disjoint_disjoint_4', 'synth_disjoint_random_4', 'synth_disjoint_complete_4',
+    synth_datasets = ['synth_disjoint_disjoint_4', 'synth_disjoint_random_4', 'synth_disjoint_complete_4',
                     'synth_random_disjoint_4', 'synth_random_random_4', 'synth_random_complete_4',
                     'synth_complete_disjoint_4', 'synth_complete_random_4', 'synth_complete_complete_4']
-    synth_algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
-    synth_folder = './synth_results/'
+    synth_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+    synth_folder = './synth_defaults/'
     metrics = ['nmi', 'modularity', 'f1', 'conductance']
     seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
     # fetch results
@@ -657,7 +657,7 @@ def create_synth_figure():
 
     # create graph subfigures 
     nrows, ncols = 3, 3
-    fig, axes = plt.subplots(nrows, ncols, figsize=(8, 8))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(9, 9))
     for i, ax in enumerate(axes.flat):
         coeff = calculate_ranking_coefficient_over_dataset(result_object, synth_algorithms, i, metrics)
 
@@ -688,7 +688,7 @@ def create_synth_figure():
 
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig('synth_4_default.png', bbox_inches='tight')
     print('done')
 
 
@@ -741,3 +741,4 @@ def create_trainpercent_figure():
 
 
 #create_trainpercent_figure()
+create_synth_figure()

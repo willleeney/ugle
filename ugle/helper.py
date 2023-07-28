@@ -741,4 +741,4 @@ def create_trainpercent_figure():
 
 
 #create_trainpercent_figure()
-create_synth_figure()
+#create_synth_figure()

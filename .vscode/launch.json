@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
     
     
         {
@@ -51,6 +52,15 @@
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/experiments/exp_train_again.yaml"]
+        },
+        {
+            "name": "Python: exp_unsuper_predict",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/experiments/exp_unsuper_predict.yaml"]
         }
     ]
 }

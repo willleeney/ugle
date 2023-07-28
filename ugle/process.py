@@ -44,6 +44,8 @@ def conductance(adjacency: np.ndarray, preds: np.ndarray) -> float:
     """
     computes conductance
     """
+    if len(np.unique(preds)) == 1:
+        return 1.
     inter = 0
     intra = 0
     cluster_idx = np.zeros(adjacency.shape[0], dtype=bool)

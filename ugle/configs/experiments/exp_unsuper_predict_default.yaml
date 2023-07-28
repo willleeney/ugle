@@ -8,8 +8,9 @@ special_training:
 
 study_override_cfg:
   trainer:
-    n_trials_hyperopt: 250
+    n_trials_hyperopt: 1
     results_path: './unsuper_predict_default/'
+    only_testing: True
 
     show_config: False
     load_existing_test: False

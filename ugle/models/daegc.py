@@ -101,7 +101,7 @@ class daegc_trainer(ugleTrainer):
 
 
     def training_epoch_iter(self, args, processed_data):
-        if len(processed_data) == 5:
+        if len(processed_data) == 4:
             features, adj, adj_label, M = processed_data
         else:
             features, adj, adj_label, M, Q = processed_data

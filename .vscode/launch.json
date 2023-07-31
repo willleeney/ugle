@@ -10,6 +10,7 @@
 
 
 
+
     
     
         {
@@ -73,7 +74,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/exp_unsuper_predict_0.yaml"]
+            "args" : ["-ec", "ugle/configs/experiments/exp_unsuper_predict_default_0.yaml"]
         }
     ]
 }

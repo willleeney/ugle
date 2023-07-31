@@ -611,12 +611,9 @@ class ugleTrainer:
         log.error('NO TRAINING ITERATION LOOP')
         pass
 
+
     def move_to_cpudevice(self, data):
-        for databit in data:
-            databit = databit.to(torch.device("cpu"))
-        return
+        return tuple(databite.to(torch.device("cpu"), non_blocking=True) for databite in data)
 
     def move_to_activedevice(self, data):
-        for databit in data:
-            databit = databit.to(self.device)
-        return 
+        return tuple(databite.to(self.device, non_blocking=True) for databite in data)

@@ -397,14 +397,16 @@ class ugleTrainer:
                         log.info(f'{hp_key} : {hp_val}')
                 self.cfg = utils.assign_test_params(self.cfg, params_to_assign)
 
+        processed_test_data = self.preprocess_data(features, test_adjacency)
+
         # retrains the model on the validation adj and evaluates test performance
         if not self.cfg.trainer.multi_objective_study:
             self.cfg.trainer.calc_time = False
-            log.debug('Retraining model on full training data')
+            log.debug('Retraining model')
             self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency, processed_valid_data)
-            processed_test_data = self.preprocess_data(features, test_adjacency)
             results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                         self.cfg.trainer.test_metrics)
+
             # log test results
             right_order_results = [results[k] for k in self.cfg.trainer.valid_metrics]
             to_log_trial_values = ''.join(f'| {metric}: {right_order_results[i]} |' for i, metric in
@@ -459,13 +461,12 @@ class ugleTrainer:
 
                 # do testing
                 self.cfg.trainer.calc_time = False
-                log.debug('Retraining model on full training data')
+                log.debug('Retraining model')
                 self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
-                processed_test_data = self.preprocess_data(features, test_adjacency)
                 results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                             self.cfg.trainer.test_metrics)
-
+                
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                 to_log_trial_values = ''.join(f'| {metric}: {right_order_results[i]} |' for i, metric in
@@ -500,10 +501,8 @@ class ugleTrainer:
                     args[k] = saved_args[k]
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, args, prune_params)
 
-        # start timer
-        if self.cfg.trainer.calc_time:
-            time_start = time.perf_counter()
-
+        self.move_to_activedevice(processed_data)
+  
         # process model creation
         self.training_preprocessing(self.cfg.args, processed_data)
 
@@ -514,10 +513,7 @@ class ugleTrainer:
 
         # run actual training of model
         self.training_loop(processed_data)
-
-
-        if self.cfg.trainer.calc_time:
-            log.info(f"TIME taken in secs: {time_elapsed:5.2f}")
+        self.move_to_cpudevice(processed_data)
 
         # validation pass
         results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
@@ -582,7 +578,9 @@ class ugleTrainer:
         evaluate those predictions
         """
         self.model.eval()
+        self.move_to_activedevice(processed_data)
         preds = self.test(processed_data)
+        self.move_to_cpudevice(processed_data)
         results, eval_preds = ugle.process.preds_eval(label,
                                                       preds,
                                                       sf=4,
@@ -612,3 +610,13 @@ class ugleTrainer:
         """
         log.error('NO TRAINING ITERATION LOOP')
         pass
+
+    def move_to_cpudevice(self, data):
+        for databit in data:
+            databit = databit.to(torch.device("cpu"))
+        return
+
+    def move_to_activedevice(self, data):
+        for databit in data:
+            databit = databit.to(self.device)
+        return 

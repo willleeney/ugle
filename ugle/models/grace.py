@@ -123,9 +123,9 @@ class grace_trainer(ugleTrainer):
         outwards = [i[0] for i in adj_label.keys()]
         inwards = [i[1] for i in adj_label.keys()]
 
-        adj = torch.from_numpy(np.array([outwards, inwards], dtype=np.int)).to(self.device)
+        adj = torch.from_numpy(np.array([outwards, inwards], dtype=np.int))
 
-        data = torch.FloatTensor(features).to(self.device)
+        data = torch.FloatTensor(features)
 
         return data, adj
 

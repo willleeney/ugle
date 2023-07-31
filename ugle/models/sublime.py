@@ -294,11 +294,11 @@ class sublime_trainer(ugleTrainer):
 
     def preprocess_data(self, features, adjacency):
 
-        anchor_adj_raw = torch.from_numpy(adjacency).to(self.device)
+        anchor_adj_raw = torch.from_numpy(adjacency)
 
         anchor_adj = normalize(anchor_adj_raw, 'sym')
 
-        features = torch.FloatTensor(features).to(self.device)
+        features = torch.FloatTensor(features)
         anchor_adj = anchor_adj.float()
 
         return features, anchor_adj

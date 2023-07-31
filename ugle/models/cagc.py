@@ -203,9 +203,9 @@ class cagc_trainer(ugleTrainer):
         outwards = [i[0] for i in adj_label.keys()]
         inwards = [i[1] for i in adj_label.keys()]
 
-        adj = torch.from_numpy(np.array([outwards, inwards], dtype=np.int)).to(self.device)
+        adj = torch.from_numpy(np.array([outwards, inwards], dtype=np.int))
 
-        data = torch.FloatTensor(features).to(self.device)
+        data = torch.FloatTensor(features)
 
         self.cfg.args.alpha = max(0.4 - (self.cfg.args.n_clusters - 1) / 10 * 0.1, 0.1)
         self.cfg.hypersaved_args.alpha = self.cfg.args.alpha

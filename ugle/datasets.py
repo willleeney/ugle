@@ -246,7 +246,10 @@ def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bo
 
     for i in drop_idx:
         aug_adj[index_list[i][0]][index_list[i][1]] = 0
+        aug_adj[index_list[i][1]][index_list[i][0]] = 0
+
         else_adj[index_list[i][0]][index_list[i][1]] = 1
+        else_adj[index_list[i][1]][index_list[i][0]] = 1
 
     aug_adj = np.array(aug_adj)
     if split_adj: 
@@ -412,14 +415,14 @@ def split_adj(adj, percent, split_scheme):
         if percent != 1.:
             train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=False)
         else:
-            train_adjacency = copy.deepcopy(adj)
+            train_adjacency = adj
             validation_adjacency = copy.deepcopy(adj)
     elif split_scheme == 'split_edges':
         # splits the adj via the edges so that no edges in both 
         if percent != 1.:
             train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=True)
         else:
-            train_adjacency = copy.deepcopy(adj)
+            train_adjacency = adj
             validation_adjacency = copy.deepcopy(adj)
 
     elif split_scheme == 'all_edges':

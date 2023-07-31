@@ -7,6 +7,8 @@
 
 
 
+
+
     
     
         {
@@ -62,6 +64,15 @@
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/experiments/exp_unsuper_predict_default.yaml"]
+        },
+        {
+            "name": "Python: DMON CORNELL BREAKING",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/main.py",
+            "args" : ["--model", "dmon_default", "--dataset", "cornell"]
         }
     ]
 }

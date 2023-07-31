@@ -193,10 +193,10 @@ class selfgnn_trainer(ugleTrainer):
         augmentation = ugle.datasets.Augmentations(method=self.cfg.args.aug)
         features, adjacency, aug_features, aug_adjacency = augmentation(features, adjacency)
 
-        features = torch.FloatTensor(features).to(self.device)
-        adjacency = torch.LongTensor(adjacency).to(self.device)
-        aug_features = torch.FloatTensor(aug_features).to(self.device)
-        aug_adjacency = torch.LongTensor(aug_adjacency).to(self.device)
+        features = torch.FloatTensor(features)
+        adjacency = torch.LongTensor(adjacency)
+        aug_features = torch.FloatTensor(aug_features)
+        aug_adjacency = torch.LongTensor(aug_adjacency)
 
         diff = abs(aug_features.shape[1] - features.shape[1])
         if diff > 0:

@@ -43,11 +43,11 @@ class dgi_trainer(ugleTrainer):
     def preprocess_data(self, features, adjacency):
         adjacency = adjacency + sp.eye(adjacency.shape[0])
         adjacency = ugle.process.normalize_adj(adjacency)
-        adj = ugle.process.sparse_mx_to_torch_sparse_tensor(adjacency).to(self.device)
+        adj = ugle.process.sparse_mx_to_torch_sparse_tensor(adjacency)
         features = ugle.process.preprocess_features(features)
-        features = torch.FloatTensor(features[np.newaxis]).to(self.device)
+        features = torch.FloatTensor(features[np.newaxis])
 
-        return adjacency, adj, features
+        return adj, features
 
     def training_preprocessing(self, args, processed_data):
         self.model = DGI(args.n_features, args.hid_units, args.nonlinearity).to(self.device)
@@ -58,7 +58,7 @@ class dgi_trainer(ugleTrainer):
         return
 
     def training_epoch_iter(self, args, processed_data):
-        adjacency, adj, features = processed_data
+        adj, features = processed_data
         idx = np.random.permutation(args.n_nodes)
         shuf_fts = features[:, idx, :]
         lbl_1 = torch.ones(args.batch_size, args.n_nodes)
@@ -72,7 +72,7 @@ class dgi_trainer(ugleTrainer):
         return loss, None
 
     def test(self, processed_data):
-        adjacency, adj, features = processed_data
+        adj, features = processed_data
         with torch.no_grad():
             embeds, _ = self.model.embed(features, adj, None)
             embeds = embeds.cpu().squeeze(0).numpy()

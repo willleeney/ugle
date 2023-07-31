@@ -7,6 +7,7 @@ from sklearn.cluster import KMeans
 import math
 from ugle.trainer import ugleTrainer
 import numpy as np
+from copy import deepcopy
 
 class GraphConvolution(nn.Module):
     """
@@ -110,7 +111,7 @@ class vgaer_trainer(ugleTrainer):
     def preprocess_data(self, features, adjacency):
         A = torch.FloatTensor(adjacency)
         A[A != 0] = 1
-        A_orig_ten = A.to(self.device)
+        A_orig_ten = deepcopy(A)
 
         # compute B matrix
         K = 1 / (A.sum().item()) * (A.sum(dim=1).reshape(A.shape[0], 1) @ A.sum(dim=1).reshape(1, A.shape[0]))
@@ -121,11 +122,10 @@ class vgaer_trainer(ugleTrainer):
         D = torch.diag(torch.pow(A.sum(dim=1), -0.5))  # D = D^-1/2
         A_hat = D @ A @ D
 
-        A = A.to(self.device)
         weight_tensor, norm = compute_loss_para(A)
-        weight_tensor = weight_tensor.to(self.device)
-        A_hat = A_hat.to(self.device)
-        feats = feats.to(self.device)
+        weight_tensor = weight_tensor
+        A_hat = A_hat
+        feats = feats
 
         return A_orig_ten, A_hat, feats, weight_tensor, norm
 

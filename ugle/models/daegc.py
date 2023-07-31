@@ -59,15 +59,15 @@ class daegc_trainer(ugleTrainer):
         adjacency = adjacency + sp.eye(adjacency.shape[0])
         adj_label = adjacency.copy()
         adjacency = ugle.process.normalize_adj(adjacency)
-        M = get_M(adjacency).to(self.device)
-        adj = torch.FloatTensor(adjacency.todense()).to(self.device)
-        adj_label = torch.FloatTensor(adj_label).to(self.device)
-        features = torch.FloatTensor(features).to(self.device)
+        M = get_M(adjacency)
+        adj = torch.FloatTensor(adjacency.todense())
+        adj_label = torch.FloatTensor(adj_label)
+        features = torch.FloatTensor(features)
         features[features != 0.] = 1.
-        return features, adjacency, adj, adj_label, M
+        return features, adj, adj_label, M
 
     def training_preprocessing(self, args, processed_data):
-        features, adjacency, adj, adj_label, M = processed_data
+        features, adj, adj_label, M = processed_data
 
         log.debug('creating model')
         self.model = DAEGC(num_features=args.n_features, hidden_size=args.hidden_size,
@@ -102,9 +102,9 @@ class daegc_trainer(ugleTrainer):
 
     def training_epoch_iter(self, args, processed_data):
         if len(processed_data) == 5:
-            features, adjacency, adj, adj_label, M = processed_data
+            features, adj, adj_label, M = processed_data
         else:
-            features, adjacency, adj, adj_label, M, Q = processed_data
+            features, adj, adj_label, M, Q = processed_data
 
 
         if self.current_epoch % args.update_interval == 0:
@@ -120,14 +120,14 @@ class daegc_trainer(ugleTrainer):
 
         loss = (args.kl_loss_const * kl_loss) + re_loss
 
-        processed_data = (features, adjacency, adj, adj_label, M, Q)
+        processed_data = (features, adj, adj_label, M, Q)
 
         return loss, processed_data
 
     def test(self, processed_data):
 
         with torch.no_grad():
-            features, adjacency, adj, adj_label, M = processed_data
+            features, adj, adj_label, M = processed_data
             _, z, Q = self.model(features, adj, M)
             preds = Q.detach().data.cpu().numpy().argmax(1)
 

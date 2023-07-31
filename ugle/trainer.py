@@ -297,7 +297,7 @@ class ugleTrainer:
     def __init__(self, cfg: DictConfig):
         super(ugleTrainer, self).__init__()
 
-        self.device = ugle.utils.set_device(cfg.trainer.gpu)
+        self.device = torch.device(ugle.utils.set_device(cfg.trainer.gpu))
 
         utils.set_random(cfg.args.random_seed)
         if cfg.trainer.show_config:
@@ -501,7 +501,7 @@ class ugleTrainer:
                     args[k] = saved_args[k]
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, args, prune_params)
 
-        self.move_to_activedevice(processed_data)
+        processed_data = self.move_to_activedevice(processed_data)
   
         # process model creation
         self.training_preprocessing(self.cfg.args, processed_data)
@@ -513,7 +513,7 @@ class ugleTrainer:
 
         # run actual training of model
         self.training_loop(processed_data)
-        self.move_to_cpudevice(processed_data)
+        processed_data = self.move_to_cpudevice(processed_data)
 
         # validation pass
         results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
@@ -578,9 +578,9 @@ class ugleTrainer:
         evaluate those predictions
         """
         self.model.eval()
-        self.move_to_activedevice(processed_data)
+        processed_data = self.move_to_activedevice(processed_data)
         preds = self.test(processed_data)
-        self.move_to_cpudevice(processed_data)
+        processed_data = self.move_to_cpudevice(processed_data)
         results, eval_preds = ugle.process.preds_eval(label,
                                                       preds,
                                                       sf=4,
@@ -611,9 +611,10 @@ class ugleTrainer:
         log.error('NO TRAINING ITERATION LOOP')
         pass
 
-
     def move_to_cpudevice(self, data):
         return tuple(databite.to(torch.device("cpu"), non_blocking=True) for databite in data)
 
     def move_to_activedevice(self, data):
         return tuple(databite.to(self.device, non_blocking=True) for databite in data)
+
+

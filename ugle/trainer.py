@@ -110,11 +110,11 @@ class StopWhenMaxTrialsHit:
             self.pruned_in_a_row += 1
 
         if self.completed_trials >= self.max_n_trials:
-            print('Stopping Study for Reaching Max Number of Trials')
+            log.info('Stopping Study for Reaching Max Number of Trials')
             study.stop()
 
         if self.pruned_in_a_row >= self.max_pruned:
-            print('Stopping Study for Reaching Max Number of Pruned Trials in a Row')
+            log.info('Stopping Study for Reaching Max Number of Pruned Trials in a Row')
             study.stop()
 
 
@@ -211,7 +211,7 @@ class ParamRepeatPruner:
             self.repeats[self.repeated_number].append(trial.number)
         if len(self.repeats[self.repeated_number]) > self.repeats_max:
             if prune_existing:
-                print('Pruning Trial for Suggesting Duplicate Parameters')
+                log.info('Pruning Trial for Suggesting Duplicate Parameters')
                 raise optuna.exceptions.TrialPruned()
 
         return self.repeated_number

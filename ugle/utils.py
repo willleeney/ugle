@@ -264,22 +264,21 @@ def display_evaluation_results(experiment_tracker: list):
     :param experiment_tracker: list of results from experiment
     """
     for experiment in experiment_tracker:
-        log.info(f'dataset: {experiment.dataset}')
         try: 
-            display_latex_results(experiment.algorithm, experiment.results)
-        except: 
-            log.info(f'No Result -- {experiment.algorithm}')
+            display_latex_results(experiment.algorithm, experiment.results, experiment.dataset)
+        except:
+            pass
 
     return
 
 
-def display_latex_results(method: str, exp_result: dict):
+def display_latex_results(method: str, exp_result: dict, dataset):
     """
     prints out latex results of experiment
     :param method: method string
     :param exp_result: dictionary of results
     """
-    display_str = f'{method}'
+    display_str = f'{method} {dataset}'
 
     if not is_neural(method):
         n_clusters = int(exp_result['n_clusters_mean'])

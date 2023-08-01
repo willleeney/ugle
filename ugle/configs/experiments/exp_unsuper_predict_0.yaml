@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['citeseer', 'cora', 'texas', 'wisc', 'cornell']
-algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+datasets: ['citeseer', 'cora', 'texas', 'wisc', 'cornell', 'dblp', 'amac']
+algorithms: ['vgaer']
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False

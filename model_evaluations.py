@@ -55,8 +55,8 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
     save_path = f"{study_cfg.trainer.results_path}{dataset}_{algorithm}"
     pickle.dump(study_results, open(f"{save_path}.pkl", "wb"))
 
+    # after all results have been collected, get best result seed, retrain and save
     if study_cfg.trainer.retrain_on_each_dataset:
-        # after all results have been collected, get best result seed, retrain and save
         args, best_seed = ugle.utils.get_best_args(study_results.results, study_cfg.trainer.model_resolution_metric)
         study_cfg.args = args
         study_cfg.args.random_seed = best_seed
@@ -163,8 +163,6 @@ def run_experiment(exp_cfg_name: str):
         
         ugle.utils.display_evaluation_results(experiment_tracker)
         
-
-
     return
 
 

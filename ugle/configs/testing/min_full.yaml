@@ -1,6 +1,6 @@
 seeds: [42, 24]
 datasets: ['cora']
-algorithms: ['vgaer_default']
+algorithms: ['daegc']
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False
@@ -8,9 +8,9 @@ special_training:
 
 study_override_cfg:
   trainer:
-    n_trials_hyperopt: 1
-    results_path: './unsuper_predict_default/'
-    only_testing: True
+    n_trials_hyperopt: 8
+    results_path: './results/'
+    only_testing: False
 
     show_config: False
     load_existing_test: False
@@ -22,3 +22,9 @@ study_override_cfg:
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0
     training_to_testing_split: 1.0
+
+  args:
+    max_epoch: 100
+    patience: 25
+    learning_rate: 0.05
+    weight_decay: 0.

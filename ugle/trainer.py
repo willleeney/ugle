@@ -612,9 +612,9 @@ class ugleTrainer:
         pass
 
     def move_to_cpudevice(self, data):
-        return tuple(databite.to(torch.device("cpu"), non_blocking=True) for databite in data)
+        return tuple(databite.to(torch.device("cpu"), non_blocking=True) if torch.is_tensor(databite) else databite for databite in data)
 
     def move_to_activedevice(self, data):
-        return tuple(databite.to(self.device, non_blocking=True) for databite in data)
+        return tuple(databite.to(self.device, non_blocking=True)  if torch.is_tensor(databite) else databite for databite in data)
 
 

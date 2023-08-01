@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
     
 
 
@@ -75,8 +76,8 @@
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/exp_unsuper_predict_default_0.yaml"]
+            "program": "${workspaceFolder}/main.py",
+            "args" : ["--model", "vgaer", "--dataset", "cora"]
         }
     ]
 }

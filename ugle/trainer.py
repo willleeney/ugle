@@ -365,14 +365,10 @@ class ugleTrainer:
             if self.cfg.trainer.multi_objective_study:
                 study = optuna.create_study(study_name=f'{self.cfg.model}_{self.cfg.dataset}',
                                             directions=self.cfg.trainer.optimisation_directions,
-                                            pruner=HyperbandPruner(min_resource=1,
-                                                                   max_resource=1),
-                                            sampler=TPESampler(seed=self.cfg.args.random_seed))
+                                            sampler=TPESampler(seed=self.cfg.args.random_seed, multivariate=True, group=True))
             else:
                 study = optuna.create_study(study_name=f'{self.cfg.model}_{self.cfg.dataset}',
                                             direction=self.cfg.trainer.optimisation_directions[0],
-                                            pruner=HyperbandPruner(min_resource=1,
-                                                                   max_resource=1),
                                             sampler=TPESampler(seed=self.cfg.args.random_seed))
             log.info(f"A new hyperparameter study created: {study.study_name}")
 

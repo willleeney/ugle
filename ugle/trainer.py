@@ -19,6 +19,8 @@ from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 import optuna
 import warnings
+from os.path import exists
+from os import makedirs
 
 from optuna.exceptions import ExperimentalWarning
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
@@ -312,6 +314,8 @@ class ugleTrainer:
         cfg = ugle.utils.process_study_cfg_parameters(cfg)
 
         self.cfg = cfg
+        if not exists(cfg.trainer.results_path):
+            makedirs(cfg.trainer.results_path)
 
         self.progress_bar = None
         self.model = None
@@ -470,8 +474,6 @@ class ugleTrainer:
                            processed_valid_data)
                 results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                             self.cfg.trainer.test_metrics)
-                print('testing results')
-                print(results)
                 
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
@@ -547,8 +549,6 @@ class ugleTrainer:
                 processed_data = self.move_to_cpudevice(processed_data)
                 results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                     self.cfg.trainer.valid_metrics)
-                print('inter training, validation results')
-                print(results)
                 # put data back into training mode
                 processed_data = self.move_to_activedevice(processed_data)
                 # check better for each metric
@@ -602,8 +602,6 @@ class ugleTrainer:
             results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                         self.cfg.trainer.valid_metrics)
             return_results[metric] = results[metric]
-        print('final validation')
-        print(return_results)
         timings[1] += time.time() - start
         start = time.time()
 

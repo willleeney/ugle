@@ -314,8 +314,8 @@ class ugleTrainer:
         cfg = ugle.utils.process_study_cfg_parameters(cfg)
 
         self.cfg = cfg
-        if not exists(cfg.trainer.results_path):
-            makedirs(cfg.trainer.results_path)
+        if not exists(cfg.trainer.models_path):
+            makedirs(cfg.trainer.models_path)
 
         self.progress_bar = None
         self.model = None

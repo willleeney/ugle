@@ -31,3 +31,5 @@ study_override_cfg: # override default config args
      'architecture', 'num_proj_hidden', 'base_model', 'batch_size', 'gnn_type',
       'hidden_dim', 'rep_dim', 'proj_dim', 'hidden1', 'hidden2']
 
+    same_init_hpo: False
+

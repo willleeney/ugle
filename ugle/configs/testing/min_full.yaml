@@ -8,7 +8,7 @@ special_training:
 
 study_override_cfg:
   trainer:
-    n_trials_hyperopt: 8
+    n_trials_hyperopt: 3
     results_path: './results/'
     only_testing: False
 
@@ -23,8 +23,11 @@ study_override_cfg:
     train_to_valid_split: 1.0
     training_to_testing_split: 1.0
 
+    same_init_hpo: True
+
   args:
-    max_epoch: 100
+    max_epoch: 50
     patience: 25
     learning_rate: 0.05
     weight_decay: 0.
+  

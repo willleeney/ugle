@@ -81,15 +81,23 @@ def run_experiment(exp_cfg_name: str):
 
     # iterate
     if exp_cfg.special_training.split_addition_percentage:
-        log.info('Special Experiment: split_addition_percentage')
+        log.info('Special Experiment: Removes percentage from whole dataset')
         saved_cfg = deepcopy(exp_cfg)
         special_runs = deepcopy(exp_cfg.study_override_cfg.trainer.split_addition_percentage)
     elif exp_cfg.study_override_cfg.trainer.retrain_on_each_dataset: 
-        log.info('Special Experiment: retrain_on_each_dataset')
+        log.info('Special Experiment: Finetuning on each new dataset given')
         special_runs = [-1]
         iterations_before_fine_tuning = len(exp_cfg.algorithms) - 1
         if not exists(exp_cfg.study_override_cfg.trainer.models_path):
             makedirs(exp_cfg.study_override_cfg.trainer.models_path)
+
+    elif exp_cfg.study_override_cfg.trainer.same_init_hpo:
+        log.info('Special Experiment: Same initilisation of Parameters')
+        special_runs = [-1]
+        if not exists(exp_cfg.study_override_cfg.trainer.models_path):
+            makedirs(exp_cfg.study_override_cfg.trainer.models_path)
+
+
     else:
         special_runs = [-1]
 

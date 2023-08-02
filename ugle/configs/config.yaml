@@ -15,6 +15,7 @@ trainer:
 
   test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
   valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+  validate_every_nepochs: 5
   n_trials_hyperopt: 1
   max_n_pruned: 20
 
@@ -29,6 +30,7 @@ trainer:
   model_resolution_metric: 'nmi'
   finetuning_new_dataset: False 
   save_model: False
+  same_init_hpo: False
 
   logger:
     log_wandb: False

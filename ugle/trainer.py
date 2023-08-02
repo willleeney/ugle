@@ -2,7 +2,7 @@ import ugle
 import ugle.utils as utils
 import ugle.datasets as datasets
 from ugle.logger import log
-
+import time
 from omegaconf import OmegaConf, DictConfig, ListConfig
 import numpy as np
 import optuna
@@ -17,6 +17,12 @@ import copy
 import torch
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
+import optuna
+import warnings
+
+from optuna.exceptions import ExperimentalWarning
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
+optuna.logging.set_verbosity(optuna.logging.CRITICAL)
 
 # https://stackoverflow.com/questions/9850995/tracking-maximum-memory-usage-by-a-python-function
 
@@ -441,17 +447,19 @@ class ugleTrainer:
                     # log the best hyperparameters and metrics at which they are best
                     best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
                     best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
+                    test_metrics = ''.join(f'{metric}_' for metric in best_at_metrics)
+                    test_metrics = test_metrics[:test_metrics.rfind(',')]
                     log.info(f'Using best hyperparameters for metrics {best_at_metrics_str}: ')
                     if not self.cfg.trainer.only_testing:
                         for hp_key, hp_val in best_hp_params.items():
                             log.info(f'{hp_key} : {hp_val}')
 
                     # assign hyperparameters for the metric optimised over
-                    if self.cfg.trainer.finetuning_new_dataset:
+                    if self.cfg.trainer.finetuning_new_dataset or self.cfg.trainer.same_init_hpo:
                         args_to_overwrite = list(set(self.cfg.args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
-                        saved_args = torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")['args']
+                        saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
                         for k in args_to_overwrite:
-                            best_hp_params[k] = saved_args[k]
+                            best_hp_params[k] = saved_args.args[k]
                         
                     self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
@@ -462,6 +470,8 @@ class ugleTrainer:
                            processed_valid_data)
                 results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                             self.cfg.trainer.test_metrics)
+                print('testing results')
+                print(results)
                 
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
@@ -477,71 +487,93 @@ class ugleTrainer:
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
 
                 if self.cfg.trainer.save_model and self.cfg.trainer.model_resolution_metric in best_at_metrics:
-                    log.info('SAVING BEST VERSION OF MODEL')
+                    log.info(f'Saving best version of model for {best_at_metrics}')
                     torch.save({"model": self.model.state_dict(),
                                 "args": best_hp_params},
-                               f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")
+                               f"{self.cfg.trainer.models_path}{self.cfg.model}_{test_metrics}.pt")
 
 
         return objective_results
 
     def train(self, trial: Trial, args: DictConfig, label: np.ndarray, features: np.ndarray, processed_data: tuple,
               validation_adjacency: np.ndarray, processed_valid_data: tuple, prune_params=None):
+        
+        timings = np.zeros(2)
+        start = time.time()
         # configuration of args if hyperparameter optimisation phase
         if trial is not None:
             log.info(f'Launching Trial {trial.number}')
-            if self.cfg.trainer.finetuning_new_dataset:
+            # if finetuning or reusing init procedure then just use default architecture sizes
+            if self.cfg.trainer.finetuning_new_dataset or self.cfg.trainer.same_init_hpo:
                 args_to_overwrite = list(set(args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
-                saved_args = torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")['args']
+                saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
                 for k in args_to_overwrite:
-                    args[k] = saved_args[k]
+                    args[k] = saved_args.args[k]
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, args, prune_params)
 
-        processed_data = self.move_to_activedevice(processed_data)
-  
         # process model creation
+        processed_data = self.move_to_activedevice(processed_data)
         self.training_preprocessing(self.cfg.args, processed_data)
+        self.model.train()
 
         if self.cfg.trainer.finetuning_new_dataset:
-            log.info('LOADING PRETRAINED MODEL')
+            log.info('Loading pretrained model')
             self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")['model'])
             self.model.to(self.device)
 
-        # run actual training of model
-        self.training_loop(processed_data)
-        processed_data = self.move_to_cpudevice(processed_data)
+        if trial is not None:
+            if self.cfg.trainer.same_init_hpo and trial.number == 0:
+                log.info("Saving initilisation of parameters")
+                torch.save(self.model.state_dict(), f"{self.cfg.trainer.models_path}{self.cfg.model}_init.pt")
 
-        # validation pass
-        results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
-                                    self.cfg.trainer.valid_metrics)
-        log.debug(f'model trained and tested')
+            if self.cfg.trainer.same_init_hpo: 
+                log.info("Loading same initilisation of parameters")
+                self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_init.pt"))
+                self.model.to(self.device)
 
-        if trial is None:
-            return
-        else:
-            self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
-            self.best_loss = 1e9
-            log_trial_result(trial, results, self.cfg.trainer.valid_metrics, self.cfg.trainer.multi_objective_study)
-
-            if not self.cfg.trainer.multi_objective_study:
-                return results[self.cfg.trainer.valid_metrics[0]]
-            else:
-                right_order_results = [results[k] for k in self.cfg.trainer.valid_metrics]
-                return tuple(right_order_results)
-
-    def training_loop(self, processed_data: tuple):
-        """
-        the function to handle what happens across all training models including:
-        validation checking, early stopping, progress bar output
-        """
-        self.model.train()
+        # create training loop
         self.progress_bar = alive_it(range(self.cfg.args.max_epoch))
-        for self.current_epoch in self.progress_bar:
+        best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics)))
+        best_epochs = np.zeros(len((self.cfg.trainer.valid_metrics)), dtype=int)
+        best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.
+        patience_waiting = np.zeros((len(self.cfg.trainer.valid_metrics)), dtype=int)
 
+        for self.current_epoch in self.progress_bar:
+            timings[0] += time.time() - start
+            start = time.time()
+            # check if validation time
+            if self.current_epoch % self.cfg.trainer.validate_every_nepochs == 0:
+                # put in validation mode 
+                processed_data = self.move_to_cpudevice(processed_data)
+                results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
+                                    self.cfg.trainer.valid_metrics)
+                print('inter training, validation results')
+                print(results)
+                # put data back into training mode
+                processed_data = self.move_to_activedevice(processed_data)
+                # check better for each metric
+                for m, metric in enumerate(self.cfg.trainer.valid_metrics):
+                    if (results[metric] > best_so_far[m] and metric != 'conductance') or (results[metric] < best_so_far[m] and metric == 'conductance'):
+                        best_so_far[m] = results[metric]
+                        best_epochs[m] = self.current_epoch
+                        # save model for this metric
+                        torch.save({"model": self.model.state_dict(),
+                                    "args": self.cfg.args},
+                                    f"{self.cfg.trainer.models_path}{self.cfg.model}_{metric}.pt")
+                        patience_waiting[m] = 0
+                    else:
+                        patience_waiting[m] += 1
+            else: 
+                patience_waiting += 1
+            
+            timings[1] += time.time() - start
+            start = time.time()
+                
+            # compute training iteration 
             loss, data_returned = self.training_epoch_iter(self.cfg.args, processed_data)
             if data_returned:
                 processed_data = data_returned
-
+            # optimise
             for opt in self.optimizers:
                 opt.zero_grad()
             loss.backward()
@@ -549,24 +581,47 @@ class ugleTrainer:
                 opt.step()
             if self.scheduler:
                 self.scheduler.step()
-
-            if loss < self.best_loss:
-                self.best_loss = loss
-                self.patience_wait = 0
-                if isinstance(loss, list):
-                    self.progress_bar.title = f'Training {self.cfg.model} on {self.cfg.dataset} ... Epoch {self.current_epoch}: Losses=' + \
-                                              ' '.join([f'{loss_value.numpy(): .4f}' for loss_value in loss])
-                else:
-                    self.progress_bar.title = f'Training {self.cfg.model} on {self.cfg.dataset} ... Epoch {self.current_epoch}: Loss={loss.item():.4f}'
-
-            else:
-                self.patience_wait += 1
-
-            if self.patience_wait == self.cfg.args.patience:
+            # update progress bar
+            self.progress_bar.title = f'Training {self.cfg.model} on {self.cfg.dataset} ... Epoch {self.current_epoch}: Loss={loss.item():.4f}'
+            # if all metrics hit patience then end
+            if patience_waiting.all() >= self.cfg.args.patience:
                 log.info(f'Early stopping at epoch {self.current_epoch}!')
                 break
 
-        return
+       
+        timings[0] += time.time() - start
+        start = time.time()    
+
+        # compute final validation 
+        processed_data = self.move_to_cpudevice(processed_data)
+        return_results = {}
+        for m, metric in enumerate(self.cfg.trainer.valid_metrics):
+            log.info(f'Best model for {metric} at epoch {best_epochs[m]}')
+            self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{metric}.pt")['model'])
+            self.model.to(self.device)
+            results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
+                                        self.cfg.trainer.valid_metrics)
+            return_results[metric] = results[metric]
+        print('final validation')
+        print(return_results)
+        timings[1] += time.time() - start
+        start = time.time()
+
+        log.info(f"Time Training {round(timings[0], 3)}s")
+        log.info(f"Time Validating {round(timings[1], 3)}s")
+
+        if trial is None:
+            return
+        else:
+            self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
+            log_trial_result(trial, return_results, self.cfg.trainer.valid_metrics, self.cfg.trainer.multi_objective_study)
+
+            if not self.cfg.trainer.multi_objective_study:
+                return return_results[self.cfg.trainer.valid_metrics[0]]
+            else:
+                right_order_results = [return_results[k] for k in self.cfg.trainer.valid_metrics]
+                return tuple(right_order_results)
+            
 
     def testing_loop(self, label: np.ndarray, features: np.ndarray, adjacency: np.ndarray, processed_data: tuple, eval_metrics: ListConfig):
         """
@@ -582,7 +637,7 @@ class ugleTrainer:
                                                       sf=4,
                                                       adj=adjacency,
                                                       metrics=eval_metrics)
-
+        self.model.train()
         return results
 
     def preprocess_data(self, features: np.ndarray, adjacency: np.ndarray) -> tuple:

@@ -4,7 +4,7 @@ import torch.nn as nn
 import ugle
 import scipy.sparse as sp
 import numpy as np
-from sklearn.cluster import KMeans
+from fast_pytorch_kmeans import KMeans
 from sklearn.preprocessing import MinMaxScaler
 from ugle.trainer import ugleTrainer
 from ugle.gnn_architecture import GCN, AvgReadout, mvgrl_Discriminator
@@ -132,12 +132,9 @@ class mvgrl_trainer(ugleTrainer):
         diff_adj = torch.FloatTensor(diff_adj[np.newaxis]).to(self.device)
 
         embeds, _ = self.model.embed(features, adj, diff_adj, self.cfg.args.sparse, None)
-        embeds = embeds.cpu().squeeze(0).numpy()
+        embeds = embeds.squeeze(0)
 
-        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters,
-                        n_init=self.cfg.args.kmeans_init,
-                        random_state=self.cfg.args.random_seed)
-        _ = kmeans.fit_predict(embeds)
-        preds = kmeans.labels_
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        preds = kmeans.fit_predict(embeds).cpu().numpy()
 
         return preds

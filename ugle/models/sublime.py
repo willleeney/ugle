@@ -5,7 +5,7 @@ from torch.nn import Sequential, Linear, ReLU
 import torch.nn.functional as F
 import numpy as np
 import copy
-from sklearn.cluster import KMeans
+from fast_pytorch_kmeans import KMeans
 from ugle.trainer import ugleTrainer
 EOS = 1e-10
 
@@ -339,12 +339,9 @@ class sublime_trainer(ugleTrainer):
         with torch.no_grad():
             _, Adj = self.loss_gcl(self.model, features, anchor_adj)
             _, embedding = self.model(features, Adj)
-            embedding = embedding.detach().cpu().squeeze(0).numpy()
+            embedding = embedding.squeeze(0)
 
-            kmeans = KMeans(n_clusters=self.cfg.args.n_clusters,
-                            n_init=self.cfg.args.kmeans_init,
-                            random_state=self.cfg.args.random_seed)
-            _ = kmeans.fit_predict(embedding)
-            preds = kmeans.labels_
+            kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+            preds = kmeans.fit_predict(embedding).cpu().numpy()
 
         return preds

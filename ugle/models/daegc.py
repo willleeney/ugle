@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.optim import Adam
-from sklearn.cluster import KMeans
+from fast_pytorch_kmeans import KMeans
 import scipy.sparse as sp
 import ugle
 from ugle.logger import log
@@ -89,9 +89,11 @@ class daegc_trainer(ugleTrainer):
         log.debug('kmeans init estimate')
         with torch.no_grad():
             _, z = self.model.gat(features, adj, M)
-        kmeans = KMeans(n_clusters=args.n_clusters, n_init=args.kmeans_init, random_state=args.random_seed)
-        _ = kmeans.fit_predict(z.data.cpu().numpy())
-        self.model.cluster_layer.data = torch.tensor(kmeans.cluster_centers_).to(self.device)
+
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        _ = kmeans.fit_predict(z).cpu().numpy()
+        
+        self.model.cluster_layer.data = torch.tensor(kmeans.centroids).to(self.device)
 
         log.debug('model training')
         optimizer = Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)

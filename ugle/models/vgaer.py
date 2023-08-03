@@ -3,10 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
-from sklearn.cluster import KMeans
+from fast_pytorch_kmeans import KMeans
 import math
 from ugle.trainer import ugleTrainer
-import numpy as np
 from copy import deepcopy
 
 class GraphConvolution(nn.Module):
@@ -160,14 +159,10 @@ class vgaer_trainer(ugleTrainer):
 
         self.model.eval()
         recovered = self.model.forward(A_hat, feats)
-        emb = recovered[1].detach().cpu().numpy()
+        emb = recovered[1]
+        emb = emb.float().clamp(torch.finfo(torch.float32).min, torch.finfo(torch.float32).max)
 
-        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters,
-                        n_init=self.cfg.args.kmeans_init,
-                        random_state=self.cfg.args.random_seed)
-
-        emb = emb.astype(np.float32).clip(min=np.finfo('float32').min, max=np.finfo('float32').max)
-        _ = kmeans.fit_predict(emb)
-        preds = kmeans.labels_
-
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        preds = kmeans.fit_predict(emb).cpu().numpy()
+      
         return preds

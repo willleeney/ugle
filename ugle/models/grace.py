@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import ugle
 import scipy.sparse as sp
 import numpy as np
-from sklearn.cluster import KMeans
+from fast_pytorch_kmeans import KMeans
 from torch_geometric.utils import dropout_adj
 from torch_geometric.nn import GCNConv
 from ugle.trainer import ugleTrainer
@@ -164,14 +164,8 @@ class grace_trainer(ugleTrainer):
         data, adj = processed_data
         self.model.eval()
         z = self.model(data, adj)
-        z = z.detach().cpu().numpy()
-
-        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters,
-                        n_init=self.cfg.args.kmeans_init,
-                        random_state=self.cfg.args.random_seed)
-        _ = kmeans.fit_predict(z)
-        preds = kmeans.labels_
-
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        preds = kmeans.fit_predict(z).cpu().numpy()
         return preds
 
 

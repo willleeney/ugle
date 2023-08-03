@@ -164,7 +164,7 @@ class grace_trainer(ugleTrainer):
         data, adj = processed_data
         self.model.eval()
         z = self.model(data, adj)
-        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         preds = kmeans.fit_predict(z).cpu().numpy()
         return preds
 

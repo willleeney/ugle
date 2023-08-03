@@ -164,7 +164,7 @@ class bgrl_trainer(ugleTrainer):
             edge_weight_v1=None,
             edge_weight_v2=None)
 
-        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         preds = kmeans.fit_predict(v1_output).cpu().numpy()
 
 

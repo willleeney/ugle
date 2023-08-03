@@ -90,7 +90,7 @@ class daegc_trainer(ugleTrainer):
         with torch.no_grad():
             _, z = self.model.gat(features, adj, M)
 
-        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         _ = kmeans.fit_predict(z).cpu().numpy()
         
         self.model.cluster_layer.data = torch.tensor(kmeans.centroids).to(self.device)

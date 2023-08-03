@@ -134,7 +134,7 @@ class mvgrl_trainer(ugleTrainer):
         embeds, _ = self.model.embed(features, adj, diff_adj, self.cfg.args.sparse, None)
         embeds = embeds.squeeze(0)
 
-        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         preds = kmeans.fit_predict(embeds).cpu().numpy()
 
         return preds

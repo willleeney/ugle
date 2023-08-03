@@ -341,7 +341,7 @@ class sublime_trainer(ugleTrainer):
             _, embedding = self.model(features, Adj)
             embedding = embedding.squeeze(0)
 
-            kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+            kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
             preds = kmeans.fit_predict(embedding).cpu().numpy()
 
         return preds

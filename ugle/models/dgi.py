@@ -77,7 +77,7 @@ class dgi_trainer(ugleTrainer):
             embeds, _ = self.model.embed(features, adj, None)
             embeds = embeds.squeeze(0)
 
-        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         preds = kmeans.fit_predict(embeds).cpu().numpy()
 
         return preds

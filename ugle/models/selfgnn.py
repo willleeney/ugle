@@ -246,7 +246,7 @@ class selfgnn_trainer(ugleTrainer):
 
         emb = torch.cat([v1_output, v2_output], dim=1).detach()
         emb = emb.squeeze(0)
-        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         preds = kmeans.fit_predict(emb).cpu().numpy()
 
         return preds

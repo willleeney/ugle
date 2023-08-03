@@ -162,7 +162,7 @@ class vgaer_trainer(ugleTrainer):
         emb = recovered[1]
         emb = emb.float().clamp(torch.finfo(torch.float32).min, torch.finfo(torch.float32).max)
 
-        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         preds = kmeans.fit_predict(emb).cpu().numpy()
       
         return preds

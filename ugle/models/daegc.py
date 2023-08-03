@@ -93,7 +93,7 @@ class daegc_trainer(ugleTrainer):
         kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         _ = kmeans.fit_predict(z).cpu().numpy()
         
-        self.model.cluster_layer.data = torch.tensor(kmeans.centroids).to(self.device)
+        self.model.cluster_layer.data = kmeans.centroids.clone().detach().to(self.device)
 
         log.debug('model training')
         optimizer = Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)

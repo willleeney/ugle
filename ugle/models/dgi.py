@@ -3,7 +3,7 @@ import numpy as np
 import scipy.sparse as sp
 import torch
 import torch.nn as nn
-from sklearn.cluster import KMeans
+from fast_pytorch_kmeans import KMeans
 import ugle
 from ugle.trainer import ugleTrainer
 from ugle.gnn_architecture import GCN, AvgReadout, Discriminator
@@ -75,12 +75,9 @@ class dgi_trainer(ugleTrainer):
         adj, features = processed_data
         with torch.no_grad():
             embeds, _ = self.model.embed(features, adj, None)
-            embeds = embeds.cpu().squeeze(0).numpy()
+            embeds = embeds.squeeze(0)
 
-        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters,
-                            n_init=self.cfg.args.kmeans_init,
-                            random_state=self.cfg.args.random_seed)
-        _ = kmeans.fit_predict(embeds)
-        preds = kmeans.labels_
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        preds = kmeans.fit_predict(embeds).cpu().numpy()
 
         return preds

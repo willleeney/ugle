@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sklearn.cluster import KMeans
+from fast_pytorch_kmeans import KMeans
 import scipy.sparse as sp
 from torch_geometric.nn import GCNConv, GATConv, SAGEConv
 from functools import wraps
@@ -245,13 +245,9 @@ class selfgnn_trainer(ugleTrainer):
             edge_index_v2=aug_adjacency)
 
         emb = torch.cat([v1_output, v2_output], dim=1).detach()
-        emb = emb.cpu().squeeze(0).numpy()
-
-        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters,
-                        n_init=self.cfg.args.kmeans_init,
-                        random_state=self.cfg.args.random_seed)
-        _ = kmeans.fit_predict(emb)
-        preds = kmeans.labels_
+        emb = emb.squeeze(0)
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        preds = kmeans.fit_predict(emb).cpu().numpy()
 
         return preds
 

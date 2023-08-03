@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from sklearn.cluster import KMeans
+from fast_pytorch_kmeans import KMeans
 import scipy.sparse as sp
 from torch_geometric.nn import GCNConv
 import copy
@@ -164,12 +164,8 @@ class bgrl_trainer(ugleTrainer):
             edge_weight_v1=None,
             edge_weight_v2=None)
 
-        emb = v1_output.detach().cpu().numpy()
-        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters,
-                        n_init=self.cfg.args.kmeans_init,
-                        random_state=self.cfg.args.random_seed)
-        _ = kmeans.fit_predict(emb)
-        preds = kmeans.labels_
+        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters, init_method='++')
+        preds = kmeans.fit_predict(v1_output).cpu().numpy()
 
 
         return preds

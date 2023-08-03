@@ -17,3 +17,4 @@ kaleido
 omegaconf
 nbformat
 matplotlib
+fast-pytorch-kmeans

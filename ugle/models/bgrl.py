@@ -116,7 +116,7 @@ class bgrl_trainer(ugleTrainer):
         outwards = [i[0] for i in adj_label.keys()]
         inwards = [i[1] for i in adj_label.keys()]
 
-        adj = torch.from_numpy(np.array([outwards, inwards], dtype=np.int))
+        adj = torch.from_numpy(np.array([outwards, inwards], dtype=int))
 
         data = torch.FloatTensor(features)
 

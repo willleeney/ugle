@@ -42,7 +42,6 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
 
         # use first seed hyperparameters and train/test on remaining
         if idx == 0:
-            study_cfg.trainer.only_testing = True
             study_cfg.previous_results = results
 
     # average results stores the average calculation of statistics

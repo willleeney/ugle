@@ -742,3 +742,41 @@ def create_trainpercent_figure():
 
 #create_trainpercent_figure()
 #create_synth_figure()
+
+def calc_correlation():
+    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell']
+    algorithms = ['dgi_default', 'daegc_default', 'dmo_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+    metrics = ['nmi', 'modularity', 'f1', 'conductance']
+    folder = './results/q1_default_predict_super/'
+
+    mod_results = []
+    con_results = []
+
+    for dataset in datasets:
+        for algo in algorithms:
+            filename = f"{dataset}_{algo}.pkl"
+            file_found = search_results(folder, filename)
+            if file_found:
+                result = pickle.load(open(file_found, "rb"))
+            
+            for seed_result in result.results:
+                for metric_result in seed_result.study_output:
+                    if 'modularity' in metric_result.metrics:
+                       mod_results.append([metric_result.results['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
+
+                    if 'conductance' in metric_result.metrics:
+                       con_results.append([metric_result.results['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
+
+    mod_results = np.asarray(mod_results)
+    con_results = np.asarray(con_results)
+    mod_f1 = np.corrcoef(mod_results[:, 0], mod_results[:, 1])[0,1]
+    mod_nmi = np.corrcoef(mod_results[:, 0], mod_results[:, 2])[0,1]
+    con_f1 = np.corrcoef(con_results[:, 0], con_results[:, 1])[0,1]
+    con_nmi = np.corrcoef(con_results[:, 0], con_results[:, 2])[0,1]
+    print('Correlation Coefficients: ')
+    print(f'Modularity --> F1: {mod_f1:.3f}')
+    print(f'Modularity --> NMI: {mod_nmi:.3f}')
+    print(f'Conductance --> F1: {con_f1:.3f}')
+    print(f'Conductance --> NMI: {con_nmi:.3f}')
+

@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['citeseer', 'cora', 'texas', 'wisc', 'cornell', 'dblp', 'amac']
-algorithms: ['vgaer']
+datasets: ['citeseer', 'cora', 'texas']
+algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False
@@ -9,7 +9,7 @@ special_training:
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 250
-    results_path: './unsuper_predict/'
+    results_path: './q1_unsuper_predict/'
 
     show_config: False
     load_existing_test: False

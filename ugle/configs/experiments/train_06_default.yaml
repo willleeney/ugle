@@ -1,0 +1,26 @@
+seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+datasets: ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
+algorithms: ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+run_cpu_fallback: False
+special_training: 
+  split_addition_percentage: False
+  retrain_on_each_dataset: False
+
+study_override_cfg:
+  trainer:
+    n_trials_hyperopt: 1
+    results_path: './q3_train_06_default/'
+
+    show_config: False
+    load_existing_test: False
+    calc_time: False
+    only_testing: True
+
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    valid_metrics: ['modularity', 'conductance']
+    gpu: '3'
+
+    split_scheme: 'drop_edges'
+    train_to_valid_split: 1.0
+    training_to_testing_split: 0.66
+    save_validation: True

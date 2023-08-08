@@ -16,6 +16,7 @@ study_override_cfg:
     show_config: False
     load_existing_test: False
     calc_time: False
+    only_testing: True
 
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['modularity', 'conductance']

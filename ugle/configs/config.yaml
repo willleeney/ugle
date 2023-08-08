@@ -23,6 +23,7 @@ trainer:
   training_to_testing_split: 0.8
   train_to_valid_split: 0.8
   split_scheme: "drop_edges"
+  save_validation: False
 
   split_addition_percentage: False
 

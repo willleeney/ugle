@@ -470,7 +470,7 @@ class ugleTrainer:
                 # do testing
                 self.cfg.trainer.calc_time = False
                 log.debug('Retraining model')
-                self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
+                validation_results = self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
                 results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                             self.cfg.trainer.test_metrics)
@@ -484,6 +484,9 @@ class ugleTrainer:
                 objective_results.append({'metrics': best_at_metrics,
                                           'results': results,
                                           'args': best_hp_params})
+                
+                if self.cfg.trainer.save_validation:
+                    objective_results[-1]['validation_results'] = validation_results
 
                 # re init the args object for assign_test params
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
@@ -595,6 +598,8 @@ class ugleTrainer:
         # compute final validation 
         processed_data = self.move_to_cpudevice(processed_data)
         return_results = {}
+        if self.cfg.trainer.save_validation:
+            valid_results = {}
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):
             log.info(f'Best model for {metric} at epoch {best_epochs[m]}')
             self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{metric}.pt")['model'])
@@ -602,6 +607,11 @@ class ugleTrainer:
             results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                         self.cfg.trainer.valid_metrics)
             return_results[metric] = results[metric]
+            if self.cfg.trainer.save_validation:
+                results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
+                                        self.cfg.trainer.test_metrics)
+                valid_results[metric] = results
+
         timings[1] += time.time() - start
         start = time.time()
 
@@ -609,7 +619,10 @@ class ugleTrainer:
         log.info(f"Time Validating {round(timings[1], 3)}s")
 
         if trial is None:
-            return
+            if not self.cfg.trainer.save_validation:
+                return
+            else:
+                return valid_results
         else:
             self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
             log_trial_result(trial, return_results, self.cfg.trainer.valid_metrics, self.cfg.trainer.multi_objective_study)

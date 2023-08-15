@@ -48,28 +48,27 @@ def create_logger():
     latest_file_index = len(os.listdir(log_path))
     poke_name = np.random.choice(pokemon_names)
     uid = f'{latest_file_index}-{poke_name}'
-    log_path = uid
 
     # Set up the logger
-    logger = logging.getLogger(log_path)
+    logger = logging.getLogger(uid)
     logger.setLevel(logging.INFO)
 
     # Create a stream handler (console output)
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.INFO)
 
-    #file_handler = logging.FileHandler(log_path)
-    #file_handler.setLevel(logging.DEBUG)
+    file_handler = logging.FileHandler(filename= log_path + uid)
+    file_handler.setLevel(logging.DEBUG)
 
     # Set the custom formatters to the handlers
     color_formatter = CustomFormatter(fmt="[%(levelname)s:%(name)s: %(asctime)s: %(module)s.%(funcName)s] %(message)s", 
                                       datefmt="%d/%m--%I:%M:%S")
     stream_handler.setFormatter(color_formatter)
-    #file_handler.setFormatter(color_formatter)
+    file_handler.setFormatter(color_formatter)
 
     # Add the handlers to the logger
     logger.addHandler(stream_handler)
-    #logger.addHandler(file_handler)
+    logger.addHandler(file_handler)
 
     return logger
 

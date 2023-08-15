@@ -305,7 +305,12 @@ class ugleTrainer:
     def __init__(self, cfg: DictConfig):
         super(ugleTrainer, self).__init__()
 
-        self.device = torch.device(ugle.utils.set_device(cfg.trainer.gpu))
+        _device = ugle.utils.set_device(cfg.trainer.gpu)
+        if _device == 'cpu':
+            self.device_name = _device
+        else:
+            self.device_name = cfg.trainer.gpu
+        self.device = torch.device(_device)
 
         utils.set_random(cfg.args.random_seed)
         if cfg.trainer.show_config:
@@ -529,11 +534,11 @@ class ugleTrainer:
         if trial is not None:
             if self.cfg.trainer.same_init_hpo and trial.number == 0:
                 log.info("Saving initilisation of parameters")
-                torch.save(self.model.state_dict(), f"{self.cfg.trainer.models_path}{self.cfg.model}_init.pt")
+                torch.save(self.model.state_dict(), f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_init.pt")
 
             if self.cfg.trainer.same_init_hpo: 
                 log.info("Loading same initilisation of parameters")
-                self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_init.pt"))
+                self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_init.pt"))
                 self.model.to(self.device)
 
         # create training loop
@@ -562,7 +567,7 @@ class ugleTrainer:
                         # save model for this metric
                         torch.save({"model": self.model.state_dict(),
                                     "args": self.cfg.args},
-                                    f"{self.cfg.trainer.models_path}{self.cfg.model}_{metric}.pt")
+                                    f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")
                         patience_waiting[m] = 0
                     else:
                         patience_waiting[m] += 1
@@ -602,7 +607,7 @@ class ugleTrainer:
             valid_results = {}
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):
             log.info(f'Best model for {metric} at epoch {best_epochs[m]}')
-            self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{metric}.pt")['model'])
+            self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
             self.model.to(self.device)
             results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                         self.cfg.trainer.valid_metrics)

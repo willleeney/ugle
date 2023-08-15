@@ -28,3 +28,4 @@ models/*
 revamp_train_percent_dropedg/*
 synth_defaults/*
 unsuper_predict_default/*
+q3_train_06_default/*

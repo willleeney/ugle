@@ -4,53 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
-    
-        {
-            "name": "Python: Model Evaluations",
-            "type": "python",
-            "request": "launch",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/compute_allocation.yaml"]
-        },
-        {
-            "name": "Python: Synth",
-            "type": "python",
-            "request": "launch",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/exp_synthetic.yaml"]
-        },
-        {
-            "name": "Python: diff percents",
-            "type": "python",
-            "request": "launch",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/exp_train_percent.yaml"]
-        },
-        {
-            "name": "Python: Tester",
-            "type": "python",
-            "request": "launch",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "program": "${workspaceFolder}/main.py",
-            "args" : ["--dataset", "cora", "--model", "dgi"]
-        },
-        {
-            "name": "Python: exp_train_again",
-            "type": "python",
-            "request": "launch",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/exp_train_again.yaml"]
-        },
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -68,6 +21,16 @@
             "justMyCode": true,
             "program": "${workspaceFolder}/main.py",
             "args" : ["--model", "bgrl", "--dataset", "citeseer"]
-        }
+        },
+        {
+            "name": "Python: Test Breaking ",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/testing/failing.yaml"]
+        },
+        
     ]
 }

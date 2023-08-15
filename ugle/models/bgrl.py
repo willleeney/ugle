@@ -7,7 +7,7 @@ from fast_pytorch_kmeans import KMeans
 import scipy.sparse as sp
 from torch_geometric.nn import GCNConv
 import copy
-from torch_geometric.utils import dropout_adj
+from torch_geometric.utils import dropout_edge
 import ugle
 from ugle.trainer import ugleTrainer
 
@@ -144,8 +144,8 @@ class bgrl_trainer(ugleTrainer):
 
         data, adj = processed_data
         self.model.update_moving_average()
-        adj_1 = dropout_adj(adj, p=args.drop_edge_rate_1)[0]
-        adj_2 = dropout_adj(adj, p=args.drop_edge_rate_2)[0]
+        adj_1 = dropout_edge(adj, p=args.drop_edge_rate_1, force_undirected=True)[0]
+        adj_2 = dropout_edge(adj, p=args.drop_edge_rate_2, force_undirected=True)[0]
 
         x_1 = ugle.datasets.aug_drop_features(data, drop_percent=args.drop_feature_rate_1)
         x_2 = ugle.datasets.aug_drop_features(data, drop_percent=args.drop_feature_rate_2)

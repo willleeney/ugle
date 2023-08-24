@@ -740,16 +740,8 @@ def create_trainpercent_figure():
     print('done')
 
 
-#create_trainpercent_figure()
-#create_synth_figure()
-
-def calc_correlation():
-    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell']
-    algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-    metrics = ['nmi', 'modularity', 'f1', 'conductance']
-    folder = './results/q1_default_predict_super/'
-
+def extract_results(datasets, algorithms, folder):
+    # modularity and conductance may have different hyperparameters or model selection points 
     mod_results = []
     con_results = []
 
@@ -763,148 +755,299 @@ def calc_correlation():
             for seed_result in result.results:
                 for metric_result in seed_result.study_output:
                     if 'modularity' in metric_result.metrics:
-                       mod_results.append([metric_result.results['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
+                        mod_results.append([metric_result.results['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
 
                     if 'conductance' in metric_result.metrics:
-                       con_results.append([metric_result.results['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
+                        con_results.append([metric_result.results['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
 
     mod_results = np.asarray(mod_results)
     con_results = np.asarray(con_results)
 
-
-    
-    mod_f1 = np.corrcoef(mod_results[:, 0], mod_results[:, 1])[0,1]
-    mod_nmi = np.corrcoef(mod_results[:, 0], mod_results[:, 2])[0,1]
-    con_f1 = np.corrcoef(con_results[:, 0], con_results[:, 1])[0,1]
-    con_nmi = np.corrcoef(con_results[:, 0], con_results[:, 2])[0,1]
-    print('Correlation Coefficients UnsuperPredict: ')
-    print(f'Modularity --> F1: {mod_f1:.3f}')
-    print(f'Modularity --> NMI: {mod_nmi:.3f}')
-    print(f'Conductance --> F1: {con_f1:.3f}')
-    print(f'Conductance --> NMI: {con_nmi:.3f}')
+    return mod_results, con_results
 
 
-    x = mod_results[:, 0]
-    y = mod_results[:, 1]
-
-    # Fit a 2nd-degree polynomial
+def var_explained_poly(x, y):
+    # Fit a quadratic 
     coefficients = np.polyfit(x, y, 2)
     poly = np.poly1d(coefficients)
-
     # Calculate predicted values
     predicted_y = poly(x)
-
     # Calculate total sum of squares
     total_var = np.sum((y - np.mean(y)) ** 2)
-
     # Calculate residual sum of squares
     residual_var = np.sum((y - predicted_y) ** 2)
-
     # Calculate variance explained
     variance_explained = 1 - (residual_var / total_var)
-
-    print("Coefficients:", coefficients)
-    print("Variance Explained:", variance_explained)
-
-    # Plotting
-    plt.scatter(x, y, label='Data Points')
-    x_space = np.linspace(np.min(x), np.max(x), 200)
-    predicted_y = poly(x_space)
-    plt.plot(x_space, predicted_y, label='Fitted Polynomial', color='red')
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.title('Fitted 2nd-Degree Polynomial')
-    plt.legend()
-    plt.grid()
-    plt.show()
+    variance_explained = np.round(variance_explained, 3)
+    return variance_explained
 
 
-    from sklearn.gaussian_process import GaussianProcessRegressor
-    from sklearn.gaussian_process.kernels import RBF
+def create_fit_graph(mod_results, con_results):
+     # create graph subfigures 
+    nrows, ncols = 2, 2
+    fig, axes = plt.subplots(nrows, ncols, figsize=(8, 8))
+    for i, ax in enumerate(axes.flat):
+        if i == 0:
+            x_label = "Modularity"
+            y_label = "F1"
+            x = mod_results[:, 0]
+            y = mod_results[:, 1]
+        elif i == 2:
+            x_label = "Modularity"
+            y_label = "NMI"
+            x = mod_results[:, 0]
+            y = mod_results[:, 2]
+        elif i == 1:
+            x_label = "Conductance"
+            y_label = "F1"
+            x = con_results[:, 0]
+            y = con_results[:, 1]
+        elif i == 3: 
+            x_label = "Conductance"
+            y_label = "NMI"
+            x = con_results[:, 0]
+            y = con_results[:, 2]
+        
+        print(f'{x_label} --> {y_label} Correlation Coefficient: {round(np.corrcoef(x, y)[0,1],3)}')
 
-    x  = mod_results[:, 0].reshape(-1, 1)
-    y = mod_results[:, 1].reshape(-1, 1)
-    kernel = 1 * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2))
-    gaussian_process = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=10)
+        # Fit a quadratic 
+        coefficients = np.polyfit(x, y, 2)
+        poly = np.poly1d(coefficients)
+        # Calculate predicted values
+        predicted_y = poly(x)
+        # Calculate total sum of squares
+        total_var = np.sum((y - np.mean(y)) ** 2)
+        # Calculate residual sum of squares
+        residual_var = np.sum((y - predicted_y) ** 2)
+        # Calculate variance explained
+        variance_explained = 1 - (residual_var / total_var)
+        variance_explained = np.round(variance_explained, 3)
+        print(f"Variance Explained: {variance_explained}")
+        # calculate the line of best fit 
+        x_space = np.linspace(np.min(x), np.max(x), 200)
+        predicted_y = poly(x_space)
 
-    gaussian_process.fit(x, y)
-    X_new = np.linspace(np.min(x), np.max(x), 150)[:, np.newaxis]
-    mean_prediction, std_prediction = gaussian_process.predict(X_new, return_std=True)
-    plt.scatter(x, y, label="data", c="blue")
-    plt.plot(X_new, mean_prediction, label="Mean prediction", c='orange')
-    plt.fill_between(
-        X_new.ravel(),
-        mean_prediction - 1.96 * std_prediction,
-        mean_prediction + 1.96 * std_prediction,
-        alpha=0.5,
-        label=r"95% confidence interval",
-        c='orange'
-    )
-    plt.show()
+        # plotting
+        ax.scatter(x, y, color='C0')
+        ax.plot(x_space, predicted_y, color='C3')
+        if i == 0:
+            ax.set_ylabel(y_label)
+        if i == 2:
+            ax.set_ylabel(y_label) 
+            ax.set_xlabel(x_label)
+        if i == 3:
+            ax.set_xlabel(x_label)
+        
+        ax.set_title(f"var_explained: {variance_explained}")
+
+    return fig, axes
+
+def print_dataset_table(datasets, algorithms, folder, mod_results, con_results):
+    # extract results
+    for dataset in datasets:
+        print(dataset, end = ' ')
+        mod_results, con_results = extract_results([dataset], algorithms, folder)
+        for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
+            print(f'& {var_explained_poly(x, y)}', end=' ')
+        print('')
+
+def print_algo_table(datasets, algorithms, folder, mod_results, con_results):
+    for algorithm in algorithms:
+        print(algorithm, end = ' ')
+        mod_results, con_results = extract_results(datasets, [algorithm], folder)
+        for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
+            print(f'& {var_explained_poly(x, y)}', end=' ')
+        print('')
+
+def create_q1_figures():
+    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell']
+    algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+    folder = './results/q1_default_predict_super/'
+
+    # extract results
+    mod_results, con_results = extract_results(datasets, algorithms, folder)
+    fig, axes = create_fit_graph(mod_results, con_results)
+    fig.suptitle(folder)
+    plt.tight_layout()
+    plt.savefig('q1_graph')
+
+    print('graph q1 complete')
+
+    # extract results
+    
+    print_algo_table(datasets, algorithms, folder, mod_results, con_results)
+    print('dataset table q1 complete')
+    
+    print_dataset_table(datasets, algorithms, folder, mod_results, con_results)
+    print('algorithms q1 complete')
 
 
-    X_new = np.linspace(0, 5, 100)[:, np.newaxis]
-    Y_pred, sigma = gaussian_process.predict(X_new, return_std=True)
-    plt.figure()
-    plt.scatter(x, y, c='r', label='Data')
-    plt.plot(X_new, Y_pred, 'b', label='GP Prediction')
-    plt.fill_between(X_new.ravel(), Y_pred - 1.96 * sigma, Y_pred + 1.96 * sigma, alpha=0.2, color='blue')
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.legend()
-    plt.show()
+def create_q4_figures():
+    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell']
+    algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+    folders = ['./results/q3_train_03_default/','./results/q3_train_06_default/']  
 
-    plt.scatter(x, y, label='Data Points')
-    plt.plot(x, cc * x, color='red', label='Correlation Line')
-    plt.xlabel('mod')
-    plt.ylabel('f1')
-    plt.title('Correlation and Line of Best Fit between mod and f1')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-    print('stop')
+    # extract results
+    for i, folder in enumerate(folders):
+        print(folder)
+        # modularity and conductance may have different hyperparameters or model selection points 
+        mod_results = []
+        con_results = []
 
-calc_correlation()
+        for dataset in datasets:
+            for algo in algorithms:
+                filename = f"{dataset}_{algo}.pkl"
+                file_found = search_results(folder, filename)
+                if file_found:
+                    result = pickle.load(open(file_found, "rb"))
+                
+                for seed_result in result.results:
+                    for metric_result in seed_result.study_output:
+                        if 'modularity' in metric_result.metrics:
+                            mod_results.append([metric_result.validation_results['modularity']['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
+                        if 'conductance' in metric_result.metrics:
+                            con_results.append([metric_result.validation_results['conductance']['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
+
+        mod_results = np.asarray(mod_results)
+        con_results = np.asarray(con_results)
+
+        fig, axes = create_fit_graph(mod_results, con_results)
+        fig.suptitle(folder)
+        plt.tight_layout()
+        plt.savefig(f'q4_graph_{i}')
+
+        print_algo_table(datasets, algorithms, folder, mod_results, con_results)
+        print(f'dataset table q4 {i} complete')
+        
+        print_dataset_table(datasets, algorithms, folder, mod_results, con_results)
+        print(f'algo table q4 {i} complete') 
 
 
-def calc_synth_results():
-    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+def create_q5_figures():
     datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
                     'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
                     'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
     algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-    metrics = ['nmi', 'modularity', 'f1', 'conductance']
     folder = './results/q2_synth_default/'
-    
-    mod_results = []
-    con_results = []
 
-    for dataset in datasets:
+    x_axis_names = [algo.split("_")[0] for algo in algorithms]
+    x_axis_points = np.arange(len(x_axis_names))
+    bar_width = 1/4
+    # extract results
+    nrows, ncols = 3, 3
+    fig, axes = plt.subplots(nrows, ncols, figsize=(9, 9))
+    for i, ax in enumerate(axes.flat):
+        dataset = datasets[i]
+        dataset_name = dataset.split("_")[1] + ' ' + dataset.split("_")[2]
+        ax.set_title(dataset_name)
+
+        mod_f1 = []
+        mod_nmi = []
+        con_f1 = []
+        con_nmi = []
+
         for algo in algorithms:
-            filename = f"{dataset}_{algo}.pkl"
-            file_found = search_results(folder, filename)
-            if file_found:
-                result = pickle.load(open(file_found, "rb"))
+            mod_results, con_results = extract_results([dataset], [algo], folder)
+            mod_f1.append(np.mean(mod_results[:, 1]))
+            mod_nmi.append(np.mean(mod_results[:, 2]))
+            con_f1.append(np.mean(con_results[:, 1]))
+            con_nmi.append(np.mean(con_results[:, 2]))
 
-            for seed_result in result.results:
-                for metric_result in seed_result.study_output:
-                    if 'modularity' in metric_result.metrics:
-                       mod_results.append([metric_result.results['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
-
-                    if 'conductance' in metric_result.metrics:
-                       con_results.append([metric_result.results['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
-
-    mod_results = np.asarray(mod_results)
-    con_results = np.asarray(con_results)
-    mod_f1 = np.corrcoef(mod_results[:, 0], mod_results[:, 1])[0,1]
-    mod_nmi = np.corrcoef(mod_results[:, 0], mod_results[:, 2])[0,1]
-    con_f1 = np.corrcoef(con_results[:, 0], con_results[:, 1])[0,1]
-    con_nmi = np.corrcoef(con_results[:, 0], con_results[:, 2])[0,1]
-    print('Correlation Coefficients SYNTH: ')
-    print(f'Modularity --> F1: {mod_f1:.3f}')
-    print(f'Modularity --> NMI: {mod_nmi:.3f}')
-    print(f'Conductance --> F1: {con_f1:.3f}')
-    print(f'Conductance --> NMI: {con_nmi:.3f}')
+        ax.bar(x_axis_points, mod_f1, width=bar_width, facecolor="C3", linewidth=0, label='mod_f1')
+        ax.bar(x_axis_points + 1/4, mod_nmi, width=bar_width, facecolor="C3", linewidth=0, alpha=0.5, label='mod_nmi')
+        ax.bar(x_axis_points + 1/2, con_f1, width=bar_width, facecolor="C0", linewidth=0, label='con_f1')
+        ax.bar(x_axis_points + 3/4, con_nmi, width=bar_width, facecolor="C0", linewidth=0, alpha=0.5, label='con_nmi')
+               
+        ax.set_xticks(x_axis_points - 0.5 * bar_width)
+        ax.set_xticklabels(x_axis_names, ha='left', rotation=-45, position=(-0.5, 0.0))
+        ax.set_axisbelow(True)
+        ax.set_ylim(0.0, 1.0)
+        ax.axhline(y=0.5, color='k', linestyle='-')
+        if i == 3:
+            ax.legend(loc='best')
 
 
-calc_synth_results()
+    fig.suptitle(folder)
+    plt.tight_layout()
+    plt.savefig('q5_graph')
+    print('figure q5 complete')
+
+
+def create_q2_figures():
+    # get results
+    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell']
+    algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+    folder = './results/q1_default_predict_super/'
+
+    # go thru each combo,
+    nrows, ncols = 4, 1
+    fig, axes = plt.subplots(nrows, ncols, figsize=(9, 9))
+    ranked_mod = []
+    ranked_con = []
+    ranked_mod_f1 = []
+    ranked_mod_nmi = []
+    ranked_con_f1 = []
+    ranked_con_nmi = []
+    for dataset in datasets:
+        mod_f1 = []
+        mod_nmi = []
+        con_f1 = []
+        con_nmi = []
+        modu = []
+        conu = []
+
+        for algo in algorithms:
+            mod_results, con_results = extract_results([dataset], [algo], folder)
+            modu.append(np.mean(mod_results[:, 0]))
+            conu.append(np.mean(con_results[:, 0]))
+            mod_f1.append(np.mean(mod_results[:, 1]))
+            mod_nmi.append(np.mean(mod_results[:, 2]))
+            con_f1.append(np.mean(con_results[:, 1]))
+            con_nmi.append(np.mean(con_results[:, 2]))
+        
+        ranked_mod.append(np.flip(np.argsort(modu)) + 1)
+        ranked_con.append(np.flip(np.argsort(conu)) + 1)
+        ranked_mod_f1.append(np.flip(np.argsort(mod_f1)) + 1)
+        ranked_mod_nmi.append(np.flip(np.argsort(mod_nmi)) + 1)
+        ranked_con_f1.append(np.flip(np.argsort(con_f1)) + 1)
+        ranked_con_nmi.append(np.flip(np.argsort(con_nmi)) + 1)
+
+    ranked_mod = np.asarray(ranked_mod)
+    ranked_con = np.asarray(ranked_con)
+    ranked_mod_f1 = np.asarray(ranked_mod_f1)
+    ranked_mod_nmi = np.asarray(ranked_mod_nmi)
+    ranked_con_f1 = np.asarray(ranked_con_f1)
+    ranked_con_nmi = np.asarray(ranked_con_nmi)
+
+    x_axis = np.arange(0, len(algorithms), 0.001)  
+
+    cmap = plt.get_cmap('tab20').colors
+    for i, x, y in [[0, ranked_mod, ranked_mod_f1], 
+                                [1, ranked_mod, ranked_mod_nmi],
+                                [2, ranked_con, ranked_con_f1],
+                                [3, ranked_con, ranked_con_nmi]]:
+        
+        was_dis = []
+        for a, algo in enumerate(algorithms):
+            kde = gaussian_kde(x[:, a])
+            y_axis = kde.evaluate(x_axis)
+            axes[i].plot(x_axis, y_axis, label=algo, c=cmap[a*2])
+
+            kde = gaussian_kde(y[:, a])
+            y_axis = kde.evaluate(x_axis)
+            axes[i].plot(x_axis, y_axis, label=algo, c=cmap[(a*2)+1])
+
+            was_dis.append(wasserstein_distance(x[:, a], y[:, a]))
+        print(np.mean(was_dis))
+        axes[i].set_title(np.mean(was_dis))
+
+
+    fig.suptitle(folder)
+    plt.tight_layout()
+    plt.savefig('q2_graph')
+
+
+#create_q1_figures()
+create_q2_figures()
+#create_q4_figures()
+#create_q5_figures()

@@ -8,6 +8,8 @@ import os
 import matplotlib
 from ugle.logger import ugle_path
 from copy import deepcopy
+import ranky as rk
+from itertools import combinations
 
 def search_results(folder, filename):
 
@@ -124,7 +126,7 @@ def calculate_abs_std(result_object, datasets, metrics):
     return std_object
 
 
-def calculate_ranking_performance(result_object, datasets, metrics, seeds, scale_metrics=False, calc_ave_first=False):
+def calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=False):
     if calc_ave_first:
         # calculate ranking on each seed
         ranking_object = np.zeros(shape=np.shape(result_object)[:-1])
@@ -137,8 +139,6 @@ def calculate_ranking_performance(result_object, datasets, metrics, seeds, scale
                 else:
                     ranking_of_algorithms = np.argsort(metric_values) + 1
                 ranking_of_algorithms[last_place_zero] = len(ranking_of_algorithms)
-                if scale_metrics:
-                    ranking_of_algorithms = scale_metric_values(ranking_of_algorithms, metric_values, metric_name)
                 ranking_object[d, :, m] = ranking_of_algorithms
     else:
         # calculate ranking on each seed
@@ -153,8 +153,6 @@ def calculate_ranking_performance(result_object, datasets, metrics, seeds, scale
                     else:
                         ranking_of_algorithms = np.argsort(metric_values) + 1
                     ranking_of_algorithms[last_place_zero] = len(ranking_of_algorithms)
-                    if scale_metrics:
-                        ranking_of_algorithms = scale_metric_values(ranking_of_algorithms, metric_values, metric_name)
                     ranking_object[d, :, m, s] = ranking_of_algorithms
     
     return ranking_object
@@ -197,6 +195,31 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     default_conductance, default_conductance_std = get_values_from_results_holder(default_result_holder, dataset_name,
                                                                                   'conductance',
                                                                                   return_std=True)
+    
+    print(f'{dataset_name} & nmi & nmi-d & f1 & f1-d & modularity & modularity-d & conductance & conductance-d \\\\')
+    for a, algo in enumerate(algorithms):
+        print(f"{algo} &", end=" ")
+        if nmi[a] > default_nmi[a]: 
+            print(f'\\textbf{{{nmi[a]} $\pm${nmi_std[a]}}} & {default_nmi[a]}$\pm${default_nmi_std[a]} &', end=" ")
+        else:
+            print(f'{nmi[a]} $\pm${nmi_std[a]} & \\textbf{{{default_nmi[a]}$\pm${default_nmi_std[a]}}} &', end=" ")
+
+        if f1[a] > default_f1[a]: 
+            print(f'\\textbf{{{f1[a]} $\pm${f1_std[a]}}} & {default_f1[a]}$\pm${default_f1_std[a]} &', end=" ")
+        else:
+            print(f'{f1[a]} $\pm${f1_std[a]} & \\textbf{{{default_f1[a]}$\pm${default_f1_std[a]}}} &', end=" ")
+
+        if modularity[a] > default_modularity[a]: 
+            print(f'\\textbf{{{modularity[a]} $\pm${modularity_std[a]}}} & {default_modularity[a]}$\pm${default_modularity_std[a]} &', end=" ")
+        else:
+            print(f'{modularity[a]} $\pm${modularity_std[a]} & \\textbf{{{default_modularity[a]}$\pm${default_modularity_std[a]}}} &', end=" ")
+
+        if conductance[a] > default_conductance[a]: 
+            print(f'\\textbf{{{conductance[a]} $\pm${conductance_std[a]}}} & {default_conductance[a]}$\pm${default_conductance_std[a]} &', end=" ")
+        else:
+            print(f'{conductance[a]} $\pm${conductance_std[a]} & \\textbf{{{default_conductance[a]}$\pm${default_conductance_std[a]}}} \\\\')
+
+        # repeat for rest 
 
     bar_width = 1 / 4
     x_axis_names = np.arange(len(algorithms))
@@ -243,7 +266,7 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     return ax
 
 
-def create_dataset_landscape_fig(ax, title, datasets, algorithms, metrics, seeds, folder, scale_metrics=False, calc_ave_first=False):
+def create_dataset_landscape_fig(ax, title, datasets, algorithms, metrics, seeds, folder, calc_ave_first=False):
     # get datasest information
     try:
         clustering = pickle.load(open(f"{ugle_path}/dataset_stats/clustering.pkl", "rb"))
@@ -271,7 +294,7 @@ def create_dataset_landscape_fig(ax, title, datasets, algorithms, metrics, seeds
 
     # get results
     result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
-    ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, scale_metrics=scale_metrics, calc_ave_first=calc_ave_first)
+    ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=calc_ave_first)
     if calc_ave_first:
         # calculate the ranking averages 
         ranking_over_datasets = np.mean(ranking_object, axis=2)
@@ -303,7 +326,7 @@ def create_dataset_landscape_fig(ax, title, datasets, algorithms, metrics, seeds
         tick_spacing = np.linspace(0.5, n_best_algos - 1.5, n_best_algos)
     cbar = plt.colorbar(cax, ticks=range(n_best_algos), orientation="vertical", shrink=0.8)
     cbar.set_ticks(tick_spacing)
-    cbar.ax.set_yticklabels(best_algo_list, fontsize=14, ha='left', rotation=-40)
+    cbar.ax.set_yticklabels(best_algo_list, fontsize=16, ha='left', rotation=-40)
     # add dataset locations
     ax.scatter(clustering, closeness, marker='x', s=20, color='black', label='datasets')
     # add nice visual elements
@@ -315,35 +338,80 @@ def create_dataset_landscape_fig(ax, title, datasets, algorithms, metrics, seeds
     return ax
 
 
+def print_2d_array(array):
+    for row in array:
+        row_str = " & ".join(f"{val:.3f}" for val in row)
+        print(row_str + " \\\\")
+
+
 def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds: list, folder: str, title_name: str, 
-    scale_metrics: bool=True, calc_ave_first: bool=False, set_legend: bool=True, ax=None, ax1=None, fig=None, fig1=None):
+     calc_ave_first: bool=False, set_legend: bool=True, ax=None, ax1=None, fig=None, fig1=None):
 
     # init axis
     if not ax and not fig:
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(12, 5))
     elif (ax and not fig) or (fig and not ax):
         print('please provide both fig and ax or neither')
 
     if not ax1:
-        fig1, ax1 = plt.subplots(figsize=(6, 6))
+        fig1, ax1 = plt.subplots(figsize=(12, 5))
     elif (ax1 and not fig1) or (fig1 and not ax1):
         print('please provide both fig1 and ax1 or neither')
 
+    #fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(12, 5))
+    #ax = axes[0]
+    #ax1 = axes[1]
+    #ax2= axes[2]
+
     # fetch results
     result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
+
     # calculate ranking 
-    ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, scale_metrics=scale_metrics, calc_ave_first=calc_ave_first)
-    # calculate overrall ranking and sensitivity + order
+    ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=calc_ave_first)
+
+    # aggregate ranks 
     if calc_ave_first:
-        overrall_ranking = np.mean(ranking_object, axis=(0, 2))
-        # calculate the ranking averages 
-        ranking_over_metrics = np.mean(ranking_object, axis=0)
-        ranking_over_datasets = np.mean(ranking_object, axis=2)
+
+        overrall_ranking = np.transpose(ranking_object, (1, 0, 2))
+        overrall_ranking = overrall_ranking.reshape(-1, overrall_ranking.shape[1]*overrall_ranking.shape[2])
+        overrall_ranking = rk.center(overrall_ranking, axis=1, method='kendalltau')
+        
+        rank_on_metric_agg_over_dataset = []
+        for d, _ in enumerate(datasets):
+            rank_on_metric_agg_over_dataset.append(rk.center(ranking_object[d], axis=1, method='kendalltau'))
+        
+        rank_on_dataset_agg_over_metric = []
+        for m, _ in enumerate(metrics):
+            rank_on_dataset_agg_over_metric.append(rk.center(ranking_object[:, :, m].T, axis=1, method='kendalltau'))
     else:
-        overrall_ranking = np.mean(ranking_object, axis=(0, 2, 3))
-        # calculate the ranking averages 
-        ranking_over_metrics = np.mean(ranking_object, axis=(0, 3))
-        ranking_over_datasets = np.mean(ranking_object, axis=(2, 3))
+
+        overall_ranking = np.transpose(ranking_object, (1, 0, 2, 3))
+        overall_ranking = overall_ranking.reshape(-1, ranking_object.shape[1]*ranking_object.shape[2],*ranking_object.shape[3])
+        overall_ranking = rk.center(overall_ranking, axis=1, method='kendalltau')
+
+        rank_on_metric_agg_over_dataset = []
+        for d, _ in enumerate(datasets):
+            rank_on_metric_agg_over_dataset.append(rk.center(ranking_object[d].reshape(-1, ranking_object.shape[1]* ranking_object.shape[2]), axis=1, method='kendalltau'))
+        
+        rank_on_dataset_agg_over_metric = []
+        for m, _ in enumerate(metrics):
+            temp_rank_object = np.transpose(ranking_object[:, :, m], (1, 0, 2))
+            temp_rank_object = temp_rank_object.reshape(-1, temp_rank_object.shape[1]* temp_rank_object.shape[2])
+            rank_on_dataset_agg_over_metric.append(rk.center(temp_rank_object, axis=1, method='kendalltau'))
+
+
+    ranking_over_datasets = np.array(rank_on_metric_agg_over_dataset) # should be metrics * algorithms dimensionality 
+    ranking_over_metrics = np.array(rank_on_dataset_agg_over_metric) # should be dataset * algorithms dimensionality 
+
+    from scipy.stats import spearmanr 
+
+    # next step is to calculate the p-value of how correlated the aggregated ranks are... 
+    spear_stats_metrics = spearmanr(ranking_over_metrics, axis=1, alternative='greater')
+    spear_stats_datasets = spearmanr(ranking_over_datasets, axis=1, alternative='greater')
+    print(metrics)
+    print_2d_array(spear_stats_metrics.pvalue)
+    print(datasets)
+    print_2d_array(spear_stats_datasets.pvalue)
 
     algorithms = np.array(algorithms)
     ranking_order = np.argsort(overrall_ranking)
@@ -351,20 +419,20 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
     algo_labels = [albel.split("_")[0] for albel in algo_labels]
 
     # plot the by metric ranking
-    for rank_on_metric_ave_over_dataset, metric in zip(ranking_over_metrics.T, metrics):
+    for rank_on_metric_ave_over_dataset, metric in zip(ranking_over_metrics, metrics):
         ax.plot(algo_labels, rank_on_metric_ave_over_dataset[ranking_order],
                 marker="o", label=metric, alpha=0.5, zorder=20)
 
     # plot the overrall ranking
     ax.scatter(algo_labels, overrall_ranking[ranking_order],
-               marker="x", c='black', s=20, label='average \noverall rank', zorder=100)
+               marker="x", c='black', s=20, label='overall rank', zorder=100)
 
     # set legend
     if set_legend:
-        ax.legend(loc='upper center', fontsize=14, ncol=2, bbox_to_anchor=(0.5, -0.35))
+        ax.legend(loc='upper center', fontsize=15, ncol=2, bbox_to_anchor=(0.5, -0.35))
     # configure y axis
     ax.set_ylim(0, 10.5)
-    ax.set_ylabel('Algorithm ranking\naveraged over dataset', fontsize=14)
+    ax.set_ylabel('Concensus Ranking\nover Datasets', fontsize=15)
     ax.tick_params(axis='y', labelsize=18)
     # configure x axis
     plt.setp(ax.xaxis.get_majorticklabels(), ha='left', rotation=-40, fontsize=14)
@@ -376,8 +444,9 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
     for label in ax.xaxis.get_majorticklabels():
         label.set_transform(label.get_transform() - offset)
     # set title
-    ax.set_title(f'{title_name}', fontsize=20)
+    ax.set_title(f'{title_name}: Ranking by Metric', fontsize=20)
     plt.tight_layout()
+
 
     # plot the by dataset ranking
     colours = plt.get_cmap('tab20').colors
@@ -386,13 +455,13 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
                  marker="o", label=dataset, alpha=0.5, zorder=20, c=c)
     # plot the overrall ranking
     ax1.scatter(algo_labels, overrall_ranking[ranking_order],
-                marker="x", c='black', s=20, label='average \noverall rank', zorder=100)
+                marker="x", c='black', s=20, label='overall rank', zorder=100)
     # set legend
     if set_legend:
         ax1.legend(loc='upper center', fontsize=14, ncol=4, bbox_to_anchor=(0.5, -0.35))
     # set y axis
     ax1.set_ylim(0, 10.5)
-    ax1.set_ylabel('Algorithm ranking\naveraged over metric', fontsize=14)
+    ax1.set_ylabel('Consensus Ranking\nover Metrics', fontsize=15)
     ax1.tick_params(axis='y', labelsize=20)
     # set x axis
     plt.setp(ax1.xaxis.get_majorticklabels(), ha='left', rotation=-40, fontsize=14)
@@ -404,20 +473,20 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
     for label in ax1.xaxis.get_majorticklabels():
         label.set_transform(label.get_transform() - offset)
     # set title
-    ax1.set_title(f'{title_name}', fontsize=20)
+    ax1.set_title(f'{title_name}: Ranking by Dataset' , fontsize=20)
     plt.tight_layout()
 
     return ax, ax1
 
 
-def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder, scale_metrics=False, calc_ave_first=False, set_legend=False):
+def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder, calc_ave_first=False, set_legend=False):
     if not ax:
         fig, ax = plt.subplots(1, 1, figsize=(8, 4))
 
     x_axis = np.arange(0, len(algorithms), 0.001)
 
     result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
-    ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=calc_ave_first, scale_metrics=scale_metrics)
+    ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=calc_ave_first)
 
     if calc_ave_first:
         ave_axis = [0, 2]
@@ -433,39 +502,40 @@ def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder
     for i, algo in enumerate(algorithms):
         all_ranks_per_algo[i] = ranking_object[:, i, :].flatten()
 
-    # calculate amount of overlap
-    out = 0.
-    for i, _ in enumerate(algorithms):
-        for j, _ in enumerate(algorithms):
-            if i != j:
-                out += wasserstein_distance(all_ranks_per_algo[i], all_ranks_per_algo[j])
-                
-    # calculate averages
-    div_out = (len(algorithms) * (len(algorithms) -1))/2
-    ave_overlap = str(round(out/div_out, 3))
+    # with plt.xkcd():
+    # plot the lines
+    for j, algo_ranks in enumerate(all_ranks_per_algo):
+        kde = gaussian_kde(algo_ranks)
+        y_axis = kde.evaluate(x_axis)
+        ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10)
 
-    with plt.xkcd():
-        # plot the lines
-        for j, algo_ranks in enumerate(all_ranks_per_algo):
-            kde = gaussian_kde(algo_ranks)
-            y_axis = kde.evaluate(x_axis)
-            ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10)
+    def kendall_w(expt_ratings):
+        if expt_ratings.ndim!=2:
+            raise 'ratings matrix must be 2-dimensional'
+        m = expt_ratings.shape[0] # raters
+        n = expt_ratings.shape[1] # items rated
+        denom = m**2*(n**3-n)
+        rating_sums = np.sum(expt_ratings, axis=0)
+        S = n*np.var(rating_sums)
+        return 12*S/denom
 
-        if set_legend:
-            ax.legend(loc='best', fontsize=16, ncol=3)
-            #ax.legend(loc='upper center', fontsize=14, ncol=3, bbox_to_anchor=(0.5, -0.35))
-            #ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
+    ww_coeff = kendall_w(all_ranks_per_algo.T)
 
-        #ax.set_ybound(0, 3)
-        ax.set_xbound(1, 10)
-        ax.set_ylabel('probability density', fontsize=18)
-        ax.set_xlabel(r'kde estimatation of rank distribution $f_{j}(r)$', fontsize=18)
+    if set_legend:
+        #ax.legend(loc='best', fontsize=16, ncol=3)
+        ax.legend(loc='upper center', fontsize=15, ncol=3, bbox_to_anchor=(0.5, -0.35))
+        #ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
 
-        #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
-        ax.tick_params(axis='x', labelsize=18)
-        ax.tick_params(axis='y', labelsize=18)
+    #ax.set_ybound(0, 3)
+    ax.set_xbound(1, 10)
+    ax.set_xlabel(r'$r$' + ' : algorithm ranking', fontsize=20)
+    ax.set_ylabel(r'$f_{j}(r)$', fontsize=20) #kde estimatation of rank distribution
 
-        ax.set_title(title + ave_overlap, fontsize=20)
+    #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
+    ax.tick_params(axis='x', labelsize=18)
+    ax.tick_params(axis='y', labelsize=15)
+
+    ax.set_title(title + f'{ww_coeff:.3f}', fontsize=20)
     return ax
 
 
@@ -499,7 +569,7 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
         item.set_fontsize(48)
 
     fig.tight_layout()
-    fig.savefig(f"{ugle_path}/figures/new_hpo_investigation.png", bbox_inches='tight')
+    fig.savefig(f"{ugle_path}/figures/le_hpo_investigation.png", bbox_inches='tight')
     return
 
 
@@ -507,10 +577,10 @@ def create_algo_selection_on_dataset_landscape(datasets, algorithms, default_alg
 
     fig, ax = plt.subplots(2, 2, figsize=(15, 7.5))
 
-    titles[0] += r' $(\mathcal{\hat{T}}_{(dhp)})$'
-    titles[1] += r' $(\mathcal{\hat{T}}_{(hpo)})$'
-    titles[2] += r' $(\mathcal{T}_{(dhp)})$'
-    titles[3] += r' $(\mathcal{T}_{(hpo)})$'
+    titles[0] = r'$\mathcal{T}_{(ave-d)}$'
+    titles[1] = r'$\mathcal{T}_{(ave-hpo)}$'
+    titles[2] = r'$\mathcal{T}_{(ind-d)}$'
+    titles[3] = r'$\mathcal{T}_{(ind-hpo)}$'
 
     ax[0, 0] = create_dataset_landscape_fig(ax[0, 0], titles[0], datasets, default_algos, metrics, seeds, default_folder, calc_ave_first=True)
     ax[0, 1] = create_dataset_landscape_fig(ax[0, 1], titles[1], datasets, algorithms, metrics, seeds, folder, calc_ave_first=True)
@@ -518,7 +588,7 @@ def create_algo_selection_on_dataset_landscape(datasets, algorithms, default_alg
     ax[1, 1] = create_dataset_landscape_fig(ax[1, 1], titles[3], datasets, algorithms, metrics, seeds, folder)
     
     fig.tight_layout()
-    fig.savefig(f"{ugle_path}/figures/new_dataset_landscape_comparison.png")
+    fig.savefig(f"{ugle_path}/figures/le_dataset_landscape_comparison.png")
     return
 
 
@@ -532,31 +602,30 @@ def create_comparison_figures(datasets: list, algorithms: list, metrics: list, s
     nrows, ncols = 2, 2
     fig1, axs1 = plt.subplots(nrows, ncols, figsize=(15, 7.5))
 
-    titles[0] += r' $(\mathcal{\hat{T}}_{(dhp)})$'
-    titles[1] += r' $(\mathcal{\hat{T}}_{(hpo)})$'
-    titles[2] += r' $(\mathcal{T}_{(dhp)})$'
-    titles[3] += r' $(\mathcal{T}_{(hpo)})$'
+    titles[0] = r'$\mathcal{T}_{(ave-d)}$'
+    titles[1] = r'$\mathcal{T}_{(ave-hpo)}$'
+    titles[2] = r'$\mathcal{T}_{(ind-d)}$'
+    titles[3] = r'$\mathcal{T}_{(ind-hpo)}$'
 
     axs0[0, 0], axs1[0, 0] = create_ranking_charts(datasets, default_algos, metrics, seeds, default_folder,
-                                           title_name=titles[0],
-                                           scale_metrics=False, calc_ave_first=True, set_legend=False, ax=axs0[0, 0], ax1=axs1[0, 0], fig=fig0,
+                                           title_name=titles[0], calc_ave_first=True, set_legend=False, ax=axs0[0, 0], ax1=axs1[0, 0], fig=fig0,
                                            fig1=fig1)
     axs0[0, 1], axs1[0, 1] = create_ranking_charts(datasets, algorithms, metrics, seeds, folder, title_name=titles[1],
-                                           scale_metrics=False, calc_ave_first=True, set_legend=False, ax=axs0[0, 1], ax1=axs1[0, 1], fig=fig0,
+                                           calc_ave_first=True, set_legend=False, ax=axs0[0, 1], ax1=axs1[0, 1], fig=fig0,
                                            fig1=fig1)
     axs0[1, 0], axs1[1, 0] = create_ranking_charts(datasets, default_algos, metrics, seeds, default_folder,
                                            title_name=titles[2],
-                                           scale_metrics=False, set_legend=False, ax=axs0[1, 0], ax1=axs1[1, 0], fig=fig0,
+                                           set_legend=False, ax=axs0[1, 0], ax1=axs1[1, 0], fig=fig0,
                                            fig1=fig1)
     axs0[1, 1], axs1[1, 1] = create_ranking_charts(datasets, algorithms, metrics, seeds, folder, title_name=titles[3],
-                                           scale_metrics=False, set_legend=True, ax=axs0[1, 1], ax1=axs1[1, 1], fig=fig0,
+                                            set_legend=True, ax=axs0[1, 1], ax1=axs1[1, 1], fig=fig0,
                                            fig1=fig1)
 
     fig0.tight_layout()
     fig1.tight_layout()
 
-    fig0.savefig(f"{ugle_path}/figures/new_ranking_comparison_metrics.png", bbox_inches='tight')
-    fig1.savefig(f"{ugle_path}/figures/new_ranking_comparison_datasets.png", bbox_inches='tight')
+    fig0.savefig(f"{ugle_path}/figures/le_ranking_comparison_metrics.png", bbox_inches='tight')
+    fig1.savefig(f"{ugle_path}/figures/le_ranking_comparison_datasets.png", bbox_inches='tight')
     return
 
 
@@ -567,10 +636,10 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     nrows, ncols = 2, 2
     fig, ax = plt.subplots(nrows, ncols, figsize=(15, 7.5))
 
-    titles[0] += r' $\Omega(\mathcal{\hat{T}}_{(dhp)})$ : '
-    titles[1] += r' $\Omega(\mathcal{\hat{T}}_{(hpo)})$ : '
-    titles[2] += r' $\Omega(\mathcal{T}_{(dhp)})$ : '
-    titles[3] += r' $\Omega(\mathcal{T}_{(hpo)})$ : '
+    titles[0] = r'$W(\mathcal{T}_{(ave-d)})$: '
+    titles[1] = r'$W(\mathcal{T}_{(ave-hpo)})$: '
+    titles[2] = r'$W(\mathcal{T}_{(ind-d)})$: '
+    titles[3] = r'$W(\mathcal{T}_{(ind-hpo)})$: '
 
     ax[0, 0] = create_rand_dist_fig(ax[0, 0], titles[0], datasets, default_algos, metrics, seeds, default_folder, calc_ave_first=True)
     ax[0, 1] = create_rand_dist_fig(ax[0, 1], titles[1], datasets, algorithms, metrics, seeds, folder, calc_ave_first=True)
@@ -578,30 +647,45 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     ax[1, 1] = create_rand_dist_fig(ax[1, 1], titles[3], datasets, algorithms, metrics, seeds, folder, set_legend=True)
 
     fig.tight_layout()
-    fig.savefig(f'{ugle_path}/figures/new_rand_dist_comparison.png', bbox_inches='tight')
+    fig.savefig(f'{ugle_path}/figures/le_rand_dist_comparison.png', bbox_inches='tight')
     return
 
 
 def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos):
     titles = ['a) Default HPs w/ AveSeed', 'b) HPO w/ AveSeed', 'c) Default HPs w/ SeedRanking', 'd) HPO w/ SeedRanking']
-    create_rand_dist_comparison(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
-    create_algo_selection_on_dataset_landscape(datasets, algorithms, default_algos, metrics, seeds, folder, default_folder, deepcopy(titles))
-    create_comparison_figures(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
-    create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
+    #create_rand_dist_comparison(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
+    #print('done rand dist')
+    #create_algo_selection_on_dataset_landscape(datasets, algorithms, default_algos, metrics, seeds, folder, default_folder, deepcopy(titles))
+    #print('done algo selection')
 
+
+    # only need one figure for this 
+    fig0, axs0 = plt.subplots(1, 1, figsize=(7.5, 5.5))
+    fig1, axs1 = plt.subplots(1, 1, figsize=(7.5, 5.5))
+    axs0, axs1 = create_ranking_charts(datasets, algorithms, metrics, seeds, folder, title_name=r'$\mathcal{T}_{(ave-hpo)}$', calc_ave_first=True, set_legend=True,
+                                    ax=axs0, ax1=axs1, fig=fig0, fig1=fig1)
+    fig0.tight_layout()
+    fig1.tight_layout()
+
+    fig0.savefig(f"{ugle_path}/figures/le_ranking_comparison_metrics.png", bbox_inches='tight')
+    fig1.savefig(f"{ugle_path}/figures/le_ranking_comparison_datasets.png", bbox_inches='tight')
+
+    print('done metric + dataset comparison')
+    create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
+    print('done fats%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%o')
     return
 
 
-#algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
-#datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
-#metrics = ['nmi', 'modularity', 'f1', 'conductance']
-#folder = './progress_results/'
-#seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-#default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
-#                 'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
-#default_folder = './new_default/'
+algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
+datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
+metrics = ['f1', 'nmi', 'modularity', 'conductance']
+folder = './results/progress_results/'
+seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
+                 'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
+default_folder = './results/default_results/'
 
-#create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)
+create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)
 
 # creates a tikz figure to show someone
 #fig, ax = plt.subplots(1, 1, figsize=(15, 15))
@@ -1048,6 +1132,6 @@ def create_q2_figures():
 
 
 #create_q1_figures()
-create_q2_figures()
+#create_q2_figures()
 #create_q4_figures()
 #create_q5_figures()

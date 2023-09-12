@@ -480,6 +480,16 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
 
 
 def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder, calc_ave_first=False, set_legend=False):
+    def kendall_w(expt_ratings):
+        if expt_ratings.ndim!=2:
+            raise 'ratings matrix must be 2-dimensional'
+        m = expt_ratings.shape[0] # raters
+        n = expt_ratings.shape[1] # items rated
+        denom = m**2*(n**3-n)
+        rating_sums = np.sum(expt_ratings, axis=0)
+        S = n*np.var(rating_sums)
+        return 12*S/denom
+    
     if not ax:
         fig, ax = plt.subplots(1, 1, figsize=(8, 4))
 
@@ -488,6 +498,18 @@ def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder
     result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
     ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=calc_ave_first)
 
+    # datasets, algorithms, metrics, seeds ->  tests(datasets+metrics), seeds, algorithms
+    ranking_object = np.transpose(ranking_object, axes=(0, 2, 3, 1))
+    ranking_object = ranking_object.reshape((-1,) + ranking_object.shape[2:])
+    wills_order = []
+    for test in ranking_object:
+        wills_order.append(kendall_w(test))
+    wills_order = np.array(wills_order)
+    print(title + f"{np.mean(wills_order):.3f} +- {np.std(wills_order):.3f}")
+
+    
+
+    """
     if calc_ave_first:
         ave_axis = [0, 2]
     else:
@@ -509,17 +531,7 @@ def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder
         y_axis = kde.evaluate(x_axis)
         ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10)
 
-    def kendall_w(expt_ratings):
-        if expt_ratings.ndim!=2:
-            raise 'ratings matrix must be 2-dimensional'
-        m = expt_ratings.shape[0] # raters
-        n = expt_ratings.shape[1] # items rated
-        denom = m**2*(n**3-n)
-        rating_sums = np.sum(expt_ratings, axis=0)
-        S = n*np.var(rating_sums)
-        return 12*S/denom
-
-    ww_coeff = kendall_w(all_ranks_per_algo.T)
+    # ww_coeff = kendall_w(all_ranks_per_algo.T)
 
     if set_legend:
         #ax.legend(loc='best', fontsize=16, ncol=3)
@@ -535,7 +547,8 @@ def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder
     ax.tick_params(axis='x', labelsize=18)
     ax.tick_params(axis='y', labelsize=15)
 
-    ax.set_title(title + f'{ww_coeff:.3f}', fontsize=20)
+    # ax.set_title(title + f'{ww_coeff:.3f}', fontsize=20)
+    """
     return ax
 
 
@@ -633,18 +646,34 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
                                 default_algos: list, default_folder: str, titles: list):
 
     # create holder figure
-    nrows, ncols = 2, 2
+    nrows, ncols = 1, 2
     fig, ax = plt.subplots(nrows, ncols, figsize=(15, 7.5))
 
-    titles[0] = r'$W(\mathcal{T}_{(ave-d)})$: '
-    titles[1] = r'$W(\mathcal{T}_{(ave-hpo)})$: '
-    titles[2] = r'$W(\mathcal{T}_{(ind-d)})$: '
-    titles[3] = r'$W(\mathcal{T}_{(ind-hpo)})$: '
+    titles[0] = r'$W(\mathcal{T}_{(default)})$: '
+    titles[1] = r'$W(\mathcal{T}_{(hpo)})$: '
 
-    ax[0, 0] = create_rand_dist_fig(ax[0, 0], titles[0], datasets, default_algos, metrics, seeds, default_folder, calc_ave_first=True)
-    ax[0, 1] = create_rand_dist_fig(ax[0, 1], titles[1], datasets, algorithms, metrics, seeds, folder, calc_ave_first=True)
-    ax[1, 0] = create_rand_dist_fig(ax[1, 0], titles[2], datasets, default_algos, metrics, seeds, default_folder)
-    ax[1, 1] = create_rand_dist_fig(ax[1, 1], titles[3], datasets, algorithms, metrics, seeds, folder, set_legend=True)
+    ax[0] = create_rand_dist_fig(ax[0], titles[0], datasets, default_algos, metrics, seeds, default_folder)
+    ax[1] = create_rand_dist_fig(ax[1], titles[1], datasets, algorithms, metrics, seeds, folder, set_legend=True)
+
+    result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
+    default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
+    n_comparisons = result_object.flatten().shape[0]
+    rankings = np.zeros((n_comparisons, 2))
+    result_object = result_object.flatten()
+    default_result_object = default_result_object.flatten()
+    for i in range(n_comparisons):
+        if result_object[i] > default_result_object[i]:
+            rankings[i] = [1, 2]
+        elif default_result_object[i] < result_object[i]:
+            rankings[i] = [2, 1]
+        else:
+            rankings[i] = [1.5, 1.5]
+    means_hpo = np.mean(rankings, axis=0)[0]
+    means_def = np.mean(rankings, axis=0)[1]
+    std_hpo = np.std(rankings, axis=0)[0]
+    std_def = np.std(rankings, axis=0)[1]
+    print("Default: " + f"{means_def:.3f}\\neq{std_def:.3f}")
+    print("HPO: " + f"{means_hpo:.3f}\\neq{std_hpo:.3f}")
 
     fig.tight_layout()
     fig.savefig(f'{ugle_path}/figures/le_rand_dist_comparison.png', bbox_inches='tight')
@@ -653,26 +682,26 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
 
 def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos):
     titles = ['a) Default HPs w/ AveSeed', 'b) HPO w/ AveSeed', 'c) Default HPs w/ SeedRanking', 'd) HPO w/ SeedRanking']
-    #create_rand_dist_comparison(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
+    create_rand_dist_comparison(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
     #print('done rand dist')
     #create_algo_selection_on_dataset_landscape(datasets, algorithms, default_algos, metrics, seeds, folder, default_folder, deepcopy(titles))
     #print('done algo selection')
 
 
-    # only need one figure for this 
-    fig0, axs0 = plt.subplots(1, 1, figsize=(7.5, 5.5))
-    fig1, axs1 = plt.subplots(1, 1, figsize=(7.5, 5.5))
-    axs0, axs1 = create_ranking_charts(datasets, algorithms, metrics, seeds, folder, title_name=r'$\mathcal{T}_{(ave-hpo)}$', calc_ave_first=True, set_legend=True,
-                                    ax=axs0, ax1=axs1, fig=fig0, fig1=fig1)
-    fig0.tight_layout()
-    fig1.tight_layout()
+    ## only need one figure for this 
+    #fig0, axs0 = plt.subplots(1, 1, figsize=(7.5, 5.5))
+    #fig1, axs1 = plt.subplots(1, 1, figsize=(7.5, 5.5))
+    #axs0, axs1 = create_ranking_charts(datasets, algorithms, metrics, seeds, folder, title_name=r'$\mathcal{T}_{(ave-hpo)}$', calc_ave_first=True, set_legend=True,
+                                    # ax=axs0, ax1=axs1, fig=fig0, fig1=fig1)
+    # fig0.tight_layout()
+    # fig1.tight_layout()
 
-    fig0.savefig(f"{ugle_path}/figures/le_ranking_comparison_metrics.png", bbox_inches='tight')
-    fig1.savefig(f"{ugle_path}/figures/le_ranking_comparison_datasets.png", bbox_inches='tight')
+    # fig0.savefig(f"{ugle_path}/figures/le_ranking_comparison_metrics.png", bbox_inches='tight')
+    # fig1.savefig(f"{ugle_path}/figures/le_ranking_comparison_datasets.png", bbox_inches='tight')
 
-    print('done metric + dataset comparison')
-    create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
-    print('done fats%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%o')
+    # print('done metric + dataset comparison')
+    # create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
+    # print('done fats%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%o')
     return
 
 

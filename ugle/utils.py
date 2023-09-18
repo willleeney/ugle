@@ -235,7 +235,7 @@ def create_experiment_tracker(exp_cfg: DictConfig) -> list:
                                 'results': {}
                                 }))
     elif exp_cfg.dataset_algo_combinations != []:
-        for dataset_algo in exp_cfg.algo_dataset_combinations:
+        for dataset_algo in exp_cfg.dataset_algo_combinations:
             dataset, algorithm = dataset_algo.split('_')
             experiment_tracker.append(OmegaConf.create(
                                 {'dataset': dataset,

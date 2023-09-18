@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -30,6 +31,15 @@
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/testing/failing.yaml"]
+        },
+        {
+            "name": "Python: Test dataset algo ",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/experiments/blue_unsuper_2.yaml"]
         },
         
     ]

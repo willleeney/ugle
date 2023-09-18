@@ -1,7 +1,7 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: []
 algorithms: []
-dataset_algo_combinations: ["amac_dgi", "citeseer_dgi", "cornell_daegc"]
+dataset_algo_combinations: ["amac_dgi"]
 run_cpu_fallback: True
 special_training: 
   split_addition_percentage: False
@@ -18,7 +18,7 @@ study_override_cfg:
 
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['modularity', 'conductance']
-    gpu: '2'
+    gpu: '0'
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0
     training_to_testing_split: 1.0

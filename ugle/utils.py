@@ -225,14 +225,25 @@ def create_experiment_tracker(exp_cfg: DictConfig) -> list:
     :experiment_tracker: list of results objects that store results from individual experiment
     """
     experiment_tracker = []
-    for dataset in exp_cfg.datasets:
-        for algorithm in exp_cfg.algorithms:
+    if exp_cfg.datasets != [] and exp_cfg.algorithms != []:
+        for dataset in exp_cfg.datasets:
+            for algorithm in exp_cfg.algorithms:
+                experiment_tracker.append(OmegaConf.create(
+                                {'dataset': dataset,
+                                'algorithm': algorithm,
+                                'seeds': exp_cfg.seeds,
+                                'results': {}
+                                }))
+    elif exp_cfg.dataset_algo_combinations != []:
+        for dataset_algo in exp_cfg.algo_dataset_combinations:
+            dataset, algorithm = dataset_algo.split('_')
             experiment_tracker.append(OmegaConf.create(
-                            {'dataset': dataset,
-                             'algorithm': algorithm,
-                             'seeds': exp_cfg.seeds,
-                             'results': {}
-                             }))
+                                {'dataset': dataset,
+                                'algorithm': algorithm,
+                                'seeds': exp_cfg.seeds,
+                                'results': {}
+                                }))
+
 
     return experiment_tracker
 

@@ -714,7 +714,7 @@ default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default'
                  'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
 default_folder = './results/default_results/'
 
-create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)
+#create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)
 
 # creates a tikz figure to show someone
 #fig, ax = plt.subplots(1, 1, figsize=(15, 15))

@@ -1,8 +1,8 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: []
 algorithms: []
-dataset_algo_combinations: ["amac_sublime", "amac_vgaer", "cora_vgaer", "cora_sublime"]
-run_cpu_fallback: True
+dataset_algo_combinations: ["cora_vgaer", "cora_sublime"]
+run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False
   retrain_on_each_dataset: False

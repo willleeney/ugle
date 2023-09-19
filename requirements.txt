@@ -18,3 +18,4 @@ omegaconf
 nbformat
 matplotlib
 fast-pytorch-kmeans
+ranky

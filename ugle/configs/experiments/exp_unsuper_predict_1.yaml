@@ -1,7 +1,7 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: []
 algorithms: []
-dataset_algo_combinations: ["amac_daegc", "texas_grace", "cornell_sublime", "cornell_grace"]
+dataset_algo_combinations: ["texas_grace"]
 run_cpu_fallback: True
 special_training: 
   split_addition_percentage: False

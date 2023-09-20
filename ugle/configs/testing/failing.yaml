@@ -9,7 +9,7 @@ special_training:
 
 study_override_cfg:
   trainer:
-    n_trials_hyperopt: 10
+    n_trials_hyperopt: 2
     results_path: './results/failing/'
 
     show_config: False

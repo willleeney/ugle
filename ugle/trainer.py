@@ -374,6 +374,7 @@ class ugleTrainer:
         processed_data = self.preprocess_data(features, train_adjacency)
         processed_valid_data = self.preprocess_data(features, validation_adjacency)
 
+        # if only testing then no need to optimise hyperparameters
         if not self.cfg.trainer.only_testing:
             optuna.logging.disable_default_handler()
             # creates the hpo study
@@ -415,6 +416,9 @@ class ugleTrainer:
             self.cfg.trainer.calc_time = False
             log.debug('Retraining model')
             self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency, processed_valid_data)
+
+            ########## this may now be wrong because there are 
+            ########## best points for the model depending on the validation metrics 
             results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                         self.cfg.trainer.test_metrics)
 
@@ -458,7 +462,7 @@ class ugleTrainer:
                     best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
                     test_metrics = ''.join(f'{metric}_' for metric in best_at_metrics)
                     test_metrics = test_metrics[:test_metrics.rfind(',')]
-                    log.info(f'Using best hyperparameters for metrics {best_at_metrics_str}: ')
+                    log.info(f'Best hyperparameters for metric(s): {best_at_metrics_str} ')
                     if not self.cfg.trainer.only_testing:
                         for hp_key, hp_val in best_hp_params.items():
                             log.info(f'{hp_key} : {hp_val}')
@@ -477,18 +481,23 @@ class ugleTrainer:
                 log.debug('Retraining model')
                 validation_results = self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
-                results = self.testing_loop(label, features, test_adjacency, processed_test_data,
-                                            self.cfg.trainer.test_metrics)
-                
-                # log test results
-                right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
-                to_log_trial_values = ''.join(f'| {metric}: {right_order_results[i]} |' for i, metric in
-                                              enumerate(self.cfg.trainer.test_metrics))
-                log.info(f'Test results |{to_log_trial_values}|')
+                # at this point, the self.train() loop should go have saved models for each validation metric 
+                # then go through the best at metrics, and do a test for each of the best models 
+                for opt_metric in best_at_metrics:
+                    # if epoch is the same for all opt_metrics, there will be an unecessary forward pass but we move since unlikely 
+                    log.info(f'Evaluating {opt_metric} model on test split')
+                    self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
+                    self.model.to(self.device)
+                    results = self.testing_loop(label, features, test_adjacency, processed_test_data,
+                                                self.cfg.trainer.test_metrics)
+                    # log test results
+                    right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
+                    to_log_trial_values = ''.join(f'| {metric}: {right_order_results[i]} |' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                    log.info(f'Test results optimised for {opt_metric} |{to_log_trial_values}|')
 
-                objective_results.append({'metrics': best_at_metrics,
-                                          'results': results,
-                                          'args': best_hp_params})
+                    objective_results.append({'metrics': opt_metric,
+                                            'results': results,
+                                            'args': best_hp_params})
                 
                 if self.cfg.trainer.save_validation:
                     objective_results[-1]['validation_results'] = validation_results
@@ -496,6 +505,7 @@ class ugleTrainer:
                 # re init the args object for assign_test params
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
 
+                # this isnt the best code
                 if self.cfg.trainer.save_model and self.cfg.trainer.model_resolution_metric in best_at_metrics:
                     log.info(f'Saving best version of model for {best_at_metrics}')
                     torch.save({"model": self.model.state_dict(),
@@ -519,6 +529,7 @@ class ugleTrainer:
                 saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
                 for k in args_to_overwrite:
                     args[k] = saved_args.args[k]
+            # this will prune the trial if the args have appeared 
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, args, prune_params)
 
         # process model creation
@@ -559,7 +570,8 @@ class ugleTrainer:
                                     self.cfg.trainer.valid_metrics)
                 # put data back into training mode
                 processed_data = self.move_to_activedevice(processed_data)
-                # check better for each metric
+
+                # record best model state over this train/trial for each metric
                 for m, metric in enumerate(self.cfg.trainer.valid_metrics):
                     if (results[metric] > best_so_far[m] and metric != 'conductance') or (results[metric] < best_so_far[m] and metric == 'conductance'):
                         best_so_far[m] = results[metric]
@@ -590,19 +602,20 @@ class ugleTrainer:
             if self.scheduler:
                 self.scheduler.step()
             # update progress bar
-            self.progress_bar.title = f'Training {self.cfg.model} on {self.cfg.dataset} ... Epoch {self.current_epoch}: Loss={loss.item():.4f}'
+            self.progress_bar.title = f'Training: m-{self.cfg.model}, d-{self.cfg.dataset}, s-{self.cfg.args.random_seed} -- Loss={loss.item():.4f}'
             # if all metrics hit patience then end
             if patience_waiting.all() >= self.cfg.args.patience:
                 log.info(f'Early stopping at epoch {self.current_epoch}!')
                 break
 
-       
+        # finished training, record time taken
         timings[0] += time.time() - start
         start = time.time()    
 
         # compute final validation 
         processed_data = self.move_to_cpudevice(processed_data)
         return_results = {}
+        # if saving validation results then record the result on the test metrics
         if self.cfg.trainer.save_validation:
             valid_results = {}
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):

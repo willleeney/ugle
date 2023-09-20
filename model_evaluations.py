@@ -96,7 +96,6 @@ def run_experiment(exp_cfg_name: str):
         if not exists(exp_cfg.study_override_cfg.trainer.models_path):
             makedirs(exp_cfg.study_override_cfg.trainer.models_path)
 
-
     else:
         special_runs = [-1]
 
@@ -167,8 +166,6 @@ def run_experiment(exp_cfg_name: str):
                 log.info('The following combinations lead to OOM')
                 for experiment in experiments_cpu:
                     log.info(f'{experiment.dataset} : {experiment.algorithm}')
-        
-        ugle.utils.display_evaluation_results(experiment_tracker)
         
     return
 

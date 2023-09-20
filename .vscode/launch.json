@@ -24,7 +24,7 @@
             "args" : ["--model", "bgrl", "--dataset", "citeseer"]
         },
         {
-            "name": "Python: Test Breaking ",
+            "name": "Python: Test Failing ",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",

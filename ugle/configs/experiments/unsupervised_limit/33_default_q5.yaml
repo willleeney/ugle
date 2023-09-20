@@ -9,7 +9,7 @@ special_training:
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 1
-    results_path: './q3_train_03_default/'
+    results_path: './results/33_default_q4/'
 
     show_config: False
     load_existing_test: False
@@ -18,7 +18,7 @@ study_override_cfg:
 
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['modularity', 'conductance']
-    gpu: '3'
+    gpu: '2'
 
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0

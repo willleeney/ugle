@@ -415,7 +415,7 @@ class ugleTrainer:
 
         # retrains the model on the validation adj and evaluates test performance
         # might be weird with the previosu results stuff but that's not done in this paper so meh
-        if (not self.cfg.trainer.multi_objective_study) or (self.cfg.trainer.only_testing and not self.cfg.get("previous_results", False)):
+        if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
             self.cfg.trainer.calc_time = False
 
             validation_results = self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,

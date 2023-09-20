@@ -100,10 +100,10 @@ def hungarian_algorithm(labels: np.ndarray, preds: np.ndarray, col_ind=None):
     """
     hungarian algorithm for prediction reassignment
     """
-    labels = labels.astype(np.int64)
+    labels = labels.astype(int)
     assert preds.size == labels.size
     D = max(preds.max(), labels.max()) + 1
-    w = np.zeros((D, D), dtype=np.int64)
+    w = np.zeros((D, D), dtype=int)
     for i in range(preds.size):
         w[preds[i], labels[i]] += 1
 
@@ -182,7 +182,7 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx):
     """
     sparse_mx = sparse_mx.tocoo().astype(np.float32)
     indices = torch.from_numpy(
-        np.vstack((sparse_mx.row, sparse_mx.col)).astype(np.int64))
+        np.vstack((sparse_mx.row, sparse_mx.col)).astype(int))
     values = torch.from_numpy(sparse_mx.data)
     shape = torch.Size(sparse_mx.shape)
     return torch.sparse.FloatTensor(indices, values, shape)

@@ -270,7 +270,7 @@ def numpy_to_edge_index(adjacency: np.ndarray):
     outwards = [i[0] for i in adj_label.keys()]
     inwards = [i[1] for i in adj_label.keys()]
 
-    adjacency = np.array([outwards, inwards], dtype=np.int)
+    adjacency = np.array([outwards, inwards], dtype=int)
     return adjacency
 
 
@@ -343,7 +343,7 @@ class Augmentations:
 
         if self.method == "katz":
             aug_adjacency = self._katz(features, adjacency)
-            aug_adjacency = np.array([aug_adjacency[0], aug_adjacency[1]], dtype=np.int)
+            aug_adjacency = np.array([aug_adjacency[0], aug_adjacency[1]], dtype=int)
             adjacency = adjacency.todense()
             adjacency = numpy_to_edge_index(adjacency)
             aug_features = features.copy()

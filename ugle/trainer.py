@@ -412,33 +412,36 @@ class ugleTrainer:
         processed_test_data = self.preprocess_data(features, test_adjacency)
 
         # retrains the model on the validation adj and evaluates test performance
-        if not self.cfg.trainer.multi_objective_study:
+        # might be weird with the previosu results stuff but that's not done in this paper so meh
+        if (not self.cfg.trainer.multi_objective_study) or (self.cfg.trainer.only_testing and not self.cfg.get("previous_results", False)):
             self.cfg.trainer.calc_time = False
-            log.debug('Retraining model')
-            self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency, processed_valid_data)
 
-            ########## this may now be wrong because there are 
-            ########## best points for the model depending on the validation metrics 
-            results = self.testing_loop(label, features, test_adjacency, processed_test_data,
-                                        self.cfg.trainer.test_metrics)
+            validation_results = self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
+                                    processed_valid_data)
 
-            # log test results
-            right_order_results = [results[k] for k in self.cfg.trainer.valid_metrics]
-            to_log_trial_values = ''.join(f'| {metric}: {right_order_results[i]} |' for i, metric in
-                                          enumerate(self.cfg.trainer.valid_metrics))
-            log.info(f'Test results |{to_log_trial_values}|')
+            for opt_metric in self.cfg.trainer.valid_metrics:
+                log.info(f'Evaluating {opt_metric} model on test split')
+                self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
+                self.model.to(self.device)
+                results = self.testing_loop(label, features, test_adjacency, processed_test_data,
+                                            self.cfg.trainer.test_metrics)
+                # log test results
+                right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
+                to_log_trial_values = ''.join(f'| {metric}: {right_order_results[i]} |' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                log.info(f'Test results optimised for {opt_metric} |{to_log_trial_values}|')
 
-            objective_results = {'metrics': self.cfg.trainer.valid_metrics[0],
-                                 'results': results,
-                                 'args': params_to_assign}
+                objective_results.append({'metrics': opt_metric,
+                                        'results': results,
+                                        'args': params_to_assign})
+                
+                if self.cfg.trainer.save_validation:
+                    objective_results[-1]['validation_results'] = validation_results
 
         else:
             if not self.cfg.trainer.only_testing:
                 # best hp found for metrics
                 best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
                 unique_trials = list(np.unique(np.array(associated_trial)))
-            elif not self.cfg.get("previous_results", False):
-                unique_trials = [-1]
             else:
                 unique_trials = list(range(len(self.cfg.previous_results)))
 
@@ -449,38 +452,35 @@ class ugleTrainer:
                     best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if
                                        associated_trial[i] == best_trial_id]
                     best_hp_params = [trial for trial in study.best_trials if trial.number == best_trial_id][0].params
-                elif best_trial_id != -1:
+                else:
                     best_hp_params = self.cfg.previous_results[idx].args
                     best_at_metrics = self.cfg.previous_results[idx].metrics
-                else:
-                    best_at_metrics = self.cfg.trainer.test_metrics
-                    best_hp_params = self.cfg.args
 
-                if best_trial_id != -1:
-                    # log the best hyperparameters and metrics at which they are best
-                    best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
-                    best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
-                    test_metrics = ''.join(f'{metric}_' for metric in best_at_metrics)
-                    test_metrics = test_metrics[:test_metrics.rfind(',')]
-                    log.info(f'Best hyperparameters for metric(s): {best_at_metrics_str} ')
-                    if not self.cfg.trainer.only_testing:
-                        for hp_key, hp_val in best_hp_params.items():
-                            log.info(f'{hp_key} : {hp_val}')
+                # log the best hyperparameters and metrics at which they are best
+                best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
+                best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
+                test_metrics = ''.join(f'{metric}_' for metric in best_at_metrics)
+                test_metrics = test_metrics[:test_metrics.rfind(',')]
+                log.info(f'Best hyperparameters for metric(s): {best_at_metrics_str} ')
+                if not self.cfg.trainer.only_testing:
+                    for hp_key, hp_val in best_hp_params.items():
+                        log.info(f'{hp_key} : {hp_val}')
 
-                    # assign hyperparameters for the metric optimised over
-                    if self.cfg.trainer.finetuning_new_dataset or self.cfg.trainer.same_init_hpo:
-                        args_to_overwrite = list(set(self.cfg.args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
-                        saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
-                        for k in args_to_overwrite:
-                            best_hp_params[k] = saved_args.args[k]
-                        
-                    self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
+                # assign hyperparameters for the metric optimised over
+                if self.cfg.trainer.finetuning_new_dataset or self.cfg.trainer.same_init_hpo:
+                    args_to_overwrite = list(set(self.cfg.args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
+                    saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
+                    for k in args_to_overwrite:
+                        best_hp_params[k] = saved_args.args[k]
+                    
+                self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
                 # do testing
                 self.cfg.trainer.calc_time = False
                 log.debug('Retraining model')
                 validation_results = self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
+                
                 # at this point, the self.train() loop should go have saved models for each validation metric 
                 # then go through the best at metrics, and do a test for each of the best models 
                 for opt_metric in best_at_metrics:

@@ -33,14 +33,13 @@
             "args" : ["-ec", "ugle/configs/testing/failing.yaml"]
         },
         {
-            "name": "Python: Test dataset algo ",
+            "name": "Python: Test newest ",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/blue_unsuper_2.yaml"]
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/default_q1.yaml"]
         },
-        
     ]
 }

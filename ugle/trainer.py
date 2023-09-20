@@ -408,6 +408,8 @@ class ugleTrainer:
                     for hp_key, hp_val in params_to_assign.items():
                         log.info(f'{hp_key} : {hp_val}')
                 self.cfg = utils.assign_test_params(self.cfg, params_to_assign)
+        else:
+            params_to_assign = 'default'
 
         processed_test_data = self.preprocess_data(features, test_adjacency)
 

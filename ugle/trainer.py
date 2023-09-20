@@ -418,7 +418,7 @@ class ugleTrainer:
 
             validation_results = self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
                                     processed_valid_data)
-
+            objective_results = []
             for opt_metric in self.cfg.trainer.valid_metrics:
                 log.info(f'Evaluating {opt_metric} model on test split')
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])

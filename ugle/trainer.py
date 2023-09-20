@@ -429,7 +429,7 @@ class ugleTrainer:
                                             self.cfg.trainer.test_metrics)
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
-                to_log_trial_values = ''.join(f'| {metric}: {right_order_results[i]} |' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                to_log_trial_values = ''.join(f'|{metric}: {right_order_results[i]}|' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                 log.info(f'Test results optimised for {opt_metric} |{to_log_trial_values}|')
 
                 objective_results.append({'metrics': opt_metric,

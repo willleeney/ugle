@@ -252,7 +252,7 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
     if not multi_objective_study:
         # log validation results
         trial_value = results[valid_metrics[0]]
-        log.info(f'Trial {trial.number} finished. Validation result || {valid_metrics[0]}: {trial_value} ||')
+        log.info(f'Trial {trial.number} finished. Validation result ||{valid_metrics[0]}: {trial_value}||')
         # log best trial comparison
         new_best_message = f'New best trial {trial.number}'
         if trial.number > 0:
@@ -494,7 +494,7 @@ class ugleTrainer:
                                                 self.cfg.trainer.test_metrics)
                     # log test results
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
-                    to_log_trial_values = ''.join(f'| {metric}: {right_order_results[i]} |' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                    to_log_trial_values = ''.join(f'|{metric}: {right_order_results[i]}|' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                     log.info(f'Test results optimised for {opt_metric} |{to_log_trial_values}|')
 
                     objective_results.append({'metrics': opt_metric,

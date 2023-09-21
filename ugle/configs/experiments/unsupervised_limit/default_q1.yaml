@@ -1,6 +1,7 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['citeseer', 'cora', 'texas', 'wisc', 'cornell', 'dblp']
-algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+datasets: []
+algorithms: []
+dataset_algo_combinations: ["citeseer_sublime_default",  "citeseer_bgrl_default",  "citeseer_vgaer_default",  "cora_daegc_default",  "cora_dgi_default",  "cora_dmon_default",  "cora_grace_default",  "cora_sublime_default",  "cora_bgrl_default",  "cora_vgaer_default",  "texas_daegc_default",  "texas_dgi_default",  "texas_dmon_default",  "texas_grace_default",  "texas_sublime_default",  "texas_bgrl_default",  "texas_vgaer_default",  "wisc_daegc_default",  "wisc_dgi_default",  "wisc_dmon_default",  "wisc_grace_default",  "wisc_sublime_default",  "wisc_bgrl_default",  "wisc_vgaer_default",  "cornell_daegc_default",  "cornell_dgi_default",  "cornell_dmon_default",  "cornell_grace_default",  "cornell_sublime_default",  "cornell_bgrl_default",  "cornell_vgaer_default",  "dblp_daegc_default",  "dblp_dgi_default",  "dblp_dmon_default",  "dblp_grace_default",  "dblp_sublime_default",  "dblp_bgrl_default",  "dblp_vgaer_default"]
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False

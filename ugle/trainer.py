@@ -615,19 +615,17 @@ class ugleTrainer:
         start = time.time()    
 
         # compute final validation 
+        return_results = dict(zip(self.cfg.trainer.valid_metrics, best_so_far))
         processed_data = self.move_to_cpudevice(processed_data)
-        return_results = {}
         # if saving validation results then record the result on the test metrics
         if self.cfg.trainer.save_validation:
             valid_results = {}
+
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):
             log.info(f'Best model for {metric} at epoch {best_epochs[m]}')
-            self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
-            self.model.to(self.device)
-            results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
-                                        self.cfg.trainer.valid_metrics)
-            return_results[metric] = results[metric]
-            if self.cfg.trainer.save_validation:
+            if self.cfg.trainer.save_validation and trial is None:
+                self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
+                self.model.to(self.device)
                 results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                         self.cfg.trainer.test_metrics)
                 valid_results[metric] = results
@@ -635,8 +633,8 @@ class ugleTrainer:
         timings[1] += time.time() - start
         start = time.time()
 
-        log.info(f"Time Training {round(timings[0], 3)}s")
-        log.info(f"Time Validating {round(timings[1], 3)}s")
+        log.info(f"Time training {round(timings[0], 3)}s")
+        log.info(f"Time validating {round(timings[1], 3)}s")
 
         if trial is None:
             if not self.cfg.trainer.save_validation:

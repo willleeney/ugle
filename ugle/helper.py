@@ -10,6 +10,8 @@ from ugle.logger import ugle_path
 from copy import deepcopy
 import ranky as rk
 from itertools import combinations
+from scipy.stats import linregress
+
 
 def search_results(folder, filename):
 
@@ -722,163 +724,18 @@ default_folder = './results/default_results/'
 #fig.tight_layout()
 #fig.savefig(f'{ugle_path}/figures/tkiz_fig.png', bbox_inches='tight')
 
-def rank_values(scores):
-    ranks = []
-    for score in scores:
-       ranks.append(scores.index(score) + 1)
-    return ranks
+
+q1_folder = './results/unsupervised_limit/default_q1/'
+q2_folder = './results/unsupervised_limit/hpo_q2/'
+q5_folder = './results/unsupervised_limit/synth_default_q5/'
+q5_folder1 = './results/unsupervised_limit/33_default_q4/'
+q5_folder2 = './results/unsupervised_limit/66_default_q4/'
+
+datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
+algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 
 
-def calculate_ranking_coefficient_over_dataset(result_object, algorithms, dataset_idx, metrics):
-    ranking_object = np.mean(result_object, axis=-1)[dataset_idx, :, :]
-    n_ranks = len(metrics)
-    all_ranks_per_algo = np.zeros(shape=(len(algorithms), n_ranks))
-
-    for m, metric_name in enumerate(metrics):
-        if metric_name != 'conductance':
-            all_ranks_per_algo[:, m] = rank_values(np.flip(np.sort(ranking_object[:, m])).tolist())
-        else:
-            all_ranks_per_algo[:, m] = rank_values(np.sort(ranking_object[:, m]).tolist())
-       
-    coeff = 0.
-    for i, _ in enumerate(algorithms):
-        for j, _ in enumerate(algorithms):
-            if i != j:
-                coeff += wasserstein_distance(all_ranks_per_algo[i], all_ranks_per_algo[j])
-    
-    # calculate averages
-    div_out = (len(algorithms) * (len(algorithms) -1 ))/2
-    coeff = round(coeff/div_out, 3)  
-
-    return coeff 
-
-
-def create_synth_figure():
-    synth_datasets_2 = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
-                    'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
-                    'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
-    
-    synth_datasets = ['synth_disjoint_disjoint_4', 'synth_disjoint_random_4', 'synth_disjoint_complete_4',
-                    'synth_random_disjoint_4', 'synth_random_random_4', 'synth_random_complete_4',
-                    'synth_complete_disjoint_4', 'synth_complete_random_4', 'synth_complete_complete_4']
-    synth_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-    synth_folder = './synth_defaults/'
-    metrics = ['nmi', 'modularity', 'f1', 'conductance']
-    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-    # fetch results
-    result_object = make_test_performance_object(synth_datasets, synth_algorithms, metrics, seeds, synth_folder)
-
-    # create graph subfigures 
-    nrows, ncols = 3, 3
-    fig, axes = plt.subplots(nrows, ncols, figsize=(9, 9))
-    for i, ax in enumerate(axes.flat):
-        coeff = calculate_ranking_coefficient_over_dataset(result_object, synth_algorithms, i, metrics)
-
-        title = (" ").join(synth_datasets[i].split("_")[1:3])
-        title = 'adj: ' + synth_datasets[i].split("_")[1] + " feat: " + synth_datasets[i].split("_")[2]
-        ax.set_title(f"{title}: {str(coeff)}" )
-
-        alt_colours = ['C3', 'C0', 'C2', 'C1']
-
-        bar_width = 1 / 4
-        x_axis_names = np.arange(len(synth_algorithms))
-
-        # plot results
-        for m, metric in enumerate(metrics):
-            metric_vals = []
-            metric_std = []
-            for a, algo in enumerate(synth_algorithms):
-                metric_vals.append(np.mean(result_object[i, a, m, :]))
-                metric_std.append(np.std(result_object[i, a, m, :]))
-            ax.bar(x_axis_names + (m * bar_width), metric_vals, yerr=metric_std, 
-                   width=bar_width, facecolor=alt_colours[m], alpha=0.9, linewidth=0, label=metric)
-            
-        ax.set_xticks(x_axis_names - 0.5 * bar_width)
-        ax.set_xticklabels(synth_algorithms, ha='left', rotation=-45, position=(-0.5, 0.0))
-        ax.set_axisbelow(True)
-        ax.set_ylim(0.0, 1.0)
-        ax.axhline(y=0.5, color='k', linestyle='-') 
-
-
-    plt.tight_layout()
-    plt.savefig('synth_4_default.png', bbox_inches='tight')
-    print('done')
-
-
-
-def create_trainpercent_figure():
-    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell', 'amac']
-    algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
-    percents = ['01', '03', '05', '07', '09']
-    percents_labels = ['0.1', '0.3', '0.5', '0.7', '0.9']
-    metrics = ['nmi', 'modularity', 'f1', 'conductance']
-    folder = './revamp_train_percent/'
-
-    nrows, ncols = len(algorithms), len(datasets)
-    fig, axes = plt.subplots(nrows, ncols, figsize=(7.5, 10))
-
-    res_objs = []
-    for pct in percents:
-        res_objs.append(make_test_performance_object(datasets, algorithms, metrics, seeds, folder + pct + '/'))
-    res_objs = np.stack(res_objs, axis=0)
-
-    for d, dataset in enumerate(datasets):
-        for a, algo in enumerate(algorithms):
-            ax = axes[a, d]
-            ax.set_title(f'{algo} -- {dataset}')
-
-            alt_colours = ['C3', 'C0', 'C2', 'C1']
-            bar_width = 1 / 4
-            x_axis_names = np.arange(len(percents))
-
-            # plot results
-            for m, metric in enumerate(metrics):
-                metric_vals = []
-                metric_std = []
-                for p in range(len(percents)):
-                    metric_vals.append(np.mean(res_objs[p, d, a, m, :]))
-                    metric_std.append(np.std(res_objs[p, d, a, m, :]))
-                ax.bar(x_axis_names + (m * bar_width), metric_vals, yerr=metric_std, 
-                    width=bar_width, facecolor=alt_colours[m], alpha=0.9, linewidth=0, label=metric)
-                
-            ax.set_xticks(x_axis_names - 0.5 * bar_width)
-            ax.set_xticklabels(percents_labels, ha='left', rotation=-45, position=(-0.5, 0.0))
-            ax.set_axisbelow(True)
-            ax.set_ylim(0.0, 1.0)
-                
-
-    plt.tight_layout()
-    plt.show()
-    print('done')
-
-
-def extract_results(datasets, algorithms, folder):
-    # modularity and conductance may have different hyperparameters or model selection points 
-    mod_results = []
-    con_results = []
-
-    for dataset in datasets:
-        for algo in algorithms:
-            filename = f"{dataset}_{algo}.pkl"
-            file_found = search_results(folder, filename)
-            if file_found:
-                result = pickle.load(open(file_found, "rb"))
-            
-            for seed_result in result.results:
-                for metric_result in seed_result.study_output:
-                    if 'modularity' in metric_result.metrics:
-                        mod_results.append([metric_result.results['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
-
-                    if 'conductance' in metric_result.metrics:
-                        con_results.append([metric_result.results['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
-
-    mod_results = np.asarray(mod_results)
-    con_results = np.asarray(con_results)
-
-    return mod_results, con_results
-
-
+"""
 def var_explained_poly(x, y):
     # Fit a quadratic 
     coefficients = np.polyfit(x, y, 2)
@@ -894,9 +751,114 @@ def var_explained_poly(x, y):
     variance_explained = np.round(variance_explained, 3)
     return variance_explained
 
+from scipy.stats import spearmanr 
 
-def create_fit_graph(mod_results, con_results):
-     # create graph subfigures 
+    # next step is to calculate the p-value of how correlated the aggregated ranks are... 
+    spear_stats_metrics = spearmanr(ranking_over_metrics, axis=1, alternative='greater')
+    spear_stats_datasets = spearmanr(ranking_over_datasets, axis=1, alternative='greater')
+
+
+"""
+
+
+def extract_results(datasets, algorithms, folder, extract_validation=False):
+    # modularity and conductance may have different hyperparameters or model selection points 
+    mod_results = []
+    con_results = []
+
+    for dataset in datasets:
+        for algo in algorithms:
+            filename = f"{dataset}_{algo}.pkl"
+            file_found = search_results(folder, filename)
+            if file_found:
+                result = pickle.load(open(file_found, "rb"))
+            
+                for seed_result in result.results:
+                    for metric_result in seed_result.study_output:
+                        if 'modularity' in metric_result.metrics:
+                            if extract_validation: 
+                                mod_results.append([metric_result.validation_results['modularity']['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
+                            else:
+                                mod_results.append([metric_result.results['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
+
+                        if 'conductance' in metric_result.metrics:
+                            if extract_validation: 
+                                con_results.append([metric_result.validation_results['conductance']['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
+                            else:
+                                con_results.append([metric_result.results['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
+
+    mod_results = np.asarray(mod_results)
+    con_results = np.asarray(con_results)
+
+    return mod_results, con_results
+
+
+def print_dataset_table(datasets, algorithms, folder):
+    # extract results
+    for dataset in datasets:
+        print(dataset, end = ' ')
+        mod_results, con_results = extract_results([dataset], algorithms, folder)
+        for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
+            slope, intercept, r_value, p_value, std_err = linregress(x, y)
+            print(f'& {r_value:.2f}', end=' ')
+        print('')
+
+def print_algo_table(datasets, algorithms, folder):
+    for algorithm in algorithms:
+        print(algorithm, end = ' ')
+        mod_results, con_results = extract_results(datasets, [algorithm], folder)
+        for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
+            slope, intercept, r_value, p_value, std_err = linregress(x, y)
+            print(f'& {r_value:.2f}', end=' ')
+        print('')
+
+
+def kendall_w(expt_ratings):
+    if expt_ratings.ndim!=2:
+        raise 'ratings matrix must be 2-dimensional'
+    m = expt_ratings.shape[0] # raters
+    n = expt_ratings.shape[1] # items rated
+    denom = m**2*(n**3-n)
+    rating_sums = np.sum(expt_ratings, axis=0)
+    S = n*np.var(rating_sums)
+    return 12*S/denom
+
+
+def rank_values(scores):
+    argsort_array = scores.argsort().argsort()
+    ranks_array = np.empty_like(argsort_array)
+    ranks_array[argsort_array] = np.arange(len(scores))
+    return ranks_array
+
+
+def unsupervised_prediction_graph(datasets, algorithms, folder, title):
+    # extract results 
+    mod_results, con_results = extract_results(datasets, algorithms, folder, extract_validation=True)
+    # compute W order
+    different_comparisons = [mod_results[:, 0], mod_results[:, 1], mod_results[:, 2], con_results[:, 0], con_results[:, 1], con_results[:, 2]]
+    testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
+    total_w_order = []
+    for result, testname in zip(different_comparisons, testnames):
+        tempresult = result.reshape(10, len(algorithms), len(datasets), order="F")
+        tempresult = np.transpose(tempresult, axes=(2, 0, 1))
+        ranking = np.zeros_like(tempresult)
+        for d, dataset_res in enumerate(tempresult):
+            for s, seed_res in enumerate(dataset_res):
+                if testname == 'Conductance':
+                    ranking[d, s, :] = rank_values(seed_res) + 1
+                else:
+                    ranking[d, s, :] = np.flip(rank_values(seed_res) + 1)
+
+        w_order = []
+        for test in ranking:
+            w_order.append(kendall_w(test))
+        w_order = np.array(w_order)
+        total_w_order.append(w_order)
+        print(f"{testname} W Order: {np.mean(w_order):.3f} +- {np.std(w_order):.3f}")
+    
+    total_w_order = np.asarray(total_w_order)
+    print(f"Overall W Order: {np.mean(total_w_order):.3f} +- {np.std(total_w_order):.3f}")
+        
     nrows, ncols = 2, 2
     fig, axes = plt.subplots(nrows, ncols, figsize=(8, 8))
     for i, ax in enumerate(axes.flat):
@@ -920,29 +882,15 @@ def create_fit_graph(mod_results, con_results):
             y_label = "NMI"
             x = con_results[:, 0]
             y = con_results[:, 2]
-        
-        print(f'{x_label} --> {y_label} Correlation Coefficient: {round(np.corrcoef(x, y)[0,1],3)}')
 
-        # Fit a quadratic 
-        coefficients = np.polyfit(x, y, 2)
-        poly = np.poly1d(coefficients)
-        # Calculate predicted values
-        predicted_y = poly(x)
-        # Calculate total sum of squares
-        total_var = np.sum((y - np.mean(y)) ** 2)
-        # Calculate residual sum of squares
-        residual_var = np.sum((y - predicted_y) ** 2)
-        # Calculate variance explained
-        variance_explained = 1 - (residual_var / total_var)
-        variance_explained = np.round(variance_explained, 3)
-        print(f"Variance Explained: {variance_explained}")
-        # calculate the line of best fit 
+        # compute regression and give correlation 
+        slope, intercept, r_value, p_value, std_err = linregress(x, y)
+        print(f"Coefficient of Determination (R^2) for {x_label} -> {y_label}: {r_value:.2f}")
         x_space = np.linspace(np.min(x), np.max(x), 200)
-        predicted_y = poly(x_space)
+        y_line = (x_space * slope) + intercept
 
-        # plotting
-        ax.scatter(x, y, color='C0')
-        ax.plot(x_space, predicted_y, color='C3')
+        ax.scatter(x, y, color='tab:blue', s=5)
+        ax.plot(x_space, y_line, color='tab:red')
         if i == 0:
             ax.set_ylabel(y_label)
         if i == 2:
@@ -951,92 +899,20 @@ def create_fit_graph(mod_results, con_results):
         if i == 3:
             ax.set_xlabel(x_label)
         
-        ax.set_title(f"var_explained: {variance_explained}")
+        ax.set_title(f"R^2: {r_value:.2f}")
+    
+    print_algo_table(datasets, algorithms, folder)
+    print_dataset_table(datasets, algorithms, folder)
 
-    return fig, axes
-
-def print_dataset_table(datasets, algorithms, folder, mod_results, con_results):
-    # extract results
-    for dataset in datasets:
-        print(dataset, end = ' ')
-        mod_results, con_results = extract_results([dataset], algorithms, folder)
-        for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
-            print(f'& {var_explained_poly(x, y)}', end=' ')
-        print('')
-
-def print_algo_table(datasets, algorithms, folder, mod_results, con_results):
-    for algorithm in algorithms:
-        print(algorithm, end = ' ')
-        mod_results, con_results = extract_results(datasets, [algorithm], folder)
-        for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
-            print(f'& {var_explained_poly(x, y)}', end=' ')
-        print('')
-
-def create_q1_figures():
-    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell']
-    algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-    folder = './results/q1_default_predict_super/'
-
-    # extract results
-    mod_results, con_results = extract_results(datasets, algorithms, folder)
-    fig, axes = create_fit_graph(mod_results, con_results)
-    fig.suptitle(folder)
+    fig.suptitle(title)
     plt.tight_layout()
-    plt.savefig('q1_graph')
-
-    print('graph q1 complete')
-
-    # extract results
-    
-    print_algo_table(datasets, algorithms, folder, mod_results, con_results)
-    print('dataset table q1 complete')
-    
-    print_dataset_table(datasets, algorithms, folder, mod_results, con_results)
-    print('algorithms q1 complete')
 
 
-def create_q4_figures():
-    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell']
-    algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-    folders = ['./results/q3_train_03_default/','./results/q3_train_06_default/']  
-
-    # extract results
-    for i, folder in enumerate(folders):
-        print(folder)
-        # modularity and conductance may have different hyperparameters or model selection points 
-        mod_results = []
-        con_results = []
-
-        for dataset in datasets:
-            for algo in algorithms:
-                filename = f"{dataset}_{algo}.pkl"
-                file_found = search_results(folder, filename)
-                if file_found:
-                    result = pickle.load(open(file_found, "rb"))
-                
-                for seed_result in result.results:
-                    for metric_result in seed_result.study_output:
-                        if 'modularity' in metric_result.metrics:
-                            mod_results.append([metric_result.validation_results['modularity']['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
-                        if 'conductance' in metric_result.metrics:
-                            con_results.append([metric_result.validation_results['conductance']['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
-
-        mod_results = np.asarray(mod_results)
-        con_results = np.asarray(con_results)
-
-        fig, axes = create_fit_graph(mod_results, con_results)
-        fig.suptitle(folder)
-        plt.tight_layout()
-        plt.savefig(f'q4_graph_{i}')
-
-        print_algo_table(datasets, algorithms, folder, mod_results, con_results)
-        print(f'dataset table q4 {i} complete')
-        
-        print_dataset_table(datasets, algorithms, folder, mod_results, con_results)
-        print(f'algo table q4 {i} complete') 
+unsupervised_prediction_graph(datasets, algorithms, q5_folder2, title="q4: 66% of the data")
 
 
-def create_q5_figures():
+
+def synthetic_evaluation():
     datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
                     'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
                     'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
@@ -1082,85 +958,3 @@ def create_q5_figures():
 
     fig.suptitle(folder)
     plt.tight_layout()
-    plt.savefig('q5_graph')
-    print('figure q5 complete')
-
-
-def create_q2_figures():
-    # get results
-    datasets = ['citeseer', 'cora', 'dblp', 'texas', 'wisc', 'cornell']
-    algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-    folder = './results/q1_default_predict_super/'
-
-    # go thru each combo,
-    nrows, ncols = 4, 1
-    fig, axes = plt.subplots(nrows, ncols, figsize=(9, 9))
-    ranked_mod = []
-    ranked_con = []
-    ranked_mod_f1 = []
-    ranked_mod_nmi = []
-    ranked_con_f1 = []
-    ranked_con_nmi = []
-    for dataset in datasets:
-        mod_f1 = []
-        mod_nmi = []
-        con_f1 = []
-        con_nmi = []
-        modu = []
-        conu = []
-
-        for algo in algorithms:
-            mod_results, con_results = extract_results([dataset], [algo], folder)
-            modu.append(np.mean(mod_results[:, 0]))
-            conu.append(np.mean(con_results[:, 0]))
-            mod_f1.append(np.mean(mod_results[:, 1]))
-            mod_nmi.append(np.mean(mod_results[:, 2]))
-            con_f1.append(np.mean(con_results[:, 1]))
-            con_nmi.append(np.mean(con_results[:, 2]))
-        
-        ranked_mod.append(np.flip(np.argsort(modu)) + 1)
-        ranked_con.append(np.flip(np.argsort(conu)) + 1)
-        ranked_mod_f1.append(np.flip(np.argsort(mod_f1)) + 1)
-        ranked_mod_nmi.append(np.flip(np.argsort(mod_nmi)) + 1)
-        ranked_con_f1.append(np.flip(np.argsort(con_f1)) + 1)
-        ranked_con_nmi.append(np.flip(np.argsort(con_nmi)) + 1)
-
-    ranked_mod = np.asarray(ranked_mod)
-    ranked_con = np.asarray(ranked_con)
-    ranked_mod_f1 = np.asarray(ranked_mod_f1)
-    ranked_mod_nmi = np.asarray(ranked_mod_nmi)
-    ranked_con_f1 = np.asarray(ranked_con_f1)
-    ranked_con_nmi = np.asarray(ranked_con_nmi)
-
-    x_axis = np.arange(0, len(algorithms), 0.001)  
-
-    cmap = plt.get_cmap('tab20').colors
-    for i, x, y in [[0, ranked_mod, ranked_mod_f1], 
-                                [1, ranked_mod, ranked_mod_nmi],
-                                [2, ranked_con, ranked_con_f1],
-                                [3, ranked_con, ranked_con_nmi]]:
-        
-        was_dis = []
-        for a, algo in enumerate(algorithms):
-            kde = gaussian_kde(x[:, a])
-            y_axis = kde.evaluate(x_axis)
-            axes[i].plot(x_axis, y_axis, label=algo, c=cmap[a*2])
-
-            kde = gaussian_kde(y[:, a])
-            y_axis = kde.evaluate(x_axis)
-            axes[i].plot(x_axis, y_axis, label=algo, c=cmap[(a*2)+1])
-
-            was_dis.append(wasserstein_distance(x[:, a], y[:, a]))
-        print(np.mean(was_dis))
-        axes[i].set_title(np.mean(was_dis))
-
-
-    fig.suptitle(folder)
-    plt.tight_layout()
-    plt.savefig('q2_graph')
-
-
-#create_q1_figures()
-#create_q2_figures()
-#create_q4_figures()
-#create_q5_figures()

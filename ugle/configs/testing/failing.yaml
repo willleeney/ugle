@@ -1,7 +1,7 @@
-seeds: [42, 24, 125]
+seeds: [785]
 datasets: []
 algorithms: []
-dataset_algo_combinations: ["texas_grace"]
+dataset_algo_combinations: ["dblp_dgi"]
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False
@@ -9,7 +9,7 @@ special_training:
 
 study_override_cfg:
   trainer:
-    n_trials_hyperopt: 2
+    n_trials_hyperopt: 50
     results_path: './results/failing/'
 
     show_config: False
@@ -22,6 +22,3 @@ study_override_cfg:
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0
     training_to_testing_split: 1.0
-
-  args:
-    max_epoch: 100

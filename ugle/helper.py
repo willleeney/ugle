@@ -11,7 +11,7 @@ from copy import deepcopy
 import ranky as rk
 from itertools import combinations
 from scipy.stats import linregress
-
+from scipy.stats import spearmanr 
 
 def search_results(folder, filename):
 
@@ -735,32 +735,6 @@ datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
 algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 
 
-"""
-def var_explained_poly(x, y):
-    # Fit a quadratic 
-    coefficients = np.polyfit(x, y, 2)
-    poly = np.poly1d(coefficients)
-    # Calculate predicted values
-    predicted_y = poly(x)
-    # Calculate total sum of squares
-    total_var = np.sum((y - np.mean(y)) ** 2)
-    # Calculate residual sum of squares
-    residual_var = np.sum((y - predicted_y) ** 2)
-    # Calculate variance explained
-    variance_explained = 1 - (residual_var / total_var)
-    variance_explained = np.round(variance_explained, 3)
-    return variance_explained
-
-from scipy.stats import spearmanr 
-
-    # next step is to calculate the p-value of how correlated the aggregated ranks are... 
-    spear_stats_metrics = spearmanr(ranking_over_metrics, axis=1, alternative='greater')
-    spear_stats_datasets = spearmanr(ranking_over_datasets, axis=1, alternative='greater')
-
-
-"""
-
-
 def extract_results(datasets, algorithms, folder, extract_validation=False):
     # modularity and conductance may have different hyperparameters or model selection points 
     mod_results = []
@@ -831,6 +805,22 @@ def rank_values(scores):
     return ranks_array
 
 
+def var_explained_poly(x, y):
+    # Fit a quadratic 
+    coefficients = np.polyfit(x, y, 2)
+    poly = np.poly1d(coefficients)
+    # Calculate predicted values
+    predicted_y = poly(x)
+    # Calculate total sum of squares
+    total_var = np.sum((y - np.mean(y)) ** 2)
+    # Calculate residual sum of squares
+    residual_var = np.sum((y - predicted_y) ** 2)
+    # Calculate variance explained
+    variance_explained = 1 - (residual_var / total_var)
+    variance_explained = np.round(variance_explained, 3)
+    return variance_explained
+
+
 def unsupervised_prediction_graph(datasets, algorithms, folder, title):
     # extract results 
     mod_results, con_results = extract_results(datasets, algorithms, folder, extract_validation=True)
@@ -854,11 +844,18 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
             w_order.append(kendall_w(test))
         w_order = np.array(w_order)
         total_w_order.append(w_order)
+        # the W order of each metric tests
         print(f"{testname} W Order: {np.mean(w_order):.3f} +- {np.std(w_order):.3f}")
-    
+    # the W order over the whole 66% experiment
     total_w_order = np.asarray(total_w_order)
     print(f"Overall W Order: {np.mean(total_w_order):.3f} +- {np.std(total_w_order):.3f}")
-        
+    # the W order of each comparison 
+    indv_tests = np.array([[0, 1], [0, 2], [3, 4], [3, 5]])
+    moretestnames = [testnames[i] for i in indv_tests[:, 1]]
+    more_w_orders = [np.mean(np.asarray(total_w_order[i])) for i in indv_tests]
+    for n, w in zip(moretestnames, more_w_orders):
+        print(f"W Order {n}: {w:.2f}")
+   
     nrows, ncols = 2, 2
     fig, axes = plt.subplots(nrows, ncols, figsize=(8, 8))
     for i, ax in enumerate(axes.flat):
@@ -883,11 +880,19 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
             x = con_results[:, 0]
             y = con_results[:, 2]
 
+        print(f"\n{x_label} -> {y_label}")
         # compute regression and give correlation 
         slope, intercept, r_value, p_value, std_err = linregress(x, y)
-        print(f"Coefficient of Determination (R^2) for {x_label} -> {y_label}: {r_value:.2f}")
+        print(f"Coefficient of Determination (R^2): {r_value:.2f}")
         x_space = np.linspace(np.min(x), np.max(x), 200)
         y_line = (x_space * slope) + intercept
+
+        # spearmans  
+        spearman_stats = spearmanr(a=x, b=y)
+        print(f"Spearmans Correlation Coefficient: {spearman_stats.correlation:.2f}")
+        # non-linear poly fit and var explained
+        var_explained = var_explained_poly(x, y)
+        print(f"Variance Explained by Quadratic: {var_explained}")
 
         ax.scatter(x, y, color='tab:blue', s=5)
         ax.plot(x_space, y_line, color='tab:red')
@@ -908,7 +913,7 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
     plt.tight_layout()
 
 
-unsupervised_prediction_graph(datasets, algorithms, q5_folder2, title="q4: 66% of the data")
+#unsupervised_prediction_graph(datasets, algorithms, q5_folder2, title="q4: 66% of the data")
 
 
 

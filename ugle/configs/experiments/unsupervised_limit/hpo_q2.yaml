@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['dblp', 'wisc', 'cornell']
-algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+datasets: ['citeseer']
+algorithms: ['dgi', 'daegc', 'grace', 'sublime', 'bgrl', 'vgaer']
 dataset_algo_combinations: null
 run_cpu_fallback: False
 special_training: 

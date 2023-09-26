@@ -1,7 +1,7 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['texas', 'cornell']
-algorithms: ['daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
-dataset_algo_combinations: null
+datasets: []
+algorithms: []
+dataset_algo_combinations: ["texas_grace", "texas_sublime", "texas_vgaer", "texas_dgi", "cornell_daegc", "cornell_dmon", "cornell_sublime", "cornell_vgaer", "cornell_dgi"]
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False

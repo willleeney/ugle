@@ -390,7 +390,7 @@ class ugleTrainer:
 
             study_stop_cb = StopWhenMaxTrialsHit(self.cfg.trainer.n_trials_hyperopt, self.cfg.trainer.max_n_pruned)
             prune_params = ParamRepeatPruner(study)
-            study.optimize(lambda trial: self.train(trial, self.cfg.args,
+            study.optimize(lambda trial: self.train(trial,
                                                     label,
                                                     features,
                                                     processed_data,
@@ -418,7 +418,7 @@ class ugleTrainer:
         if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
             self.cfg.trainer.calc_time = False
 
-            validation_results = self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
+            validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                                     processed_valid_data)
             objective_results = []
             for opt_metric in self.cfg.trainer.valid_metrics:
@@ -480,7 +480,7 @@ class ugleTrainer:
                 # do testing
                 self.cfg.trainer.calc_time = False
                 log.debug('Retraining model')
-                validation_results = self.train(None, self.cfg.args, label, features, processed_data, validation_adjacency,
+                validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
                 
                 # at this point, the self.train() loop should go have saved models for each validation metric 
@@ -517,7 +517,7 @@ class ugleTrainer:
 
         return objective_results
 
-    def train(self, trial: Trial, args: DictConfig, label: np.ndarray, features: np.ndarray, processed_data: tuple,
+    def train(self, trial: Trial, label: np.ndarray, features: np.ndarray, processed_data: tuple,
               validation_adjacency: np.ndarray, processed_valid_data: tuple, prune_params=None):
         
         timings = np.zeros(2)
@@ -534,7 +534,7 @@ class ugleTrainer:
                     args = saved_args.args[k]
             # this will prune the trial if the args have appeared 
             self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
-            self.cfg.args = ugle.utils.sample_hyperparameters(trial, args, prune_params)
+            self.cfg.args = ugle.utils.sample_hyperparameters(trial, self.cfg.args, prune_params)
 
         # process model creation
         processed_data = self.move_to_activedevice(processed_data)

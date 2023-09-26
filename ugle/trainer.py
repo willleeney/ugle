@@ -530,8 +530,10 @@ class ugleTrainer:
                 args_to_overwrite = list(set(args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
                 saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
                 for k in args_to_overwrite:
-                    args[k] = saved_args.args[k]
+                    self.cfg.args[k] = saved_args.args[k]
+                    args = saved_args.args[k]
             # this will prune the trial if the args have appeared 
+            self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, args, prune_params)
 
         # process model creation
@@ -642,7 +644,6 @@ class ugleTrainer:
             else:
                 return valid_results
         else:
-            self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
             log_trial_result(trial, return_results, self.cfg.trainer.valid_metrics, self.cfg.trainer.multi_objective_study)
 
             if not self.cfg.trainer.multi_objective_study:

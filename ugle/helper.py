@@ -12,6 +12,7 @@ import ranky as rk
 from itertools import combinations
 from scipy.stats import linregress
 from scipy.stats import spearmanr 
+import pandas as pd
 
 def search_results(folder, filename):
 
@@ -725,20 +726,12 @@ default_folder = './results/default_results/'
 #fig.savefig(f'{ugle_path}/figures/tkiz_fig.png', bbox_inches='tight')
 
 
-q1_folder = './results/unsupervised_limit/default_q1/'
-q2_folder = './results/unsupervised_limit/hpo_q2/'
-q5_folder = './results/unsupervised_limit/synth_default_q5/'
-q5_folder1 = './results/unsupervised_limit/33_default_q4/'
-q5_folder2 = './results/unsupervised_limit/66_default_q4/'
-
-datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
-algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-
-
-def extract_results(datasets, algorithms, folder, extract_validation=False):
+def extract_results(datasets, algorithms, folder, extract_validation=False, return_df=False):
     # modularity and conductance may have different hyperparameters or model selection points 
     mod_results = []
     con_results = []
+    columns = ['Dataset', 'Algorithm', 'Seed', 'A_Metric', 'A_Metric_Value', 'B_Metric', 'B_Metric_Value']
+    df = pd.DataFrame(columns=columns)
 
     for dataset in datasets:
         for algo in algorithms:
@@ -751,20 +744,35 @@ def extract_results(datasets, algorithms, folder, extract_validation=False):
                     for metric_result in seed_result.study_output:
                         if 'modularity' in metric_result.metrics:
                             if extract_validation: 
-                                mod_results.append([metric_result.validation_results['modularity']['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
-                            else:
-                                mod_results.append([metric_result.results['modularity'], metric_result.results['f1'], metric_result.results['nmi']])
+                                mod = metric_result.validation_results['modularity']['modularity']
+                            else: 
+                                mod = metric_result.results['modularity']
+                            f1 = metric_result.results['f1']
+                            nmi = metric_result.results['nmi']
+                            mod_results.append([mod, f1, nmi])
+                            df.loc[len(df)] = {'Dataset': dataset, 'Algorithm': algo, 'Seed': seed_result.seed, 'A_Metric': 'Modularity', 'A_Metric_Value': mod, 'B_Metric': 'F1', 'B_Metric_Value': f1}
+                            df.loc[len(df)] = {'Dataset': dataset, 'Algorithm': algo, 'Seed': seed_result.seed, 'A_Metric': 'Modularity', 'A_Metric_Value': mod, 'B_Metric': 'NMI', 'B_Metric_Value': nmi}
+
 
                         if 'conductance' in metric_result.metrics:
                             if extract_validation: 
-                                con_results.append([metric_result.validation_results['conductance']['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
+                                con = metric_result.validation_results['conductance']['conductance']
                             else:
-                                con_results.append([metric_result.results['conductance'], metric_result.results['f1'], metric_result.results['nmi']])
+                                con = metric_result.results['conductance']
+                            f1 = metric_result.results['f1']
+                            nmi = metric_result.results['nmi']
+                            con_results.append([con, f1, nmi])
+                            df.loc[len(df)] = {'Dataset': dataset, 'Algorithm': algo, 'Seed': seed_result.seed, 'A_Metric': 'Conductance', 'A_Metric_Value': con, 'B_Metric': 'F1', 'B_Metric_Value': f1}
+                            df.loc[len(df)] = {'Dataset': dataset, 'Algorithm': algo, 'Seed': seed_result.seed, 'A_Metric': 'Conductance', 'A_Metric_Value': con, 'B_Metric': 'NMI', 'B_Metric_Value': nmi}
+
+
 
     mod_results = np.asarray(mod_results)
     con_results = np.asarray(con_results)
-
-    return mod_results, con_results
+    if return_df:
+        return mod_results, con_results, df
+    else: 
+        return mod_results, con_results
 
 
 def print_dataset_table(datasets, algorithms, folder):
@@ -805,29 +813,27 @@ def rank_values(scores):
     return ranks_array
 
 
-def var_explained_poly(x, y):
-    # Fit a quadratic 
-    coefficients = np.polyfit(x, y, 2)
-    poly = np.poly1d(coefficients)
-    # Calculate predicted values
-    predicted_y = poly(x)
-    # Calculate total sum of squares
-    total_var = np.sum((y - np.mean(y)) ** 2)
-    # Calculate residual sum of squares
-    residual_var = np.sum((y - predicted_y) ** 2)
-    # Calculate variance explained
-    variance_explained = 1 - (residual_var / total_var)
-    variance_explained = np.round(variance_explained, 3)
-    return variance_explained
-
-
-def unsupervised_prediction_graph(datasets, algorithms, folder, title):
+def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, marker_style=None):
     # extract results 
-    mod_results, con_results = extract_results(datasets, algorithms, folder, extract_validation=True)
+    if "q4" in title:
+        extract_validation = True
+        return_df = False
+    else: 
+        extract_validation = False
+        if marker_style: 
+            return_df = True
+        else: 
+            return_df = False
+    if return_df:
+        mod_results, con_results, df = extract_results(datasets, algorithms, folder, extract_validation=extract_validation, return_df=return_df)
+    else:
+        mod_results, con_results = extract_results(datasets, algorithms, folder, extract_validation=extract_validation, return_df=return_df)
+    
     # compute W order
     different_comparisons = [mod_results[:, 0], mod_results[:, 1], mod_results[:, 2], con_results[:, 0], con_results[:, 1], con_results[:, 2]]
     testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
     total_w_order = []
+
     for result, testname in zip(different_comparisons, testnames):
         tempresult = result.reshape(10, len(algorithms), len(datasets), order="F")
         tempresult = np.transpose(tempresult, axes=(2, 0, 1))
@@ -857,28 +863,32 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
         print(f"W Order {n}: {w:.2f}")
    
     nrows, ncols = 2, 2
-    fig, axes = plt.subplots(nrows, ncols, figsize=(8, 8))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 12))
     for i, ax in enumerate(axes.flat):
         if i == 0:
             x_label = "Modularity"
             y_label = "F1"
             x = mod_results[:, 0]
             y = mod_results[:, 1]
+            W_order = more_w_orders[0]
         elif i == 2:
             x_label = "Modularity"
             y_label = "NMI"
             x = mod_results[:, 0]
             y = mod_results[:, 2]
+            W_order = more_w_orders[1]
         elif i == 1:
             x_label = "Conductance"
             y_label = "F1"
             x = con_results[:, 0]
             y = con_results[:, 1]
+            W_order = more_w_orders[2]
         elif i == 3: 
             x_label = "Conductance"
             y_label = "NMI"
             x = con_results[:, 0]
             y = con_results[:, 2]
+            W_order = more_w_orders[3]
 
         print(f"\n{x_label} -> {y_label}")
         # compute regression and give correlation 
@@ -887,43 +897,72 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
         x_space = np.linspace(np.min(x), np.max(x), 200)
         y_line = (x_space * slope) + intercept
 
+        # Fit a quadratic 
+        coefficients = np.polyfit(x, y, 2)
+        poly = np.poly1d(coefficients)
+        # Calculate predicted values
+        predicted_y = poly(x)
+        # Calculate total sum of squares
+        total_var = np.sum((y - np.mean(y)) ** 2)
+        # Calculate residual sum of squares
+        residual_var = np.sum((y - predicted_y) ** 2)
+        # Calculate variance explained
+        variance_explained = 1 - (residual_var / total_var)
+        variance_explained = np.round(variance_explained, 3)
+        print(f"Variance Explained by Quadratic: {variance_explained}")
+        y_line_quad = poly(x_space)
+
         # spearmans  
         spearman_stats = spearmanr(a=x, b=y)
         print(f"Spearmans Correlation Coefficient: {spearman_stats.correlation:.2f}")
-        # non-linear poly fit and var explained
-        var_explained = var_explained_poly(x, y)
-        print(f"Variance Explained by Quadratic: {var_explained}")
-
-        ax.scatter(x, y, color='tab:blue', s=5)
-        ax.plot(x_space, y_line, color='tab:red')
-        if i == 0:
-            ax.set_ylabel(y_label)
-        if i == 2:
-            ax.set_ylabel(y_label) 
-            ax.set_xlabel(x_label)
-        if i == 3:
-            ax.set_xlabel(x_label)
         
-        ax.set_title(f"R^2: {r_value:.2f}")
+        if marker_style == 'algorithms':
+            markers = ['o', 's', '^', 'D', 'p', '*', 'H', '+', 'X', '$f$']
+            markers = markers[:len(algorithms)]
+            for opt_in in range(len(markers)):
+                df_axis = df[(df['Algorithm'] == algorithms[opt_in]) & (df['A_Metric'] == x_label) & (df['B_Metric'] == y_label)]
+                ax.scatter(df_axis['A_Metric_Value'], df_axis['B_Metric_Value'], color='tab:blue', s=15, marker=markers[opt_in], label=algorithms[opt_in])
+
+        elif marker_style == 'datasets':
+            markers =  ['$ci$', '$co$', '$tx$', '$db$', '$wc$', '$cn$']
+            for opt_in in range(len(markers)): 
+                df_axis = df[(df['Dataset'] == datasets[opt_in]) & (df['A_Metric'] == x_label) & (df['B_Metric'] == y_label)]
+                ax.scatter(df_axis['A_Metric_Value'], df_axis['B_Metric_Value'], color='tab:blue', s=15, marker=markers[opt_in], label=datasets[opt_in])
+
+        elif marker_style == 'seeds':
+            markers = ['o', 's', '^', 'D', 'p', '*', 'H', '+', 'X', '$f$']
+            markers = markers[:len(seeds)]
+            for opt_in in range(len(markers)): 
+                df_axis = df[(df['Seed'] == seeds[opt_in]) & (df['A_Metric'] == x_label) & (df['B_Metric'] == y_label)]
+                ax.scatter(df_axis['A_Metric_Value'], df_axis['B_Metric_Value'], color='tab:blue', s=15, marker=markers[opt_in], label=seeds[opt_in])
+        else:
+            ax.scatter(x, y, color='tab:blue', s=15, label='Test Data')
+
+        ax.plot(x_space, y_line, color='tab:red', label=r'Linear Fit, $R^2:$' + f'{r_value:.2f}', linewidth=3)
+        ax.plot(x_space, y_line_quad, color="tab:orange", label=r'Quadratic Fit, $R^2:$' + f'{variance_explained:.2f}', linewidth=3)
+        if i == 0:
+            ax.set_ylabel(y_label, fontsize=20)
+        if i == 2:
+            ax.set_ylabel(y_label, fontsize=20) 
+            ax.set_xlabel(x_label, fontsize=20)
+        if i == 3:
+            ax.set_xlabel(x_label, fontsize=20)
+        
+        ax.set_title(f"{x_label}" + r' $\rightarrow$ '+ f"{y_label} W: {W_order:.2f}", fontsize=20)
+        ax.legend(loc='best', fontsize=18)
+        ax.tick_params(axis='y', labelsize=18)
+        ax.tick_params(axis='x', labelsize=18)
+       
     
     print_algo_table(datasets, algorithms, folder)
     print_dataset_table(datasets, algorithms, folder)
 
-    fig.suptitle(title)
+    fig.suptitle(title, fontsize=24)
     plt.tight_layout()
+    plt.savefig(f'./figures/unsupervised_limit/{os.path.basename(os.path.normpath(folder))}.png')
 
 
-#unsupervised_prediction_graph(datasets, algorithms, q5_folder2, title="q4: 66% of the data")
-
-
-
-def synthetic_evaluation():
-    datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
-                    'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
-                    'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
-    algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-    folder = './results/q2_synth_default/'
-
+def synthetic_evaluation(datasets, algorithms, folder):
     x_axis_names = [algo.split("_")[0] for algo in algorithms]
     x_axis_points = np.arange(len(x_axis_names))
     bar_width = 1/4
@@ -932,7 +971,7 @@ def synthetic_evaluation():
     fig, axes = plt.subplots(nrows, ncols, figsize=(9, 9))
     for i, ax in enumerate(axes.flat):
         dataset = datasets[i]
-        dataset_name = dataset.split("_")[1] + ' ' + dataset.split("_")[2]
+        dataset_name = r"$A:$" + dataset.split("_")[1] + ' ' + r"$X:$" + dataset.split("_")[2]
         ax.set_title(dataset_name)
 
         mod_f1 = []
@@ -957,9 +996,37 @@ def synthetic_evaluation():
         ax.set_axisbelow(True)
         ax.set_ylim(0.0, 1.0)
         ax.axhline(y=0.5, color='k', linestyle='-')
-        if i == 3:
+        if i == 5:
             ax.legend(loc='best')
 
 
-    fig.suptitle(folder)
+    fig.suptitle("Default Hyperparameters on Synthetic Data")
     plt.tight_layout()
+    plt.savefig(f'./figures/unsupervised_limit/{os.path.basename(os.path.normpath(folder))}.png')
+
+
+q1_folder = './results/unsupervised_limit/default_q1/'
+q2_folder = './results/unsupervised_limit/hpo_q2/'
+q5_folder = './results/unsupervised_limit/synth_default_q5/'
+q5_folder1 = './results/unsupervised_limit/33_default_q4/'
+q5_folder2 = './results/unsupervised_limit/66_default_q4/'
+
+seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
+synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
+                    'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
+                    'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
+
+default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+
+
+#unsupervised_prediction_graph(datasets, default_algorithms, seeds, q1_folder, title="Default Hyperparameters")
+
+#unsupervised_prediction_graph(datasets, default_algorithms, seeds, q1_folder, title="Default Hyperparameters")
+#unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder2, title="q4: 66% of the data")
+#unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder1, title="q4: 33% of the data")
+
+#synthetic_evaluation(synth_datasets, default_algorithms, q5_folder)
+
+#unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation")

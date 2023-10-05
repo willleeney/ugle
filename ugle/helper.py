@@ -585,7 +585,7 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
         item.set_fontsize(48)
 
     fig.tight_layout()
-    fig.savefig(f"{ugle_path}/figures/le_hpo_investigation.png", bbox_inches='tight')
+    fig.savefig(f"{ugle_path}/figures/hpo_investigation.eps", format='eps', bbox_inches='tight')
     return
 
 
@@ -685,7 +685,7 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
 
 def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos):
     titles = ['a) Default HPs w/ AveSeed', 'b) HPO w/ AveSeed', 'c) Default HPs w/ SeedRanking', 'd) HPO w/ SeedRanking']
-    create_rand_dist_comparison(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
+    #create_rand_dist_comparison(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, deepcopy(titles))
     #print('done rand dist')
     #create_algo_selection_on_dataset_landscape(datasets, algorithms, default_algos, metrics, seeds, folder, default_folder, deepcopy(titles))
     #print('done algo selection')
@@ -703,7 +703,7 @@ def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, defau
     # fig1.savefig(f"{ugle_path}/figures/le_ranking_comparison_datasets.png", bbox_inches='tight')
 
     # print('done metric + dataset comparison')
-    # create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
+    create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
     # print('done fats%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%o')
     return
 
@@ -711,11 +711,11 @@ def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, defau
 algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
 datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
 metrics = ['f1', 'nmi', 'modularity', 'conductance']
-folder = './results/progress_results/'
+folder = './results/legacy_results/progress_results/'
 seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
                  'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
-default_folder = './results/default_results/'
+default_folder = './results//legacy_resultsdefault_results/'
 
 #create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)
 

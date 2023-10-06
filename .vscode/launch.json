@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -40,6 +41,15 @@
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/default_q1.yaml"]
+        },
+        {
+            "name": "Python: Test HPO",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/testing/min_hpo.yaml"]
         },
     ]
 }

@@ -12,7 +12,7 @@ from optuna.pruners import HyperbandPruner
 from optuna.trial import TrialState
 import threading
 import time
-from alive_progress import alive_it
+from tqdm import trange
 import copy
 import torch
 from typing import Dict, List, Optional, Tuple
@@ -390,6 +390,11 @@ class ugleTrainer:
 
             study_stop_cb = StopWhenMaxTrialsHit(self.cfg.trainer.n_trials_hyperopt, self.cfg.trainer.max_n_pruned)
             prune_params = ParamRepeatPruner(study)
+
+            # check if init previous hpo + not first seed
+            # assign init parameters to enqueue trial for each previous found best
+            # assert that not overwriting previous good ones
+
             study.optimize(lambda trial: self.train(trial,
                                                     label,
                                                     features,
@@ -557,7 +562,7 @@ class ugleTrainer:
                 self.model.to(self.device)
 
         # create training loop
-        self.progress_bar = alive_it(range(self.cfg.args.max_epoch))
+        self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True)
         best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics)))
         best_epochs = np.zeros(len((self.cfg.trainer.valid_metrics)), dtype=int)
         best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.
@@ -606,7 +611,7 @@ class ugleTrainer:
             if self.scheduler:
                 self.scheduler.step()
             # update progress bar
-            self.progress_bar.title = f'Training: m-{self.cfg.model}, d-{self.cfg.dataset}, s-{self.cfg.args.random_seed} -- Loss={loss.item():.4f}'
+            self.progress_bar.set_description(f'Training: m-{self.cfg.model}, d-{self.cfg.dataset}, s-{self.cfg.args.random_seed} -- Loss={loss.item():.4f}', refresh=True)
             # if all metrics hit patience then end
             if patience_waiting.all() >= self.cfg.args.patience:
                 log.info(f'Early stopping at epoch {self.current_epoch}!')

@@ -33,6 +33,7 @@ trainer:
   finetuning_new_dataset: False 
   save_model: False
   same_init_hpo: False
+  suggest_hps_from_previous_seed: False
 
   logger:
     log_wandb: False

@@ -36,3 +36,6 @@ study_override_cfg: # override default config args
     suggest_hps_from_previous_seed: False
     hps_found_so_far: []
 
+    calc_time: False
+    calc_memory: False
+

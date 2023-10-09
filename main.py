@@ -46,7 +46,7 @@ def neural_run(override_model: str = None,
 
     start_time = time.time()
     # memory profiling max memory requires other class
-    if 'memory' in Trainer.cfg.trainer.test_metrics:
+    if cfg.trainer.calc_memory:
         # train model
         start_mem = psutil.virtual_memory().active
         mythread = MyLibrarySniffingClass(Trainer.eval)
@@ -72,8 +72,6 @@ def neural_run(override_model: str = None,
         log.info(f"Max useage %: {max_percent}")
 
         results = mythread.results
-        results['memory'] = max_memory
-
     else:
         # train and evaluate model
         results = Trainer.eval()

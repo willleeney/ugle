@@ -28,6 +28,7 @@ optuna.logging.set_verbosity(optuna.logging.CRITICAL)
 
 # https://stackoverflow.com/questions/9850995/tracking-maximum-memory-usage-by-a-python-function
 
+
 class StoppableThread(threading.Thread):
     def __init__(self):
         super(StoppableThread, self).__init__()
@@ -391,9 +392,9 @@ class ugleTrainer:
             study_stop_cb = StopWhenMaxTrialsHit(self.cfg.trainer.n_trials_hyperopt, self.cfg.trainer.max_n_pruned)
             prune_params = ParamRepeatPruner(study)
 
-            # check if init previous hpo + not first seed
-            # assign init parameters to enqueue trial for each previous found best
-            # assert that not overwriting previous good ones
+            if self.cfg.trainer.suggest_hps_from_previous_seed:
+                for hps in self.cfg.trainer.hps_found_so_far:
+                    study.enqueue_trial(hps)
 
             study.optimize(lambda trial: self.train(trial,
                                                     label,
@@ -562,7 +563,7 @@ class ugleTrainer:
                 self.model.to(self.device)
 
         # create training loop
-        self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True)
+        self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:25}{r_bar}{bar:-25b}')
         best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics)))
         best_epochs = np.zeros(len((self.cfg.trainer.valid_metrics)), dtype=int)
         best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.

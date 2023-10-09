@@ -33,4 +33,6 @@ study_override_cfg: # override default config args
       'hidden_dim', 'rep_dim', 'proj_dim', 'hidden1', 'hidden2']
 
     same_init_hpo: False # use the same initilisation of the network across random seeds
+    suggest_hps_from_previous_seed: False
+    hps_found_so_far: []
 

@@ -43,6 +43,11 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
         # use first seed hyperparameters and train/test on remaining
         if idx == 0:
             study_cfg.previous_results = results
+        
+        # add all best hyperparameters if they don't exist to enque trial 
+        if study_cfg.trainer.suggest_hps_from_previous_seed:
+            for res in results:
+                study_cfg.trainer.hps_found_so_far.append(res['args'])
 
     # average results stores the average calculation of statistics
     average_results = ugle.utils.calc_average_results(average_results)

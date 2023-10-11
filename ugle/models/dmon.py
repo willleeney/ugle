@@ -8,7 +8,6 @@ from ugle.gnn_architecture import GCN
 import math
 from collections import OrderedDict
 
-
 class DMoN(nn.Module):
     def __init__(self,
                  args,
@@ -110,7 +109,7 @@ class dmon_trainer(ugleTrainer):
     def training_epoch_iter(self, args, processed_data):
         graph, graph_normalised, features = processed_data
         loss = self.model(graph, graph_normalised, features)
-
+        
         return loss, None
 
     def test(self, processed_data):

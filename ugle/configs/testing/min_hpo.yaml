@@ -1,7 +1,7 @@
-seeds: [785]
-datasets: ["cora"]
-algorithms: ["dmon_default"]
-dataset_algo_combinations: null
+seeds: [785, 42, 236]
+datasets: []
+algorithms: []
+dataset_algo_combinations: ["cora_dmon"]
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False
@@ -14,7 +14,7 @@ study_override_cfg:
 
     show_config: False
     load_existing_test: False
-    only_testing: True
+    calc_time: False
 
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['modularity', 'conductance']
@@ -23,9 +23,6 @@ study_override_cfg:
     train_to_valid_split: 1.0
     training_to_testing_split: 1.0
     suggest_hps_from_previous_seed: True
-    calc_time: True
-    calc_memory: False
-    log_interval: 5
 
   args:
     max_epoch: 10

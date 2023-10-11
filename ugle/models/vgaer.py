@@ -110,7 +110,7 @@ class vgaer_trainer(ugleTrainer):
     def preprocess_data(self, features, adjacency):
         A = torch.FloatTensor(adjacency)
         A[A != 0] = 1
-        A_orig_ten = A.copy()
+        A_orig_ten = A.detach().clone()
 
         # compute B matrix
         K = 1 / (A.sum().item()) * (A.sum(dim=1).reshape(A.shape[0], 1) @ A.sum(dim=1).reshape(1, A.shape[0]))

@@ -207,7 +207,7 @@ def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_perce
     mask_num = int(node_num * drop_percent)
     node_idx = [i for i in range(node_num)]
     mask_idx = random.sample(node_idx, mask_num)
-    aug_feature = input_feature.copy()
+    aug_feature = input_feature.detach().clone()
     if type(aug_feature) == np.ndarray:
         zeros = np.zeros_like(aug_feature[0][0])
     else:

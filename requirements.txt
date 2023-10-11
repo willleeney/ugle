@@ -12,6 +12,7 @@ prettify-logging
 numba
 alive_progress
 memory_profiler
+line_profiler
 plotly
 kaleido
 omegaconf

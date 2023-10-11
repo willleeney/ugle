@@ -21,6 +21,7 @@ import optuna
 import warnings
 from os.path import exists
 from os import makedirs
+import psutil
 
 from optuna.exceptions import ExperimentalWarning
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
@@ -253,7 +254,7 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
     if not multi_objective_study:
         # log validation results
         trial_value = results[valid_metrics[0]]
-        log.info(f'Trial {trial.number} finished. Validation result ||{valid_metrics[0]}: {trial_value}||')
+        log.info(f'Trial {trial.number} finished. Validation result | {valid_metrics[0]}: {trial_value} |')
         # log best trial comparison
         new_best_message = f'New best trial {trial.number}'
         if trial.number > 0:
@@ -271,8 +272,8 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
         # log trial results
         right_order_results = [results[k] for k in valid_metrics]
         to_log_trial_values = ''.join(
-            f'| {metric}: {right_order_results[i]} |' for i, metric in enumerate(valid_metrics))
-        log.info(f'Trial {trial.number} finished. Validation result |{to_log_trial_values}|')
+            f'{metric}: {right_order_results[i]} ' for i, metric in enumerate(valid_metrics))
+        log.info(f'Trial {trial.number} finished. Validation performance | {to_log_trial_values}|')
         # log best trial comparison
         if trial.number > 0:
             # get best values for each metric across the best trials
@@ -331,7 +332,7 @@ class ugleTrainer:
         self.patience_wait = 0
         self.best_loss = 1e9
         self.current_epoch = 0
-
+        self.memory_stats = {"active_memory_fpass": [], "active_memory_fpass_end": [], "active_memory_opt": []}
 
     def load_database(self):
         log.info('loading dataset')
@@ -358,10 +359,20 @@ class ugleTrainer:
         self.cfg.args.n_features = features.shape[1]
 
         return features, label, train_adjacency, test_adjacency
-
+    
     def eval(self):
+        # memory - start calc
+        if self.cfg.trainer.calc_memory:
+            #torch.cuda.reset_peak_memory_stats(device=torch.device("cpu"))
+            self.memory_stats["cpu_memory_start"] = psutil.virtual_memory().available / (1024 ** 3)
+            #torch.cuda.max_memory_allocated(device=torch.device("cpu"))
+
         # loads the database to train on
         features, label, validation_adjacency, test_adjacency = self.load_database()
+
+        # memory - cpu for dataset
+        if self.cfg.trainer.calc_memory:
+            self.memory_stats["cpu_memory_dataset"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
 
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
@@ -374,6 +385,10 @@ class ugleTrainer:
         # process data for training
         processed_data = self.preprocess_data(features, train_adjacency)
         processed_valid_data = self.preprocess_data(features, validation_adjacency)
+
+        # memory - preprocessing requirement
+        if self.cfg.trainer.calc_memory:
+            self.memory_stats["cpu_memory_preprocess"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
 
         # if only testing then no need to optimise hyperparameters
         if not self.cfg.trainer.only_testing:
@@ -422,7 +437,6 @@ class ugleTrainer:
         # retrains the model on the validation adj and evaluates test performance
         # might be weird with the previosu results stuff but that's not done in this paper so meh
         if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
-            self.cfg.trainer.calc_time = False
 
             validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                                     processed_valid_data)
@@ -435,8 +449,8 @@ class ugleTrainer:
                                             self.cfg.trainer.test_metrics)
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
-                to_log_trial_values = ''.join(f'|{metric}: {right_order_results[i]}|' for i, metric in enumerate(self.cfg.trainer.test_metrics))
-                log.info(f'Test results optimised for {opt_metric} |{to_log_trial_values}|')
+                to_log_trial_values = ''.join(f'{metric}: {right_order_results[i]} ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                log.info(f'Test results optimised for {opt_metric} | {to_log_trial_values}|')
 
                 objective_results.append({'metrics': opt_metric,
                                         'results': results,
@@ -484,7 +498,6 @@ class ugleTrainer:
                 self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
                 # do testing
-                self.cfg.trainer.calc_time = False
                 log.debug('Retraining model')
                 validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
@@ -493,15 +506,15 @@ class ugleTrainer:
                 # then go through the best at metrics, and do a test for each of the best models 
                 for opt_metric in best_at_metrics:
                     # if epoch is the same for all opt_metrics, there will be an unecessary forward pass but we move since unlikely 
-                    log.info(f'Evaluating {opt_metric} model on test split')
+                    log.debug(f'Evaluating {opt_metric} model on test split')
                     self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                     self.model.to(self.device)
                     results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                                 self.cfg.trainer.test_metrics)
                     # log test results
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
-                    to_log_trial_values = ''.join(f'|{metric}: {right_order_results[i]}|' for i, metric in enumerate(self.cfg.trainer.test_metrics))
-                    log.info(f'Test results optimised for {opt_metric} |{to_log_trial_values}|')
+                    to_log_trial_values = ''.join(f'{metric}: {right_order_results[i]} ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                    log.info(f'Test results optimised for {opt_metric} | {to_log_trial_values}|')
 
                     objective_results.append({'metrics': opt_metric,
                                             'results': results,
@@ -542,10 +555,19 @@ class ugleTrainer:
             self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, self.cfg.args, prune_params)
 
+        ### memory - start active
+        if self.cfg.trainer.calc_memory:
+            torch.cuda.reset_peak_memory_stats(device=self.device)
+            self.memory_stats["active_memory_start"] = torch.cuda.max_memory_allocated(device=self.device)
+
         # process model creation
         processed_data = self.move_to_activedevice(processed_data)
         self.training_preprocessing(self.cfg.args, processed_data)
         self.model.train()
+
+        ### memory - training 
+        if self.cfg.trainer.calc_memory:
+            self.memory_stats["active_memory_training"] = torch.cuda.max_memory_allocated(device=self.device)
 
         if self.cfg.trainer.finetuning_new_dataset:
             log.info('Loading pretrained model')
@@ -598,11 +620,21 @@ class ugleTrainer:
             
             timings[1] += time.time() - start
             start = time.time()
+
+            # memory - start training forward pass  
+            if self.cfg.trainer.calc_memory:
+                torch.cuda.reset_peak_memory_stats(device=self.device)
+                self.memory_stats["active_memory_fpass"].append(torch.cuda.max_memory_allocated(device=self.device))
                 
             # compute training iteration 
             loss, data_returned = self.training_epoch_iter(self.cfg.args, processed_data)
             if data_returned:
                 processed_data = data_returned
+
+            # memory - optimisation pass + end of forward pass
+            if self.cfg.trainer.calc_memory:
+                self.memory_stats["active_memory_fpass_end"].append(torch.cuda.max_memory_allocated(device=self.device))
+
             # optimise
             for opt in self.optimizers:
                 opt.zero_grad()
@@ -617,6 +649,11 @@ class ugleTrainer:
             if patience_waiting.all() >= self.cfg.args.patience:
                 log.info(f'Early stopping at epoch {self.current_epoch}!')
                 break
+
+            # memory - optimisation pass
+            if self.cfg.trainer.calc_memory:
+                self.memory_stats["active_memory_opt"].append(torch.cuda.max_memory_allocated(device=self.device))
+                torch.cuda.reset_peak_memory_stats(device=self.device)
 
         # finished training, record time taken
         timings[0] += time.time() - start
@@ -640,9 +677,9 @@ class ugleTrainer:
 
         timings[1] += time.time() - start
         start = time.time()
-
-        log.info(f"Time training {round(timings[0], 3)}s")
-        log.info(f"Time validating {round(timings[1], 3)}s")
+        if self.cfg.trainer.calc_time:
+            log.info(f"Time training {round(timings[0], 3)}s")
+            log.info(f"Time validating {round(timings[1], 3)}s")
 
         if trial is None:
             if not self.cfg.trainer.save_validation:
@@ -658,7 +695,6 @@ class ugleTrainer:
                 right_order_results = [return_results[k] for k in self.cfg.trainer.valid_metrics]
                 return tuple(right_order_results)
             
-
     def testing_loop(self, label: np.ndarray, features: np.ndarray, adjacency: np.ndarray, processed_data: tuple, eval_metrics: ListConfig):
         """
         testing loop which processes the testing data, run through the model to get predictions

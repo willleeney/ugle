@@ -373,8 +373,8 @@ class ugleTrainer:
         features, label, validation_adjacency, test_adjacency = self.load_database()
 
         # memory - cpu for dataset
-        if self.cfg.trainer.calc_memory:
-            self.memory_stats["cpu_memory_dataset"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
+        #if self.cfg.trainer.calc_memory:
+        #    self.memory_stats["cpu_memory_dataset"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
 
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)

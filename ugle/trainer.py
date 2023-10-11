@@ -13,6 +13,7 @@ from optuna.trial import TrialState
 import threading
 import time
 from tqdm import trange
+from tqdm.contrib.logging import logging_redirect_tqdm
 import copy
 import torch
 from typing import Dict, List, Optional, Tuple
@@ -20,7 +21,7 @@ from collections import defaultdict
 import optuna
 import warnings
 from os.path import exists
-from os import makedirs
+from os import makedirs, devnull
 import psutil
 
 from optuna.exceptions import ExperimentalWarning
@@ -254,7 +255,7 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
     if not multi_objective_study:
         # log validation results
         trial_value = results[valid_metrics[0]]
-        log.info(f'Trial {trial.number} finished. Validation result | {valid_metrics[0]}: {trial_value} |')
+        log.info(f'Trial {trial.number} finished. Validation performance: {valid_metrics[0]}={trial_value}')
         # log best trial comparison
         new_best_message = f'New best trial {trial.number}'
         if trial.number > 0:
@@ -264,7 +265,7 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
                 log.info(new_best_message)
             else:
                 log.info(
-                    f'Trial {trial.number} finished. Best trial is {trial.study.best_trial.number} with {valid_metrics[0]}: {trial.study.best_value}')
+                    f'Trial {trial.number} finished. Best trial is {trial.study.best_trial.number} with {valid_metrics[0]}={trial.study.best_value}')
         else:
             log.info(new_best_message)
 
@@ -272,8 +273,8 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
         # log trial results
         right_order_results = [results[k] for k in valid_metrics]
         to_log_trial_values = ''.join(
-            f'{metric}: {right_order_results[i]} ' for i, metric in enumerate(valid_metrics))
-        log.info(f'Trial {trial.number} finished. Validation performance | {to_log_trial_values}|')
+            f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(valid_metrics))
+        log.info(f'Trial {trial.number} finished. Validation performance: {to_log_trial_values.rpartition(",")[0]}')
         # log best trial comparison
         if trial.number > 0:
             # get best values for each metric across the best trials
@@ -291,12 +292,12 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
             if improved_metrics:
                 improved_metrics_str = ''.join(f'{metric}, ' for metric in improved_metrics)
                 improved_metrics_str = improved_metrics_str[:improved_metrics_str.rfind(',')]
-                log.info(f'New Best trial for metrics: {improved_metrics_str}')
+                log.info(f'New best trial for metrics: {improved_metrics_str}')
             else:
                 log.info('Trial worse than existing across all metrics')
 
             best_so_far = ''.join(
-                f'trial {associated_trial[i]} ({metric}: {best_values[i]}), ' for i, metric in enumerate(valid_metrics))
+                f'trial {associated_trial[i]} ({metric}={best_values[i]}), ' for i, metric in enumerate(valid_metrics))
             best_so_far = best_so_far[:best_so_far.rfind(',')]
             log.info(f'Best results so far: {best_so_far}')
 
@@ -335,7 +336,7 @@ class ugleTrainer:
         self.memory_stats = {"active_memory_fpass": [], "active_memory_fpass_end": [], "active_memory_opt": []}
 
     def load_database(self):
-        log.info('loading dataset')
+        log.info(f'Loading dataset {self.cfg.dataset}')
         if 'synth' not in self.cfg.dataset:
             # loads and splits the dataset
             features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
@@ -449,8 +450,8 @@ class ugleTrainer:
                                             self.cfg.trainer.test_metrics)
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
-                to_log_trial_values = ''.join(f'{metric}: {right_order_results[i]} ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
-                log.info(f'Test results optimised for {opt_metric} | {to_log_trial_values}|')
+                to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
 
                 objective_results.append({'metrics': opt_metric,
                                         'results': results,
@@ -513,8 +514,8 @@ class ugleTrainer:
                                                 self.cfg.trainer.test_metrics)
                     # log test results
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
-                    to_log_trial_values = ''.join(f'{metric}: {right_order_results[i]} ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
-                    log.info(f'Test results optimised for {opt_metric} | {to_log_trial_values}|')
+                    to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                    log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
 
                     objective_results.append({'metrics': opt_metric,
                                             'results': results,
@@ -585,13 +586,24 @@ class ugleTrainer:
                 self.model.to(self.device)
 
         # create training loop
-        self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:25}{r_bar}{bar:-25b}')
+        self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:15}{r_bar}{bar:-15b}', file=open(devnull, 'w'))
         best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics)))
         best_epochs = np.zeros(len((self.cfg.trainer.valid_metrics)), dtype=int)
         best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.
         patience_waiting = np.zeros((len(self.cfg.trainer.valid_metrics)), dtype=int)
 
         for self.current_epoch in self.progress_bar:
+            if self.progress_bar.n % self.cfg.trainer.log_interval == 0:
+                if self.progress_bar.n != 0:
+                    nlength_term = utils.remove_last_line()
+                    if len_prev_line > nlength_term:
+                        _ = utils.remove_last_line(nlength_term)
+                    log.info(str(self.progress_bar))
+                    len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
+                else:
+                    log.info(str(self.progress_bar))
+                    len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
+        
             timings[0] += time.time() - start
             start = time.time()
             # check if validation time
@@ -655,6 +667,10 @@ class ugleTrainer:
                 self.memory_stats["active_memory_opt"].append(torch.cuda.max_memory_allocated(device=self.device))
                 torch.cuda.reset_peak_memory_stats(device=self.device)
 
+        nlength_term = utils.remove_last_line()
+        if len_prev_line > nlength_term:
+            _ = utils.remove_last_line(nlength_term)
+        log.info(str(self.progress_bar))
         # finished training, record time taken
         timings[0] += time.time() - start
         start = time.time()    

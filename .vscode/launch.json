@@ -59,7 +59,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/main.py",
-            "args" : ["--model", "daegc_default", "--max_epoch", "20", "--dataset", "amac"]
+            "args" : ["--model", "daegc_default", "--max_epoch", "20", "--dataset", "cora"]
         },
 
     ]

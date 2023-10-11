@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import logging
+from tqdm import tqdm
 
 real_path = os.path.dirname(os.path.realpath(__file__))
 ugle_path, _ = os.path.split(real_path)
@@ -30,7 +31,7 @@ class CustomFormatter(logging.Formatter):
         colored_message = f"{color_code}{original_message}{self.RESET_CODE}"
         
         return colored_message
-    
+
 
 def create_logger():
     """

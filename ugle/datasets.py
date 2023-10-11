@@ -48,7 +48,7 @@ def download_graph_data(dataset_name: str) -> bool:
     :param dataset_name: name of the dataset to download
     :return True if successful
     """
-    log.info(f'downloading {dataset_name}')
+    log.info(f'Downloading {dataset_name}')
     download_link_path = ugle_path + '/data/download_links.yaml'
     download_links = OmegaConf.load(download_link_path)
     url = download_links[dataset_name]
@@ -58,20 +58,20 @@ def download_graph_data(dataset_name: str) -> bool:
 
     dataset_zip_path = dataset_path + f'/{dataset_name}.zip'
     gdown.download(url=url, output=dataset_zip_path, quiet=False, fuzzy=True)
-    log.info('finished downloading')
+    log.info('Finished downloading')
 
     # extract the zip file
-    log.info('extracting dataset')
+    log.info('Extracting dataset')
     with zipfile.ZipFile(dataset_zip_path, 'r') as zip_ref:
         zip_ref.printdir()
         zip_ref.extractall(dataset_path)
-    log.info('extraction complete')
+    log.info('Extraction complete')
 
     # correct the path dir
     extended_path = f'{dataset_path}/{dataset_name}'
     dataset_path += '/'
     if os.path.exists(extended_path):
-        log.info('extraction to wrong location')
+        log.info('Extraction to wrong location')
         for subdir, dirs, files in os.walk(extended_path):
             for file in files:
                 extract_path = os.path.join(subdir, file)
@@ -115,7 +115,7 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
     if split_addition:
         adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition, split_adj=False)
 
-    log.debug('splitting dataset into training/testing')
+    log.debug('Splitting dataset into training/testing')
     train_adj, test_adj = split_adj(adjacency, test_split, split_scheme)
 
     return features, label, train_adj, test_adj

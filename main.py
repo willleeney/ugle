@@ -44,11 +44,12 @@ def neural_run(override_model: str = None,
     Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)
 
     start_time = time.time()
-    if not cfg.trainer.calc_memory: 
+    if cfg.trainer.calc_memory: 
         mem_usage, results = memory_usage((Trainer.eval), retval=True)
-        log.info(f"Max Memory Usage {max(mem_usage):.2f}MB")
+        log.info(f"Max memory usage by Trainer.eval(): {max(mem_usage):.2f}MB")
     else:
         results = Trainer.eval()
+
     if cfg.trainer.calc_time:
         log.info(f"Total Time for {cfg.model} {cfg.dataset}: {round(time.time() - start_time, 3)}s")
 

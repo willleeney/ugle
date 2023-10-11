@@ -1,13 +1,12 @@
 import ugle
 import ugle.utils as utils
 from ugle.logger import log
-from ugle.trainer import MyLibrarySniffingClass
 from omegaconf import OmegaConf, DictConfig, open_dict
 import argparse
-import psutil
 import time
 from os.path import isfile
 import pickle
+from memory_profiler import memory_usage
 
 
 def neural_run(override_model: str = None,
@@ -45,38 +44,20 @@ def neural_run(override_model: str = None,
     Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)
 
     start_time = time.time()
-    # memory profiling max memory requires other class
-    if cfg.trainer.calc_memory:
-        # train model
-        start_mem = psutil.virtual_memory().active
-        mythread = MyLibrarySniffingClass(Trainer.eval)
-        mythread.start()
-
-        delta_mem = 0
-        max_memory = 0
-        memory_usage_refresh = .001  # Seconds
-
-        while True:
-            time.sleep(memory_usage_refresh)
-            delta_mem = psutil.virtual_memory().active - start_mem
-            if delta_mem > max_memory:
-                max_memory = delta_mem
-                max_percent = psutil.virtual_memory().percent
-
-            # Check to see if the library call is complete
-            if mythread.isShutdown():
-                break
-
-        max_memory /= 1024.0 ** 2
-        log.info(f"MAX Memory Usage in MB: {max_memory:.2f}")
-        log.info(f"Max useage %: {max_percent}")
-
-        results = mythread.results
+    if not cfg.trainer.calc_memory: 
+        mem_usage, results = memory_usage((Trainer.eval), retval=True)
+        log.info(f"Max Memory Usage {max(mem_usage):.2f}MB")
     else:
-        # train and evaluate model
         results = Trainer.eval()
+    if cfg.trainer.calc_time:
+        log.info(f"Total Time for {cfg.model} {cfg.dataset}: {round(time.time() - start_time, 3)}s")
 
-    log.info(f"Total Time for {cfg.model} {cfg.dataset}: {round(time.time() - start_time, 3)}s")
+    # cpu_memory_dataset - cpu_memory_start = total used by cpu to load dataset
+    # cpu_memory_preprocess - cpu_memory_dataset = total used by cpu to processs dataset
+    # active_memory_training - active_memory_start = total used by active to move data onto device + create model on device
+    # active_memory_fpass_end - active_memory_fpass = total used by active to do one forward pass
+    # active_memory_opt - active_memory_fpass_end = total used by active to compute optimisation of loop 
+    # active_memory_opt - active_memory_start = total amount of memory needed by active device
 
     return results
 
@@ -89,12 +70,15 @@ if __name__ == "__main__":
                         help='the name of the dataset to run model on')
     parser.add_argument('--seed', type=str, default=42,
                         help='the number random seed to train on')
+    parser.add_argument('--max_epoch', type=str, default=500,
+                        help='the number of epochs to train on')
     parser.add_argument('--gpu', type=str, default="0",
                         help='the gpu to train on')
     parser.add_argument('--load_existing_test', action='store_true',
                         help='load best parameters available')
     parsed = parser.parse_args()
-    study_cfg = OmegaConf.create({"args": {"random_seed": int(parsed.seed)},
+    study_cfg = OmegaConf.create({"args": {"random_seed": int(parsed.seed),
+                                           "max_epoch": int(parsed.max_epoch)},
                                   "trainer": {"gpu": int(parsed.gpu), 
                                               "load_existing_test": parsed.load_existing_test}})
     if ugle.utils.is_neural(parsed.model):

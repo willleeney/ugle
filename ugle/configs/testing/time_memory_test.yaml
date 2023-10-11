@@ -1,6 +1,6 @@
-seeds: [42, 24]
-datasets: ['citeseer', 'cora', 'wisc', 'texas', 'amac', 'dblp', 'pubmed', 'cornell']
-algorithms: ['dgi_default', 'daegc_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+seeds: [42]
+datasets: ['cora', 'citeseer', 'wisc', 'texas', 'amac', 'dblp', 'pubmed', 'cornell']
+algorithms: ['dmon_default', 'dgi_default','daegc_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 dataset_algo_combinations: null
 run_cpu_fallback: False
 special_training: 
@@ -25,3 +25,6 @@ study_override_cfg:
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0
     training_to_testing_split: 1.0
+  
+  args:
+    max_epoch: 20

@@ -5,8 +5,7 @@ special_training:
 
 trainer:
   gpu: "0"
-  show_config: True
-  calc_time: False
+  show_config: False
   results_path: './results/'
   load_hps_path: './found_hps/'
   data_path: './data/'
@@ -33,6 +32,9 @@ trainer:
   finetuning_new_dataset: False 
   save_model: False
   same_init_hpo: False
+  suggest_hps_from_previous_seed: False
+  calc_time: True
+  calc_memory: False
 
   logger:
     log_wandb: False

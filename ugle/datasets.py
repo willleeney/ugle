@@ -1,7 +1,6 @@
 import os
 from omegaconf import OmegaConf, DictConfig
 import numpy as np
-from karateclub.dataset import GraphReader
 import networkx as nx
 import zipfile
 import gdown
@@ -17,6 +16,7 @@ from ugle.logger import log, ugle_path
 from typing import Tuple
 from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph
 import torch
+from karateclub.dataset import GraphReader
 
 google_store_datasets = ['acm', 'amac', 'amap', 'bat', 'citeseer', 'cora', 'cocs', 'dblp', 'eat', 'uat', 'pubmed',
                          'cite', 'corafull', 'texas', 'wisc', 'film', 'cornell']
@@ -83,7 +83,6 @@ def download_graph_data(dataset_name: str) -> bool:
         shutil.rmtree(extended_path)
 
     return True
-
 
 def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str = 'drop_edges',
                          split_addition=None) -> Tuple[
@@ -208,7 +207,7 @@ def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_perce
     mask_num = int(node_num * drop_percent)
     node_idx = [i for i in range(node_num)]
     mask_idx = random.sample(node_idx, mask_num)
-    aug_feature = copy.deepcopy(input_feature)
+    aug_feature = input_feature.copy()
     if type(aug_feature) == np.ndarray:
         zeros = np.zeros_like(aug_feature[0][0])
     else:
@@ -236,7 +235,7 @@ def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bo
 
     edge_num = int(len(row_idx))
     add_drop_num = int(edge_num * drop_percent)
-    aug_adj = copy.deepcopy(input_adj.tolist())
+    aug_adj = input_adj.copy().tolist()
     else_adj = np.zeros_like(input_adj)
 
     edge_idx = list(np.arange(edge_num))
@@ -416,14 +415,14 @@ def split_adj(adj, percent, split_scheme):
             train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=False)
         else:
             train_adjacency = adj
-            validation_adjacency = copy.deepcopy(adj)
+            validation_adjacency = adj.copy()
     elif split_scheme == 'split_edges':
         # splits the adj via the edges so that no edges in both 
         if percent != 1.:
             train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=True)
         else:
             train_adjacency = adj
-            validation_adjacency = copy.deepcopy(adj)
+            validation_adjacency = adj.copy()
 
     elif split_scheme == 'all_edges':
         # makes the adj fully connected 

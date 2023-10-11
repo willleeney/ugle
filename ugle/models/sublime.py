@@ -257,7 +257,7 @@ class sublime_trainer(ugleTrainer):
             mask_v1 = mask_v1.to(self.device)
             features_v1 = features * (1 - mask_v1)
         else:
-            features_v1 = copy.deepcopy(features)
+            features_v1 = features.copy()
 
         features_v1 = features_v1.to(self.device)
         z1, _ = model(features_v1, anchor_adj, 'anchor')
@@ -268,7 +268,7 @@ class sublime_trainer(ugleTrainer):
             mask = mask.to(self.device)
             features_v2 = features * (1 - mask)
         else:
-            features_v2 = copy.deepcopy(features)
+            features_v2 = features.copy()
 
         learned_adj = self.graph_learner_forward(features)
 

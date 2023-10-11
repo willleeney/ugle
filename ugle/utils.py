@@ -8,6 +8,7 @@ import optuna
 import os
 import pickle
 from ugle.logger import log
+import subprocess
 
 neural_algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc', 'igo']
 
@@ -122,6 +123,14 @@ def set_device(gpu: int):
     else:
         device = 'cpu'
     return device
+
+
+def remove_last_line(cols=None):
+    if not cols:
+        tput = subprocess.Popen(['tput','cols'], stdout=subprocess.PIPE)
+        cols = int(tput.communicate()[0].strip())
+    print("\033[A{}\033[A".format(' '*cols))
+    return cols
 
 
 def sample_hyperparameters(trial: optuna.trial.Trial, args: DictConfig, prune_params=None) -> DictConfig:

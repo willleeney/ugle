@@ -35,6 +35,7 @@ trainer:
   suggest_hps_from_previous_seed: False
   calc_time: True
   calc_memory: False
+  log_interval: 5
 
   logger:
     log_wandb: False

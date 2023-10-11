@@ -13,7 +13,7 @@ from optuna.trial import TrialState
 import threading
 import time
 from tqdm import trange
-from tqdm.contrib.logging import logging_redirect_tqdm
+from line_profiler import LineProfiler
 import copy
 import torch
 from typing import Dict, List, Optional, Tuple
@@ -557,19 +557,10 @@ class ugleTrainer:
             self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, self.cfg.args, prune_params)
 
-        ### memory - start active
-        #if self.cfg.trainer.calc_memory:
-        #    torch.cuda.reset_peak_memory_stats(device=self.device)
-        #    self.memory_stats["active_memory_start"] = torch.cuda.max_memory_allocated(device=self.device)
-
         # process model creation
         processed_data = self.move_to_activedevice(processed_data)
         self.training_preprocessing(self.cfg.args, processed_data)
         self.model.train()
-
-        ### memory - training 
-        #if self.cfg.trainer.calc_memory:
-        #    self.memory_stats["active_memory_training"] = torch.cuda.max_memory_allocated(device=self.device)
 
         if self.cfg.trainer.finetuning_new_dataset:
             log.info('Loading pretrained model')
@@ -596,7 +587,7 @@ class ugleTrainer:
         for self.current_epoch in self.progress_bar:
             if self.current_epoch % self.cfg.trainer.log_interval == 0:
                 if self.current_epoch != 0:
-                    if not (self.current_epoch - self.cfg.trainer.log_interval == 0 and self.cfg.trainer.calc_memory):
+                    if not (self.current_epoch - self.cfg.trainer.log_interval == 0) and (self.cfg.trainer.calc_memory or self.cfg.trainer.calc_time):
                         nlength_term = utils.remove_last_line()
                         if len_prev_line > nlength_term:
                             _ = utils.remove_last_line(nlength_term)
@@ -643,22 +634,19 @@ class ugleTrainer:
             timings[1] += time.time() - start
             start = time.time()
 
-            # memory - start training forward pass  
-            #if self.cfg.trainer.calc_memory:
-            #    torch.cuda.reset_peak_memory_stats(device=self.device)
-            #    self.memory_stats["active_memory_fpass"].append(torch.cuda.max_memory_allocated(device=self.device))
             if self.cfg.trainer.calc_memory and self.current_epoch == 0:
                 mem_usage, retvals = memory_usage((self.training_epoch_iter, (self.cfg.args, processed_data)), interval=.005, retval=True) 
                 loss, data_returned = retvals
                 log.info(f"Max memory usage by training_epoch_iter(): {max(mem_usage):.2f}MB")
+            elif self.cfg.trainer.calc_time and self.current_epoch == 1:
+                lp = LineProfiler()
+                lp_wrapper = lp(self.training_epoch_iter)
+                loss, data_returned = lp_wrapper(self.cfg.args, processed_data)
+                lp.print_stats()
             else:
                 loss, data_returned = self.training_epoch_iter(self.cfg.args, processed_data)
             if data_returned:
                 processed_data = data_returned
-
-            # memory - optimisation pass + end of forward pass
-            #if self.cfg.trainer.calc_memory:
-            #    self.memory_stats["active_memory_fpass_end"].append(torch.cuda.max_memory_allocated(device=self.device))
 
             # optimise
             for opt in self.optimizers:
@@ -666,6 +654,7 @@ class ugleTrainer:
             if self.cfg.trainer.calc_memory and self.current_epoch == 0: 
                 mem_usage = memory_usage((loss.backward), interval=.005)
                 log.info(f"Max memory usage by loss.backward(): {max(mem_usage):.2f}MB")
+
             else:
                 loss.backward()
 
@@ -679,11 +668,6 @@ class ugleTrainer:
             if patience_waiting.all() >= self.cfg.args.patience:
                 log.info(f'Early stopping at epoch {self.current_epoch}!')
                 break
-
-            # memory - optimisation pass
-            #if self.cfg.trainer.calc_memory:
-            #    self.memory_stats["active_memory_opt"].append(torch.cuda.max_memory_allocated(device=self.device))
-            #    torch.cuda.reset_peak_memory_stats(device=self.device)
 
         nlength_term = utils.remove_last_line()
         if len_prev_line > nlength_term:

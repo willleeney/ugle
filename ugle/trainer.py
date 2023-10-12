@@ -638,11 +638,6 @@ class ugleTrainer:
                 mem_usage, retvals = memory_usage((self.training_epoch_iter, (self.cfg.args, processed_data)), interval=.005, retval=True) 
                 loss, data_returned = retvals
                 log.info(f"Max memory usage by training_epoch_iter(): {max(mem_usage):.2f}MB")
-            elif self.cfg.trainer.calc_time and self.current_epoch == 1:
-                lp = LineProfiler()
-                lp_wrapper = lp(self.training_epoch_iter)
-                loss, data_returned = lp_wrapper(self.cfg.args, processed_data)
-                lp.print_stats()
             else:
                 loss, data_returned = self.training_epoch_iter(self.cfg.args, processed_data)
             if data_returned:

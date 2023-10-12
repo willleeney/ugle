@@ -587,9 +587,8 @@ class ugleTrainer:
         for self.current_epoch in self.progress_bar:
             if self.current_epoch % self.cfg.trainer.log_interval == 0:
                 if self.current_epoch != 0:
-                    if (not self.current_epoch - self.cfg.trainer.log_interval == 0) and self.cfg.trainer.calc_memory:
+                    if not (self.current_epoch - self.cfg.trainer.log_interval == 0 and self.cfg.trainer.calc_memory):
                         print('should deleted this')
-                        print('another one')
                         nlength_term = utils.remove_last_line()
                         if len_prev_line > nlength_term:
                             _ = utils.remove_last_line(nlength_term)

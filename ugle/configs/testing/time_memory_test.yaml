@@ -1,5 +1,5 @@
 seeds: [42]
-datasets: ['amac', 'citeseer', 'wisc', 'texas', 'cora', 'dblp', 'pubmed', 'cornell']
+datasets: ['cora', 'amac',  'wisc', 'texas', 'citeseer', 'dblp', 'pubmed', 'cornell']
 algorithms: ['dmon_default', 'dgi_default','daegc_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 dataset_algo_combinations: null
 run_cpu_fallback: False
@@ -17,7 +17,7 @@ study_override_cfg:
     load_existing_test: False
 
     calc_time: True
-    calc_memory: True
+    calc_memory: False
 
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['modularity', 'conductance']

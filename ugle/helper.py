@@ -12,6 +12,7 @@ import ranky as rk
 from itertools import combinations
 from scipy.stats import linregress
 from scipy.stats import spearmanr 
+from sklearn.metrics import r2_score
 import pandas as pd
 
 def search_results(folder, filename):
@@ -781,8 +782,10 @@ def print_dataset_table(datasets, algorithms, folder):
         print(dataset, end = ' ')
         mod_results, con_results = extract_results([dataset], algorithms, folder)
         for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
-            slope, intercept, r_value, p_value, std_err = linregress(x, y)
-            print(f'& {r_value:.2f}', end=' ')
+            slope, intercept, _, _, _ = linregress(x, y)
+            y_line_predicted = (x * slope) + intercept
+            r_value_line = np.round(r2_score(y, y_line_predicted), 3)
+            print(f'& {r_value_line:.2f}', end=' ')
         print('')
 
 def print_algo_table(datasets, algorithms, folder):
@@ -790,8 +793,12 @@ def print_algo_table(datasets, algorithms, folder):
         print(algorithm, end = ' ')
         mod_results, con_results = extract_results(datasets, [algorithm], folder)
         for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
-            slope, intercept, r_value, p_value, std_err = linregress(x, y)
-            print(f'& {r_value:.2f}', end=' ')
+            coefficients = np.polyfit(x, y, 2)
+            poly = np.poly1d(coefficients)
+            # Calculate predicted values
+            predicted_y = poly(x)
+            r_value_quad = np.round(r2_score(y, predicted_y), 3)
+            print(f'& {r_value_quad:.2f}', end=' ')
         print('')
 
 
@@ -803,7 +810,7 @@ def kendall_w(expt_ratings):
     denom = m**2*(n**3-n)
     rating_sums = np.sum(expt_ratings, axis=0)
     S = n*np.var(rating_sums)
-    return 12*S/denom
+    return 1 - (12*S/denom)
 
 
 def rank_values(scores):
@@ -892,8 +899,10 @@ def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, ma
 
         print(f"\n{x_label} -> {y_label}")
         # compute regression and give correlation 
-        slope, intercept, r_value, p_value, std_err = linregress(x, y)
-        print(f"Coefficient of Determination (R^2): {r_value:.2f}")
+        slope, intercept, _, _, _ = linregress(x, y)
+        y_line_predicted = (x * slope) + intercept
+        r_value_line = r2_score(y, y_line_predicted)
+        print(f"Coefficient of Determination (R^2): {r_value_line:.2f}")
         x_space = np.linspace(np.min(x), np.max(x), 200)
         y_line = (x_space * slope) + intercept
 
@@ -902,14 +911,8 @@ def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, ma
         poly = np.poly1d(coefficients)
         # Calculate predicted values
         predicted_y = poly(x)
-        # Calculate total sum of squares
-        total_var = np.sum((y - np.mean(y)) ** 2)
-        # Calculate residual sum of squares
-        residual_var = np.sum((y - predicted_y) ** 2)
-        # Calculate variance explained
-        variance_explained = 1 - (residual_var / total_var)
-        variance_explained = np.round(variance_explained, 3)
-        print(f"Variance Explained by Quadratic: {variance_explained}")
+        r_value_quad = np.round(r2_score(y, predicted_y), 3)
+        print(f"Variance Explained by Quadratic: {r_value_quad}")
         y_line_quad = poly(x_space)
 
         # spearmans  
@@ -938,8 +941,8 @@ def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, ma
         else:
             ax.scatter(x, y, color='tab:blue', s=15, label='Test Data')
 
-        ax.plot(x_space, y_line, color='tab:red', label=r'Linear Fit, $R^2:$' + f'{r_value:.2f}', linewidth=3)
-        ax.plot(x_space, y_line_quad, color="tab:orange", label=r'Quadratic Fit, $R^2:$' + f'{variance_explained:.2f}', linewidth=3)
+        ax.plot(x_space, y_line, color='tab:red', label=r'Linear Fit, $R^2:$' + f'{r_value_line:.2f}', linewidth=3)
+        ax.plot(x_space, y_line_quad, color="tab:orange", label=r'Quadratic Fit, $R^2:$' + f'{r_value_quad:.2f}', linewidth=3)
         if i == 0:
             ax.set_ylabel(y_label, fontsize=20)
         if i == 2:
@@ -948,7 +951,7 @@ def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, ma
         if i == 3:
             ax.set_xlabel(x_label, fontsize=20)
         
-        ax.set_title(f"{x_label}" + r' $\rightarrow$ '+ f"{y_label} W: {W_order:.2f}", fontsize=20)
+        ax.set_title(f"    {x_label}" + r' $\rightarrow$ '+ f"{y_label} (W: {W_order:.2f})", fontsize=20)
         ax.legend(loc='best', fontsize=18)
         ax.tick_params(axis='y', labelsize=18)
         ax.tick_params(axis='x', labelsize=18)
@@ -958,6 +961,7 @@ def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, ma
     print_dataset_table(datasets, algorithms, folder)
 
     fig.suptitle(title, fontsize=24)
+    plt.subplots_adjust(top=0.80)
     plt.tight_layout()
     plt.savefig(f'./figures/unsupervised_limit/{os.path.basename(os.path.normpath(folder))}.png')
 
@@ -986,17 +990,17 @@ def synthetic_evaluation(datasets, algorithms, folder):
             con_f1.append(np.mean(con_results[:, 1]))
             con_nmi.append(np.mean(con_results[:, 2]))
 
-        ax.bar(x_axis_points, mod_f1, width=bar_width, facecolor="C3", linewidth=0, label='mod_f1')
-        ax.bar(x_axis_points + 1/4, mod_nmi, width=bar_width, facecolor="C3", linewidth=0, alpha=0.5, label='mod_nmi')
-        ax.bar(x_axis_points + 1/2, con_f1, width=bar_width, facecolor="C0", linewidth=0, label='con_f1')
-        ax.bar(x_axis_points + 3/4, con_nmi, width=bar_width, facecolor="C0", linewidth=0, alpha=0.5, label='con_nmi')
+        ax.bar(x_axis_points, mod_f1, width=bar_width, facecolor="C3", linewidth=0, label=r'Mod$\rightarrow$F1')
+        ax.bar(x_axis_points + 1/4, mod_nmi, width=bar_width, facecolor="C3", linewidth=0, alpha=0.5, label=r'Mod$\rightarrow$NMI')
+        ax.bar(x_axis_points + 1/2, con_f1, width=bar_width, facecolor="C0", linewidth=0, label=r'Con$\rightarrow$F1')
+        ax.bar(x_axis_points + 3/4, con_nmi, width=bar_width, facecolor="C0", linewidth=0, alpha=0.5, label=r'Mod$\rightarrow$NMI')
                
         ax.set_xticks(x_axis_points - 0.5 * bar_width)
         ax.set_xticklabels(x_axis_names, ha='left', rotation=-45, position=(-0.5, 0.0))
         ax.set_axisbelow(True)
         ax.set_ylim(0.0, 1.0)
         ax.axhline(y=0.5, color='k', linestyle='-')
-        if i == 5:
+        if i == 8:
             ax.legend(loc='best')
 
 
@@ -1005,28 +1009,27 @@ def synthetic_evaluation(datasets, algorithms, folder):
     plt.savefig(f'./figures/unsupervised_limit/{os.path.basename(os.path.normpath(folder))}.png')
 
 
-q1_folder = './results/unsupervised_limit/default_q1/'
-q2_folder = './results/unsupervised_limit/hpo_q2/'
-q5_folder = './results/unsupervised_limit/synth_default_q5/'
-q5_folder1 = './results/unsupervised_limit/33_default_q4/'
-q5_folder2 = './results/unsupervised_limit/66_default_q4/'
+if __name__ == "__main__":
+    q1_folder = './results/unsupervised_limit/default_q1/'
+    q2_folder = './results/unsupervised_limit/hpo_q2/'
+    q5_folder = './results/unsupervised_limit/synth_default_q5/'
+    q5_folder1 = './results/unsupervised_limit/33_default_q4/'
+    q5_folder2 = './results/unsupervised_limit/66_default_q4/'
 
-seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
-synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
-                    'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
-                    'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
+    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+    datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
+    synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
+                        'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
+                        'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
 
-default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+    default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+    algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
 
 
-#unsupervised_prediction_graph(datasets, default_algorithms, seeds, q1_folder, title="Default Hyperparameters")
+    #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q1_folder, title="Default Hyperparameters")
+    #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder2, title="q4: 66% of the data")
+    #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder1, title="q4: 33% of the data")
 
-#unsupervised_prediction_graph(datasets, default_algorithms, seeds, q1_folder, title="Default Hyperparameters")
-#unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder2, title="q4: 66% of the data")
-#unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder1, title="q4: 33% of the data")
-
-#synthetic_evaluation(synth_datasets, default_algorithms, q5_folder)
+    synthetic_evaluation(synth_datasets, default_algorithms, q5_folder)
 
 #unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation")

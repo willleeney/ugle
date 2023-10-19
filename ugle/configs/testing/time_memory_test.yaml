@@ -1,5 +1,5 @@
 seeds: [42]
-datasets: ['cora', 'amac',  'wisc', 'texas', 'citeseer', 'dblp', 'pubmed', 'cornell']
+datasets: ['pubmed', 'cornell'] #['cora', 'amac',  'wisc', 'texas', 'citeseer', 'dblp']
 algorithms: ['dmon_default', 'dgi_default','daegc_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 dataset_algo_combinations: null
 run_cpu_fallback: False

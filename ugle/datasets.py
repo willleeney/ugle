@@ -435,3 +435,131 @@ def split_adj(adj, percent, split_scheme):
         validation_adjacency = np.zeros_like(adj)
     
     return train_adjacency, validation_adjacency
+
+
+
+
+from torch_geometric.datasets import WikiCS, Reddit2, Planetoid, Coauthor, Flickr, WebKB, AttributedGraphDataset, NELL, GitHub
+from torch_geometric.datasets.amazon import Amazon
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader, GraphSAINTNodeSampler
+from torch_geometric.utils import add_remaining_self_loops, to_undirected
+from torch_geometric.transforms import ToUndirected, NormalizeFeatures, Compose
+import torch.nn.functional as F
+from ugle.logger import ugle_path
+import torch
+from typing import Tuple
+import time
+
+
+def max_nodes_in_edge_index(edge_index):
+    if edge_index.nelement() == 0:
+        return -1
+    else:
+        return int(edge_index.max())
+
+
+def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
+    if p <= 0. or p >= 1.:
+        raise ValueError(f'Dropout probability has to be between 0 and 1 -- (got {p})')
+
+    row, col = edge_index
+    edge_mask = torch.rand(row.size(0)) >= p
+    keep_edge_index = edge_index[:, edge_mask]
+    drop_edge_index = edge_index[:, torch.ones_like(edge_mask, dtype=bool) ^ edge_mask]
+
+    return keep_edge_index, drop_edge_index
+
+
+def add_all_self_loops(edge_index, n_nodes):
+    edge_index, _ = add_remaining_self_loops(edge_index)
+    # if the end nodes have had all the edges removed then you need to manually add the final self loops
+    last_in_adj = max_nodes_in_edge_index(edge_index)
+    n_ids_left = torch.arange(last_in_adj + 1, n_nodes)
+    edge_index = torch.concat((edge_index, torch.stack((n_ids_left, n_ids_left))), dim=1)
+    return edge_index
+
+
+def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
+    # load dataset
+    dataset_path = ugle_path + f'/data/{dataset_name}'
+    undir_transform = Compose([ToUndirected(merge=True), NormalizeFeatures()])
+    data = None
+    start = time.time()
+    if dataset_name == 'WikiCS':
+        data = WikiCS(root=dataset_path, is_undirected=True, transform=undir_transform)[0]
+    elif dataset_name == 'Reddit':
+        data = Reddit2(root=dataset_path, transform=undir_transform)[0]
+    elif dataset_name in ['Cora', 'CiteSeer', 'PubMed']:
+        data = Planetoid(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name in ['Photo', 'Computers']:
+        data = Amazon(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name in ['CS', 'Physics']:
+        data = Coauthor(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name == 'Flickr':
+        data = Flickr(root=dataset_path, transform=undir_transform)[0]
+    elif dataset_name in ['Facebook', 'PPI', 'Wiki']:
+        data = AttributedGraphDataset(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name in ['Texas', 'Cornell', 'Wisconsin']:
+        data = WebKB(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name == 'GitHub':
+        data = GitHub(root=dataset_path, transform=undir_transform)[0]
+    elif dataset_name == 'NELL':
+        dataset = NELL(root=dataset_path)[0]
+        data = Data(x=F.normalize(dataset.x.to_dense(), dim=0), y=dataset.y, 
+                    edge_index=to_undirected(add_all_self_loops(dataset.edge_index, dataset.x.size(dim=0))))
+    else:
+        raise NameError(f'{dataset_name} is not a valid dataset_name parameter')
+
+    time_spent = time.time()
+    print(f"Time loading {dataset_name}: {round(time_spent - start, 3)}s")
+    # split data into train/val/test
+    train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test+num_val)
+    train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
+    test_edges, val_edges = dropout_edge_undirected(dropped_edges, p=1-(num_test/(num_test+num_val)))
+    val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
+    test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
+    print(f'Full N Nodes:  {data.x.shape[0]}, N Features: {data.x.shape[1]}')
+
+    # create samplers 
+    if data.num_nodes > max_batch_nodes:
+        train_loader = GraphSAINTNodeSampler(
+            train_data,
+            batch_size=max_batch_nodes,
+        )
+        val_loader = GraphSAINTNodeSampler(
+            val_data,
+            batch_size=max_batch_nodes,
+        )
+        test_loader = GraphSAINTNodeSampler(
+            test_data,
+            batch_size=max_batch_nodes,
+        )
+    else: 
+        train_loader = DataLoader([train_data], batch_size=1, shuffle=False, num_workers=6)
+        val_loader = DataLoader([val_data], batch_size=1, shuffle=False, num_workers=6)
+        test_loader = DataLoader([test_data], batch_size=1, shuffle=False, num_workers=6)
+    
+    sampled_data = next(iter(train_loader))
+    print(f'Sampled N Nodes:  {sampled_data.x.shape[0]}, N Features: {sampled_data.x.shape[1]}')
+    end_time = time.time() - time_spent
+    print(f"Time splitting: {round(end_time, 3)}s")
+    return
+
+if __name__ == "__main__":
+    datasets = ['Texas', 'Wisconsin', 'Cornell', 'Cora', 'CiteSeer', 'Photo',
+        'Computers', 'CS', 'PubMed', 'Physics', 'Flickr', 'Facebook', 'PPI',
+        'Wiki', 'WikiCS', 'NELL', 'GitHub', 'Reddit']
+    from memory_profiler import memory_usage
+    from line_profiler import LineProfiler
+
+    for dataset_name in datasets:
+        create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
+
+        mem_usage = memory_usage((create_dataset_loader, (dataset_name, 10000, 0.1, 0.2)))
+        print(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
+
+        lp = LineProfiler()
+        lp_wrapper = lp(create_dataset_loader)
+        lp_wrapper(dataset_name, 10000, 0.1, 0.2)
+        lp.print_stats()

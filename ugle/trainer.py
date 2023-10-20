@@ -363,18 +363,9 @@ class ugleTrainer:
         return features, label, train_adjacency, test_adjacency
     
     def eval(self):
-        # memory - start calc
-        #if self.cfg.trainer.calc_memory:
-            #torch.cuda.reset_peak_memory_stats(device=torch.device("cpu"))
-            #self.memory_stats["cpu_memory_start"] = psutil.virtual_memory().available / (1024 ** 3)
-            #torch.cuda.max_memory_allocated(device=torch.device("cpu"))
-
+        ##################### CHANGE #####################
         # loads the database to train on
         features, label, validation_adjacency, test_adjacency = self.load_database()
-
-        # memory - cpu for dataset
-        #if self.cfg.trainer.calc_memory:
-        #    self.memory_stats["cpu_memory_dataset"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
 
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
@@ -384,13 +375,10 @@ class ugleTrainer:
                                                           self.cfg.trainer.train_to_valid_split, 
                                                           self.cfg.trainer.split_scheme)
 
+        ##################### CHANGE #####################
         # process data for training
         processed_data = self.preprocess_data(features, train_adjacency)
         processed_valid_data = self.preprocess_data(features, validation_adjacency)
-
-        # memory - preprocessing requirement
-        #if self.cfg.trainer.calc_memory:
-        #   self.memory_stats["cpu_memory_preprocess"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
 
         # if only testing then no need to optimise hyperparameters
         if not self.cfg.trainer.only_testing:
@@ -434,21 +422,29 @@ class ugleTrainer:
         else:
             params_to_assign = 'default'
 
+        ##################### CHANGE #####################
         processed_test_data = self.preprocess_data(features, test_adjacency)
 
         # retrains the model on the validation adj and evaluates test performance
         # might be weird with the previosu results stuff but that's not done in this paper so meh
         if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
 
+            ##################### CHANGE #####################
             validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                                     processed_valid_data)
+            
+
             objective_results = []
             for opt_metric in self.cfg.trainer.valid_metrics:
                 log.info(f'Evaluating {opt_metric} model on test split')
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                 self.model.to(self.device)
+
+                ##################### CHANGE #####################
                 results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                             self.cfg.trainer.test_metrics)
+                
+
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                 to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
@@ -500,6 +496,7 @@ class ugleTrainer:
                 self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
                 # do testing
+                ##################### CHANGE #####################
                 log.debug('Retraining model')
                 validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
@@ -511,8 +508,12 @@ class ugleTrainer:
                     log.debug(f'Evaluating {opt_metric} model on test split')
                     self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                     self.model.to(self.device)
+
+                    ##################### CHANGE #####################
                     results = self.testing_loop(label, features, test_adjacency, processed_test_data,
                                                 self.cfg.trainer.test_metrics)
+                    
+
                     # log test results
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                     to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
@@ -557,9 +558,13 @@ class ugleTrainer:
             self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, self.cfg.args, prune_params)
 
+        
+        ##################### CHANGE #####################
         # process model creation
         processed_data = self.move_to_activedevice(processed_data)
         self.training_preprocessing(self.cfg.args, processed_data)
+
+
         self.model.train()
 
         if self.cfg.trainer.finetuning_new_dataset:
@@ -602,18 +607,23 @@ class ugleTrainer:
             # check if validation time
             if self.current_epoch % self.cfg.trainer.validate_every_nepochs == 0:
                 # put in validation mode 
+
+                ##################### CHANGE #####################
                 processed_data = self.move_to_cpudevice(processed_data)
 
                 # compute training iteration
                 if self.cfg.trainer.calc_memory and self.current_epoch == 0: 
+                    ##################### CHANGE #####################
                     mem_usage, results = memory_usage((self.testing_loop, (label, features, validation_adjacency, processed_valid_data, self.cfg.trainer.valid_metrics)), 
                                                       interval=.005, retval=True) 
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
+                    ##################### CHANGE #####################
                     results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                                 self.cfg.trainer.valid_metrics)
                 
                 # put data back into training mode
+                ##################### CHANGE #####################
                 processed_data = self.move_to_activedevice(processed_data)
 
                 # record best model state over this train/trial for each metric
@@ -635,10 +645,12 @@ class ugleTrainer:
             start = time.time()
 
             if self.cfg.trainer.calc_memory and self.current_epoch == 0:
+                ##################### CHANGE #####################
                 mem_usage, retvals = memory_usage((self.training_epoch_iter, (self.cfg.args, processed_data)), interval=.005, retval=True) 
                 loss, data_returned = retvals
                 log.info(f"Max memory usage by training_epoch_iter(): {max(mem_usage):.2f}MB")
             else:
+                ##################### CHANGE #####################
                 loss, data_returned = self.training_epoch_iter(self.cfg.args, processed_data)
             if data_returned:
                 processed_data = data_returned
@@ -646,10 +658,10 @@ class ugleTrainer:
             # optimise
             for opt in self.optimizers:
                 opt.zero_grad()
+
             if self.cfg.trainer.calc_memory and self.current_epoch == 0: 
                 mem_usage = memory_usage((loss.backward), interval=.005)
                 log.info(f"Max memory usage by loss.backward(): {max(mem_usage):.2f}MB")
-
             else:
                 loss.backward()
 
@@ -674,6 +686,8 @@ class ugleTrainer:
 
         # compute final validation 
         return_results = dict(zip(self.cfg.trainer.valid_metrics, best_so_far))
+       
+        ##################### CHANGE #####################
         processed_data = self.move_to_cpudevice(processed_data)
         # if saving validation results then record the result on the test metrics
         if self.cfg.trainer.save_validation:
@@ -684,8 +698,11 @@ class ugleTrainer:
             if self.cfg.trainer.save_validation and trial is None:
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
                 self.model.to(self.device)
+                ##################### CHANGE #####################
                 results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                         self.cfg.trainer.test_metrics)
+                
+
                 valid_results[metric] = results
 
         timings[1] += time.time() - start
@@ -714,9 +731,13 @@ class ugleTrainer:
         evaluate those predictions
         """
         self.model.eval()
+        ##################### CHANGE #####################
         processed_data = self.move_to_activedevice(processed_data)
+
         preds = self.test(processed_data)
+        ##################### CHANGE #####################
         processed_data = self.move_to_cpudevice(processed_data)
+
         results, eval_preds = ugle.process.preds_eval(label,
                                                       preds,
                                                       sf=4,
@@ -747,6 +768,8 @@ class ugleTrainer:
         log.error('NO TRAINING ITERATION LOOP')
         pass
 
+    
+    ##################### CHANGE #####################
     def move_to_cpudevice(self, data):
         return tuple(databite.to(torch.device("cpu"), non_blocking=True) if torch.is_tensor(databite) else databite for databite in data)
 

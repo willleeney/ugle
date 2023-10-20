@@ -1,199 +1,50 @@
-import os
-from omegaconf import OmegaConf, DictConfig
 import numpy as np
-import networkx as nx
-import zipfile
-import gdown
-from pathlib import Path
-import shutil
-import torch
-import copy
 import random
-import scipy.sparse as sp
-import plotly.graph_objects as go
-from typing import Union
-from ugle.logger import log, ugle_path
-from typing import Tuple
-from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph
+from typing import Union, Tuple
+import torch.nn.functional as F
+from ugle.logger import ugle_path, log
 import torch
-from karateclub.dataset import GraphReader
+import time
+from torch_geometric.datasets import WikiCS, Reddit2, Planetoid, Coauthor, Flickr, WebKB, AttributedGraphDataset, NELL, GitHub
+from torch_geometric.datasets.amazon import Amazon
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader, GraphSAINTNodeSampler
+from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj, stochastic_blockmodel_graph
+from torch_geometric.transforms import ToUndirected, NormalizeFeatures, Compose
 
-google_store_datasets = ['acm', 'amac', 'amap', 'bat', 'citeseer', 'cora', 'cocs', 'dblp', 'eat', 'uat', 'pubmed',
-                         'cite', 'corafull', 'texas', 'wisc', 'film', 'cornell']
-karate_club_datasets = ['facebook', 'twitch', 'wikipedia', 'github', 'lastfm', 'deezer']
-all_datasets = (google_store_datasets + karate_club_datasets)
 
 
-def check_data_presence(dataset_name: str) -> bool:
-    """
-    checks for dataset presence in local memory
-    :param dataset_name: dataset name to check
-    """
-    dataset_path = ugle_path + f'/data/{dataset_name}'
-    if not os.path.exists(dataset_path):
-        return False
-    elif not os.path.exists(f'{dataset_path}/{dataset_name}_feat.npy'):
-        return False
-    elif not os.path.exists(f'{dataset_path}/{dataset_name}_label.npy'):
-        return False
-    elif not os.path.exists(f'{dataset_path}/{dataset_name}_adj.npy'):
-        return False
+def split(n, k):
+    d, r = divmod(n, k)
+    return [d + 1] * r + [d] * (k - r)
+
+
+def max_nodes_in_edge_index(edge_index):
+    if edge_index.nelement() == 0:
+        return -1
     else:
-        return True
+        return int(edge_index.max())
 
 
-def download_graph_data(dataset_name: str) -> bool:
-    """
-    downloads a graph dataset
-    :param dataset_name: name of the dataset to download
-    :return True if successful
-    """
-    log.info(f'Downloading {dataset_name}')
-    download_link_path = ugle_path + '/data/download_links.yaml'
-    download_links = OmegaConf.load(download_link_path)
-    url = download_links[dataset_name]
-    dataset_path = ugle_path + f'/data/{dataset_name}'
-    if not os.path.exists(dataset_path):
-        os.mkdir(dataset_path)
+def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
+    if p <= 0. or p >= 1.:
+        raise ValueError(f'Dropout probability has to be between 0 and 1 -- (got {p})')
 
-    dataset_zip_path = dataset_path + f'/{dataset_name}.zip'
-    gdown.download(url=url, output=dataset_zip_path, quiet=False, fuzzy=True)
-    log.info('Finished downloading')
+    row, col = edge_index
+    edge_mask = torch.rand(row.size(0)) >= p
+    keep_edge_index = edge_index[:, edge_mask]
+    drop_edge_index = edge_index[:, torch.ones_like(edge_mask, dtype=bool) ^ edge_mask]
 
-    # extract the zip file
-    log.info('Extracting dataset')
-    with zipfile.ZipFile(dataset_zip_path, 'r') as zip_ref:
-        zip_ref.printdir()
-        zip_ref.extractall(dataset_path)
-    log.info('Extraction complete')
-
-    # correct the path dir
-    extended_path = f'{dataset_path}/{dataset_name}'
-    dataset_path += '/'
-    if os.path.exists(extended_path):
-        log.info('Extraction to wrong location')
-        for subdir, dirs, files in os.walk(extended_path):
-            for file in files:
-                extract_path = os.path.join(subdir, file)
-                file = Path(file)
-                out_path = os.path.join(dataset_path, file)
-                log.info(f'Extracting {extract_path} to ... {out_path} ...')
-                shutil.move(Path(extract_path), Path(out_path))
-
-        shutil.rmtree(extended_path)
-
-    return True
-
-def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str = 'drop_edges',
-                         split_addition=None) -> Tuple[
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    loads the graph dataset and splits the adjacency matrix into two
-    :param dataset_name: name of the dataset
-    :param test_split: percentage of edges to keep
-    :return features, label, train_adj, adjacency: loaded graph data
-    """
-    assert dataset_name in all_datasets, f"{dataset_name} not a real dataset"
-
-    if dataset_name in google_store_datasets:
-        if not check_data_presence(dataset_name):
-            extraction_success = download_graph_data(dataset_name)
-            assert extraction_success, f'download/extraction of dataset {dataset_name} failed'
-            assert check_data_presence(dataset_name)
-
-        dataset_path = ugle_path + f'/data/{dataset_name}/{dataset_name}'
-        features = np.load(dataset_path + "_feat.npy", allow_pickle=True)
-        label = np.load(dataset_path + "_label.npy", allow_pickle=True)
-        adjacency = np.load(dataset_path + "_adj.npy", allow_pickle=True)
-
-    elif dataset_name in karate_club_datasets:
-        loader = GraphReader(dataset_name)
-        features = loader.get_features().todense()
-        label = loader.get_target()
-        adjacency = nx.to_numpy_matrix(loader.get_graph())
-
-    if split_addition:
-        adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition, split_adj=False)
-
-    log.debug('Splitting dataset into training/testing')
-    train_adj, test_adj = split_adj(adjacency, test_split, split_scheme)
-
-    return features, label, train_adj, test_adj
+    return keep_edge_index, drop_edge_index
 
 
-def compute_datasets_info(dataset_names: list, visualise: bool=False):
-    """
-    computes the information about dataset statistics
-    :param dataset_names: list of datasets to look at
-    """
-
-    clustering_x_data = []
-    closeness_y_data = []
-
-    for dataset_name in dataset_names:
-        features, label, train_adjacency, test_adjacency = load_real_graph_data(dataset_name, test_split=1.)
-        display_string = dataset_name + ' & '  # name
-        display_string += str(train_adjacency.shape[0]) + ' & '  # n_nodes
-        display_string += str(features.shape[1]) + ' & '  # n_features
-        display_string += str(int(np.nonzero(train_adjacency)[0].shape[0]/2)) + ' & '  # n_edges
-        display_string += str(len(np.unique(label))) + ' & '  # n_classes
-
-        nx_g = nx.Graph(train_adjacency)
-        clustering = nx.average_clustering(nx_g)
-        cercania = nx.closeness_centrality(nx_g)
-        cercania = np.mean(list(cercania.values()))
-
-        clustering_x_data.append(clustering)
-        closeness_y_data.append(cercania)
-
-        display_string += str(round(clustering, 3)) + ' & '  # clustering coefficient
-        display_string += str(round(cercania, 3)) + ' \\\\'  # closeness centrality
-        if visualise:
-            print(display_string)
-    if visualise:
-        _ = display_figure_dataset_stats(clustering_x_data, closeness_y_data, dataset_names)
-
-    return clustering_x_data, closeness_y_data
-
-
-def display_figure_dataset_stats(x_data: list, y_data: list, datasets: list):
-    """
-    function to display dataset statistics on a graph
-    :param x_data: clustering coefficient data for x-axis
-    :param y_data: closeness centrality data for y-axis
-    :param datasets: list of datasets metrics were computed over
-    :return fig: figure to be displayed
-    """
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=x_data, y=y_data, text=datasets, textposition="top center",
-        color_discrete_sequence=['red']
-    ))
-
-    # layout options
-    layout = dict(
-                font=dict(
-                    size=18),
-              plot_bgcolor='white',
-              paper_bgcolor='white',
-              margin=dict(t=10, b=10, l=10, r=10, pad=0),
-              xaxis=dict(title='Average Clustering Coefficient',
-                         linecolor='black',
-                         showgrid=False,
-                         showticklabels=False,
-                         mirror=True),
-              yaxis=dict(title='Mean Closeness Centrality',
-                         linecolor='black',
-                         showgrid=False,
-                         showticklabels=False,
-                         mirror=True))
-    fig.update_layout(layout)
-    # save figure
-    if not os.path.exists("images"):
-        os.mkdir("images")
-    fig.write_image("images/dataset_stats.png")
-
-    return fig
+def add_all_self_loops(edge_index, n_nodes):
+    edge_index, _ = add_remaining_self_loops(edge_index)
+    # if the end nodes have had all the edges removed then you need to manually add the final self loops
+    last_in_adj = max_nodes_in_edge_index(edge_index)
+    n_ids_left = torch.arange(last_in_adj + 1, n_nodes)
+    edge_index = torch.concat((edge_index, torch.stack((n_ids_left, n_ids_left))), dim=1)
+    return edge_index
 
 
 def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_percent: float = 0.2):
@@ -217,155 +68,91 @@ def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_perce
     return aug_feature
 
 
-def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bool = False):
+def standardize(features):
     """
-    augmentation by randomly dropping edges with given probability
-    :param input_adj: input adjacency matrix
-    :param drop_percent: percent that any edge is dropped
-    :return aug_adj: augmented adjacency matrix
+    Applies a zscore node feature data augmentation.
+
+    :param data: The data to be augmented
+    :return: a new augmented instance of the input data
     """
+    mean, std = features.mean(), features.std()
+    new_data = (features - mean) / (std + 10e-7)
+    return new_data
 
-    index_list = input_adj.nonzero()
-    row_idx = index_list[0].tolist()
-    col_idx = index_list[1].tolist()
 
-    index_list = []
-    for i in range(len(row_idx)):
-        index_list.append((row_idx[i], col_idx[i]))
 
-    edge_num = int(len(row_idx))
-    add_drop_num = int(edge_num * drop_percent)
-    aug_adj = input_adj.copy().tolist()
-    else_adj = np.zeros_like(input_adj)
-
-    edge_idx = list(np.arange(edge_num))
-    drop_idx = random.sample(edge_idx, add_drop_num)
-    n_drop = len(drop_idx)
-    log.debug(f'dropping {n_drop} edges from {edge_num}')
-
-    for i in drop_idx:
-        aug_adj[index_list[i][0]][index_list[i][1]] = 0
-        aug_adj[index_list[i][1]][index_list[i][0]] = 0
-
-        else_adj[index_list[i][0]][index_list[i][1]] = 1
-        else_adj[index_list[i][1]][index_list[i][0]] = 1
-
-    aug_adj = np.array(aug_adj)
-    if split_adj: 
-        return aug_adj, else_adj
+def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
+    # load dataset
+    dataset_path = ugle_path + f'/data/{dataset_name}'
+    undir_transform = Compose([ToUndirected(merge=True), NormalizeFeatures()])
+    data = None
+    start = time.time()
+    if dataset_name == 'WikiCS':
+        data = WikiCS(root=dataset_path, is_undirected=True, transform=undir_transform)[0]
+    elif dataset_name == 'Reddit':
+        data = Reddit2(root=dataset_path, transform=undir_transform)[0]
+    elif dataset_name in ['Cora', 'CiteSeer', 'PubMed']:
+        data = Planetoid(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name in ['Photo', 'Computers']:
+        data = Amazon(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name in ['CS', 'Physics']:
+        data = Coauthor(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name == 'Flickr':
+        data = Flickr(root=dataset_path, transform=undir_transform)[0]
+    elif dataset_name in ['Facebook', 'PPI', 'Wiki']:
+        data = AttributedGraphDataset(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name in ['Texas', 'Cornell', 'Wisconsin']:
+        data = WebKB(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
+    elif dataset_name == 'GitHub':
+        data = GitHub(root=dataset_path, transform=undir_transform)[0]
+    elif dataset_name == 'NELL':
+        dataset = NELL(root=dataset_path)[0]
+        data = Data(x=F.normalize(dataset.x.to_dense(), dim=0), y=dataset.y, 
+                    edge_index=to_undirected(add_all_self_loops(dataset.edge_index, dataset.x.size(dim=0))))
     else:
-        return aug_adj, input_adj
+        raise NameError(f'{dataset_name} is not a valid dataset_name parameter')
 
+    time_spent = time.time()
+    print(f"Time loading {dataset_name}: {round(time_spent - start, 3)}s")
+    # split data into train/val/test
+    train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test+num_val)
+    train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
+    test_edges, val_edges = dropout_edge_undirected(dropped_edges, p=1-(num_test/(num_test+num_val)))
+    val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
+    test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
 
-def numpy_to_edge_index(adjacency: np.ndarray):
-    """
-    converts adjacency in numpy array form to an array of active edges
-    :param adjacency: input adjacency matrix
-    :return adjacency: adjacency matrix update form
-    """
-    adj_label = sp.coo_matrix(adjacency)
-    adj_label = adj_label.todok()
+    device = torch.device('cuda:0')
+    data = train_data.to(device)
+    train_loader = DataLoader([data], batch_size=1, shuffle=False, num_workers=6)
+    sampled = next(iter(train_loader))
+    print(sampled.device)
 
-    outwards = [i[0] for i in adj_label.keys()]
-    inwards = [i[1] for i in adj_label.keys()]
+    print(f'Full N Nodes:  {data.x.shape[0]}, N Features: {data.x.shape[1]}')
 
-    adjacency = np.array([outwards, inwards], dtype=int)
-    return adjacency
-
-
-class Augmentations:
-    """
-    A utility for graph data augmentation
-    """
-
-    def __init__(self, method='gdc'):
-        methods = {"split", "standardize", "katz"}
-        assert method in methods
-        self.method = method
-
-    @staticmethod
-    def _split(features, permute=True):
-        """
-        Data augmentation is build by spliting data along the feature dimension.
-
-        :param data: the data object to be augmented
-        :param permute: Whether to permute along the feature dimension
-
-        """
-        perm = np.random.permutation(features.shape[1]) if permute else np.arange(features.shape[1])
-        features = features[:, perm]
-        size = features.shape[1] // 2
-        x1 = features[:, :size]
-        x2 = features[:, size:]
-
-        return x1, x2
-
-    @staticmethod
-    def _standardize(features):
-        """
-        Applies a zscore node feature data augmentation.
-
-        :param data: The data to be augmented
-        :return: a new augmented instance of the input data
-        """
-        mean, std = features.mean(), features.std()
-        new_data = (features - mean) / (std + 10e-7)
-        return new_data
-
-    @staticmethod
-    def _katz(features, adjacency, beta=0.1, threshold=0.0001):
-        """
-        Applies a Katz-index graph topology augmentation
-
-        :param data: The data to be augmented
-        :return: a new augmented instance of the input data
-        """
-        n_nodes = features.shape[0]
-
-        a_hat = adjacency + sp.eye(n_nodes)
-        d_hat = sp.diags(
-            np.array(1 / np.sqrt(a_hat.sum(axis=1))).reshape(n_nodes))
-        a_hat = d_hat @ a_hat @ d_hat
-        temp = sp.eye(n_nodes) - beta * a_hat
-        h_katz = (sp.linalg.inv(temp.tocsc()) * beta * a_hat).toarray()
-        mask = (h_katz < threshold)
-        h_katz[mask] = 0.
-        edge_index = np.array(h_katz.nonzero())
-        edge_attr = torch.tensor(h_katz[h_katz.nonzero()], dtype=torch.float32)
-
-        return edge_index
-
-    def __call__(self, features, adjacency):
-        """
-        Applies different data augmentation techniques
-        """
-
-        if self.method == "katz":
-            aug_adjacency = self._katz(features, adjacency)
-            aug_adjacency = np.array([aug_adjacency[0], aug_adjacency[1]], dtype=int)
-            adjacency = adjacency.todense()
-            adjacency = numpy_to_edge_index(adjacency)
-            aug_features = features.copy()
-        elif self.method == 'split':
-            features, aug_features = self._split(features)
-            adjacency = adjacency.todense()
-            adjacency = numpy_to_edge_index(adjacency)
-            aug_adjacency = adjacency.copy()
-        elif self.method == "standardize":
-            aug_features = self._standardize(features)
-            adjacency = adjacency.todense()
-            adjacency = numpy_to_edge_index(adjacency)
-            aug_adjacency = adjacency.copy()
-
-        return features, adjacency, aug_features, aug_adjacency
-
-    def __str__(self):
-        return self.method.title()
-
-
-def split(n, k):
-    d, r = divmod(n, k)
-    return [d + 1] * r + [d] * (k - r)
+    # create samplers 
+    if data.num_nodes > max_batch_nodes:
+        train_loader = GraphSAINTNodeSampler(
+            train_data,
+            batch_size=max_batch_nodes,
+        )
+        val_loader = GraphSAINTNodeSampler(
+            val_data,
+            batch_size=max_batch_nodes,
+        )
+        test_loader = GraphSAINTNodeSampler(
+            test_data,
+            batch_size=max_batch_nodes,
+        )
+    else: 
+        train_loader = DataLoader([train_data], batch_size=1, shuffle=False, num_workers=6)
+        val_loader = DataLoader([val_data], batch_size=1, shuffle=False, num_workers=6)
+        test_loader = DataLoader([test_data], batch_size=1, shuffle=False, num_workers=6)
+    
+    sampled_data = next(iter(train_loader))
+    print(f'Sampled N Nodes:  {sampled_data.x.shape[0]}, N Features: {sampled_data.x.shape[1]}')
+    end_time = time.time() - time_spent
+    print(f"Time splitting: {round(end_time, 3)}s")
+    return train_loader, val_loader, test_loader
 
 
 def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type: str, feature_type: str = 'random'):
@@ -408,144 +195,6 @@ def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type
     return adj, features.astype(float), labels
 
 
-def split_adj(adj, percent, split_scheme):
-    if split_scheme == 'drop_edges':
-        # drops edges from dataset to form new adj 
-        if percent != 1.:
-            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=False)
-        else:
-            train_adjacency = adj
-            validation_adjacency = adj.copy()
-    elif split_scheme == 'split_edges':
-        # splits the adj via the edges so that no edges in both 
-        if percent != 1.:
-            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=True)
-        else:
-            train_adjacency = adj
-            validation_adjacency = adj.copy()
-
-    elif split_scheme == 'all_edges':
-        # makes the adj fully connected 
-        train_adjacency = np.ones_like(adj)
-        validation_adjacency = np.ones_like(adj)
-
-    elif split_scheme == 'no_edges':
-        # makes the adj completely unconnected 
-        train_adjacency = np.zeros_like(adj)
-        validation_adjacency = np.zeros_like(adj)
-    
-    return train_adjacency, validation_adjacency
-
-
-
-
-from torch_geometric.datasets import WikiCS, Reddit2, Planetoid, Coauthor, Flickr, WebKB, AttributedGraphDataset, NELL, GitHub
-from torch_geometric.datasets.amazon import Amazon
-from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader, GraphSAINTNodeSampler
-from torch_geometric.utils import add_remaining_self_loops, to_undirected
-from torch_geometric.transforms import ToUndirected, NormalizeFeatures, Compose
-import torch.nn.functional as F
-from ugle.logger import ugle_path
-import torch
-from typing import Tuple
-import time
-
-
-def max_nodes_in_edge_index(edge_index):
-    if edge_index.nelement() == 0:
-        return -1
-    else:
-        return int(edge_index.max())
-
-
-def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
-    if p <= 0. or p >= 1.:
-        raise ValueError(f'Dropout probability has to be between 0 and 1 -- (got {p})')
-
-    row, col = edge_index
-    edge_mask = torch.rand(row.size(0)) >= p
-    keep_edge_index = edge_index[:, edge_mask]
-    drop_edge_index = edge_index[:, torch.ones_like(edge_mask, dtype=bool) ^ edge_mask]
-
-    return keep_edge_index, drop_edge_index
-
-
-def add_all_self_loops(edge_index, n_nodes):
-    edge_index, _ = add_remaining_self_loops(edge_index)
-    # if the end nodes have had all the edges removed then you need to manually add the final self loops
-    last_in_adj = max_nodes_in_edge_index(edge_index)
-    n_ids_left = torch.arange(last_in_adj + 1, n_nodes)
-    edge_index = torch.concat((edge_index, torch.stack((n_ids_left, n_ids_left))), dim=1)
-    return edge_index
-
-
-def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
-    # load dataset
-    dataset_path = ugle_path + f'/data/{dataset_name}'
-    undir_transform = Compose([ToUndirected(merge=True), NormalizeFeatures()])
-    data = None
-    start = time.time()
-    if dataset_name == 'WikiCS':
-        data = WikiCS(root=dataset_path, is_undirected=True, transform=undir_transform)[0]
-    elif dataset_name == 'Reddit':
-        data = Reddit2(root=dataset_path, transform=undir_transform)[0]
-    elif dataset_name in ['Cora', 'CiteSeer', 'PubMed']:
-        data = Planetoid(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name in ['Photo', 'Computers']:
-        data = Amazon(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name in ['CS', 'Physics']:
-        data = Coauthor(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name == 'Flickr':
-        data = Flickr(root=dataset_path, transform=undir_transform)[0]
-    elif dataset_name in ['Facebook', 'PPI', 'Wiki']:
-        data = AttributedGraphDataset(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name in ['Texas', 'Cornell', 'Wisconsin']:
-        data = WebKB(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name == 'GitHub':
-        data = GitHub(root=dataset_path, transform=undir_transform)[0]
-    elif dataset_name == 'NELL':
-        dataset = NELL(root=dataset_path)[0]
-        data = Data(x=F.normalize(dataset.x.to_dense(), dim=0), y=dataset.y, 
-                    edge_index=to_undirected(add_all_self_loops(dataset.edge_index, dataset.x.size(dim=0))))
-    else:
-        raise NameError(f'{dataset_name} is not a valid dataset_name parameter')
-
-    time_spent = time.time()
-    print(f"Time loading {dataset_name}: {round(time_spent - start, 3)}s")
-    # split data into train/val/test
-    train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test+num_val)
-    train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
-    test_edges, val_edges = dropout_edge_undirected(dropped_edges, p=1-(num_test/(num_test+num_val)))
-    val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
-    test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
-    print(f'Full N Nodes:  {data.x.shape[0]}, N Features: {data.x.shape[1]}')
-
-    # create samplers 
-    if data.num_nodes > max_batch_nodes:
-        train_loader = GraphSAINTNodeSampler(
-            train_data,
-            batch_size=max_batch_nodes,
-        )
-        val_loader = GraphSAINTNodeSampler(
-            val_data,
-            batch_size=max_batch_nodes,
-        )
-        test_loader = GraphSAINTNodeSampler(
-            test_data,
-            batch_size=max_batch_nodes,
-        )
-    else: 
-        train_loader = DataLoader([train_data], batch_size=1, shuffle=False, num_workers=6)
-        val_loader = DataLoader([val_data], batch_size=1, shuffle=False, num_workers=6)
-        test_loader = DataLoader([test_data], batch_size=1, shuffle=False, num_workers=6)
-    
-    sampled_data = next(iter(train_loader))
-    print(f'Sampled N Nodes:  {sampled_data.x.shape[0]}, N Features: {sampled_data.x.shape[1]}')
-    end_time = time.time() - time_spent
-    print(f"Time splitting: {round(end_time, 3)}s")
-    return
-
 if __name__ == "__main__":
     datasets = ['Texas', 'Wisconsin', 'Cornell', 'Cora', 'CiteSeer', 'Photo',
         'Computers', 'CS', 'PubMed', 'Physics', 'Flickr', 'Facebook', 'PPI',
@@ -553,13 +202,15 @@ if __name__ == "__main__":
     from memory_profiler import memory_usage
     from line_profiler import LineProfiler
 
+    
     for dataset_name in datasets:
-        create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
+        train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
+
 
         mem_usage = memory_usage((create_dataset_loader, (dataset_name, 10000, 0.1, 0.2)))
         print(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
 
         lp = LineProfiler()
         lp_wrapper = lp(create_dataset_loader)
-        lp_wrapper(dataset_name, 10000, 0.1, 0.2)
+        _, _, _= lp_wrapper(dataset_name, 10000, 0.1, 0.2)
         lp.print_stats()

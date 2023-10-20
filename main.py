@@ -53,13 +53,6 @@ def neural_run(override_model: str = None,
     if cfg.trainer.calc_time:
         log.info(f"Total Time for {cfg.model} {cfg.dataset}: {round(time.time() - start_time, 3)}s")
 
-    # cpu_memory_dataset - cpu_memory_start = total used by cpu to load dataset
-    # cpu_memory_preprocess - cpu_memory_dataset = total used by cpu to processs dataset
-    # active_memory_training - active_memory_start = total used by active to move data onto device + create model on device
-    # active_memory_fpass_end - active_memory_fpass = total used by active to do one forward pass
-    # active_memory_opt - active_memory_fpass_end = total used by active to compute optimisation of loop 
-    # active_memory_opt - active_memory_start = total amount of memory needed by active device
-
     return results
 
 

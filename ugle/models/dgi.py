@@ -40,6 +40,8 @@ class DGI(nn.Module):
 
 class dgi_trainer(ugleTrainer):
 
+
+    ##################### CHANGE #####################
     def preprocess_data(self, features, adjacency):
         adjacency = adjacency + sp.eye(adjacency.shape[0])
         adjacency = ugle.process.normalize_adj(adjacency)

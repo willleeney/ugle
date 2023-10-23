@@ -234,7 +234,7 @@ if __name__ == "__main__":
                 dataset.append(Data(x=features, y=batch.y, adj=adj))
             
             dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
-            return
+            return dataloader
 
         lp = LineProfiler()
         lp_wrapper = lp(pre_process_dgi)

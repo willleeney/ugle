@@ -13,9 +13,8 @@ study_override_cfg:
     valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance' ]
     gpu: '1'
     results_path: './synth_long/' # results path for saved results
-    split_scheme: 'drop_edges'
-    train_to_valid_split: 0.8
-    training_to_testing_split: 0.8
+    train_to_valid_split: 0.2
+    training_to_testing_split: 0.2
   args:
     max_epoch: 1000000
     patience: 100000

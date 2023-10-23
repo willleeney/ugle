@@ -16,6 +16,5 @@ study_override_cfg:
     gpu: '1'
     results_path: './revamp_train_percent_dropedge/' # results path for saved results
     split_scheme: 'drop_edges'
-    train_to_valid_split: 0.8
-    training_to_testing_split: 0.8
-    split_addition_percentage: [0.1, 0.3, 0.5, 0.7, 0.9]
+    train_to_valid_split: 0.2
+    training_to_testing_split: 0.2

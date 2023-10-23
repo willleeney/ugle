@@ -15,8 +15,8 @@ study_override_cfg:
     gpu: '1'
     results_path: './exp_train_again/'
     split_scheme: 'drop_edges'
-    train_to_valid_split: 0.8
-    training_to_testing_split: 0.8
+    train_to_valid_split: 0.2
+    training_to_testing_split: 0.2
     n_trials_hyperopt: 2
 
     retrain_on_each_dataset: True

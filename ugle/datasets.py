@@ -8,7 +8,7 @@ import time
 from torch_geometric.datasets import WikiCS, Reddit2, Planetoid, Coauthor, Flickr, WebKB, AttributedGraphDataset, NELL, GitHub
 from torch_geometric.datasets.amazon import Amazon
 from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader, GraphSAINTNodeSampler
+from torch_geometric.loader import DataLoader, NeighborLoader
 from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj, stochastic_blockmodel_graph
 from torch_geometric.transforms import ToUndirected, NormalizeFeatures, Compose
 
@@ -79,6 +79,14 @@ def standardize(features):
     new_data = (features - mean) / (std + 10e-7)
     return new_data
 
+def split_dataset(data, num_val, num_test):
+    # split data into train/val/test
+    train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test+num_val)
+    train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
+    test_edges, val_edges = dropout_edge_undirected(dropped_edges, p=1-(num_test/(num_test+num_val)))
+    val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
+    test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
+    return train_data, val_data, test_data
 
 
 def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
@@ -113,35 +121,31 @@ def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
         raise NameError(f'{dataset_name} is not a valid dataset_name parameter')
 
     time_spent = time.time()
-    print(f"Time loading {dataset_name}: {round(time_spent - start, 3)}s")
-    # split data into train/val/test
-    train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test+num_val)
-    train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
-    test_edges, val_edges = dropout_edge_undirected(dropped_edges, p=1-(num_test/(num_test+num_val)))
-    val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
-    test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
+    log.info(f"Time loading {dataset_name}: {round(time_spent - start, 3)}s")
+    log.info(f'Full N Nodes:  {data.x.shape[0]}, N Features: {data.x.shape[1]}')
 
-    #device = torch.device('cuda:0')
-    #data = train_data.to(device)
-    #train_loader = DataLoader([data], batch_size=1, shuffle=False, num_workers=6)
-    #sampled = next(iter(train_loader))
-    #print(sampled.device)
-
-    print(f'Full N Nodes:  {data.x.shape[0]}, N Features: {data.x.shape[1]}')
+    # split dataset
+    train_data, val_data, test_data = split_dataset(data, num_val, num_test)
 
     # create samplers 
     if data.num_nodes > max_batch_nodes:
-        train_loader = GraphSAINTNodeSampler(
+        train_loader = NeighborLoader(
             train_data,
-            batch_size=max_batch_nodes,
+            num_neighbors=[10, 10],
+            batch_size=128,
+            directed=False
         )
-        val_loader = GraphSAINTNodeSampler(
+        val_loader = NeighborLoader(
             val_data,
-            batch_size=max_batch_nodes,
+            num_neighbors=[10, 10],
+            batch_size=128,
+            directed=False
         )
-        test_loader = GraphSAINTNodeSampler(
+        test_loader = NeighborLoader(
             test_data,
-            batch_size=max_batch_nodes,
+            num_neighbors=[10, 10],
+            batch_size=128,
+            directed=False
         )
     else: 
         train_loader = DataLoader([train_data], batch_size=1, shuffle=False, num_workers=6)
@@ -149,13 +153,13 @@ def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
         test_loader = DataLoader([test_data], batch_size=1, shuffle=False, num_workers=6)
     
     sampled_data = next(iter(train_loader))
-    print(f'Sampled N Nodes:  {sampled_data.x.shape[0]}, N Features: {sampled_data.x.shape[1]}')
+    log.debug(f'Sampled N Nodes:  {sampled_data.x.shape[0]}, N Features: {sampled_data.x.shape[1]}')
     end_time = time.time() - time_spent
-    print(f"Time splitting: {round(end_time, 3)}s")
+    log.debug(f"Time splitting: {round(end_time, 3)}s")
     return train_loader, val_loader, test_loader
 
 
-def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type: str, feature_type: str = 'random'):
+def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, num_val: float, num_test: float, adj_type: str = 'random', feature_type: str = 'random'):
     if adj_type == 'disjoint':
         probs = (np.identity(n_clusters)).tolist()
     elif adj_type == 'random':
@@ -164,7 +168,7 @@ def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type
         probs = np.ones((n_clusters, n_clusters)).tolist()
 
     cluster_sizes = split(n_nodes, n_clusters)
-    adj = to_dense_adj(stochastic_blockmodel_graph(cluster_sizes, probs)).squeeze(0).numpy()
+    adj = stochastic_blockmodel_graph(cluster_sizes, probs)
     
     if feature_type == 'random':
         features = torch.normal(mean=0, std=1, size=(n_nodes, n_features)).numpy()
@@ -190,9 +194,16 @@ def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type
     labels = []
     for i in range(n_clusters):
         labels.extend([i] * cluster_sizes[i])
-    labels = np.array(labels)
+    labels = torch.Tensor(labels)
 
-    return adj, features.astype(float), labels
+    data = Data(x=torch.Tensor(features), y=labels, edge_index=adj)
+    train_data, val_data, test_data = split_dataset(data, num_val, num_test)
+
+    train_loader = DataLoader([train_data], batch_size=1, shuffle=False, num_workers=6)
+    val_loader = DataLoader([val_data], batch_size=1, shuffle=False, num_workers=6)
+    test_loader = DataLoader([test_data], batch_size=1, shuffle=False, num_workers=6)
+
+    return train_loader, val_loader, test_loader
 
 
 if __name__ == "__main__":

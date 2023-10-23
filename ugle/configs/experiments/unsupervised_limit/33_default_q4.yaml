@@ -22,6 +22,6 @@ study_override_cfg:
     gpu: '0'
 
     split_scheme: 'drop_edges'
-    train_to_valid_split: 1.0
-    training_to_testing_split: 0.33
+    train_to_valid_split: 0.0
+    training_to_testing_split: 0.66
     save_validation: True

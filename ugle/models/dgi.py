@@ -4,9 +4,12 @@ import scipy.sparse as sp
 import torch
 import torch.nn as nn
 from fast_pytorch_kmeans import KMeans
-import ugle
+from ugle import process
 from ugle.trainer import ugleTrainer
 from ugle.gnn_architecture import GCN, AvgReadout, Discriminator
+from torch_geometric.utils import to_dense_adj
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader
 
 class DGI(nn.Module):
     def __init__(self, n_in, n_h, activation):
@@ -39,17 +42,19 @@ class DGI(nn.Module):
 
 
 class dgi_trainer(ugleTrainer):
-
-
-    ##################### CHANGE #####################
-    def preprocess_data(self, features, adjacency):
-        adjacency = adjacency + sp.eye(adjacency.shape[0])
-        adjacency = ugle.process.normalize_adj(adjacency)
-        adj = ugle.process.sparse_mx_to_torch_sparse_tensor(adjacency)
-        features = ugle.process.preprocess_features(features)
-        features = torch.FloatTensor(features[np.newaxis])
-
-        return adj, features
+    def preprocess_data(self, loader):    
+        dataset = []
+        for batch in loader:
+            adjacency = to_dense_adj(batch.edge_index)
+            adjacency = adjacency.squeeze(0) + np.eye(adjacency.shape[1])
+            adjacency = process.normalize_adj(adjacency)
+            adj = process.sparse_mx_to_torch_sparse_tensor(adjacency)
+            features = process.preprocess_features(batch.x)
+            features = torch.FloatTensor(features[np.newaxis])
+            dataset.append(Data(x=features, y=batch.y, adj=adj))
+        
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+        return dataloader
 
     def training_preprocessing(self, args, processed_data):
         self.model = DGI(args.n_features, args.hid_units, args.nonlinearity).to(self.device)

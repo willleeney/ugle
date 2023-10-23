@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
     
 
 
@@ -54,13 +55,13 @@
             "args" : ["-ec", "ugle/configs/testing/time_memory_test.yaml"]
         },
         {
-            "name": "Python: Test Memory Quick",
+            "name": "Python: Test Workflow",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/main.py",
-            "args" : ["--model", "daegc_default", "--max_epoch", "20", "--dataset", "cora"]
+            "args" : ["--model", "dgi_default", "--max_epoch", "20", "--dataset", "Flickr"]
         },
 
     ]

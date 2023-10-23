@@ -8,12 +8,9 @@ import numpy as np
 import optuna
 from optuna import Trial, Study
 from optuna.samplers import TPESampler
-from optuna.pruners import HyperbandPruner
 from optuna.trial import TrialState
-import threading
 import time
 from tqdm import trange
-from line_profiler import LineProfiler
 import copy
 import torch
 from typing import Dict, List, Optional, Tuple
@@ -22,89 +19,11 @@ import optuna
 import warnings
 from os.path import exists
 from os import makedirs, devnull
-import psutil
 from memory_profiler import memory_usage
 
 from optuna.exceptions import ExperimentalWarning
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 optuna.logging.set_verbosity(optuna.logging.CRITICAL)
-
-# https://stackoverflow.com/questions/9850995/tracking-maximum-memory-usage-by-a-python-function
-
-
-class StoppableThread(threading.Thread):
-    def __init__(self):
-        super(StoppableThread, self).__init__()
-        self.daemon = True
-        self.__monitor = threading.Event()
-        self.__monitor.set()
-        self.__has_shutdown = False
-
-    def run(self):
-        '''Overloads the threading.Thread.run'''
-        # Call the User's Startup functions
-        self.startup()
-
-        # Loop until the thread is stopped
-        while self.isRunning():
-            self.mainloop()
-
-        # Clean up
-        self.cleanup()
-
-        # Flag to the outside world that the thread has exited
-        # AND that the cleanup is complete
-        self.__has_shutdown = True
-
-    def stop(self):
-        self.__monitor.clear()
-
-    def isRunning(self):
-        return self.__monitor.isSet()
-
-    def isShutdown(self):
-        return self.__has_shutdown
-
-    ###############################
-    ### User Defined Functions ####
-    ###############################
-
-    def mainloop(self):
-        '''
-        Expected to be overwritten in a subclass!!
-        Note that Stoppable while(1) is handled in the built in "run".
-        '''
-        pass
-
-    def startup(self):
-        '''Expected to be overwritten in a subclass!!'''
-        pass
-
-    def cleanup(self):
-        '''Expected to be overwritten in a subclass!!'''
-        pass
-
-
-class MyLibrarySniffingClass(StoppableThread):
-    def __init__(self, target_lib_call):
-        super(MyLibrarySniffingClass, self).__init__()
-        self.target_function = target_lib_call
-        self.results = None
-
-    def startup(self):
-        # Overload the startup function
-        log.info("Starting Memory Calculation")
-
-    def cleanup(self):
-        # Overload the cleanup function
-        log.info("Ending Memory Tracking")
-
-    def mainloop(self):
-        # Start the library Call
-        self.results = self.target_function()
-
-        # Kill the thread when complete
-        self.stop()
 
 
 class StopWhenMaxTrialsHit:
@@ -334,38 +253,42 @@ class ugleTrainer:
         self.patience_wait = 0
         self.best_loss = 1e9
         self.current_epoch = 0
-        self.memory_stats = {"active_memory_fpass": [], "active_memory_fpass_end": [], "active_memory_opt": []}
 
     def load_database(self):
         log.info(f'Loading dataset {self.cfg.dataset}')
         if 'synth' not in self.cfg.dataset:
-            # loads and splits the dataset
-            features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
-                self.cfg.dataset,
-                self.cfg.trainer.training_to_testing_split,
-                self.cfg.trainer.split_scheme,
-                self.cfg.trainer.split_addition_percentage)
+            train_loader, val_loader, test_loader = datasets.create_dataset_loader(self.cfg.dataset, 
+                                                                                   self.cfg.trainer.max_nodes_in_dataloader, 
+                                                                                   self.cfg.trainer.train_to_valid_split, 
+                                                                                   self.cfg.trainer.training_to_testing_split)
+
         else:
             _, adj_type, feature_type, n_clusters = self.cfg.dataset.split("_")
             n_clusters = int(n_clusters)
-            adjacency, features, label = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, 
-                                                                     adj_type=adj_type, feature_type=feature_type)
-            train_adjacency, test_adjacency = datasets.split_adj(adjacency,
-                                                                 self.cfg.trainer.training_to_testing_split,
-                                                                 self.cfg.trainer.split_scheme)
+            train_loader, val_loader, test_loader = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, 
+                                                                                num_val=self.cfg.trainer.train_to_valid_split,
+                                                                                num_test=self.cfg.trainer.training_to_testing_split,
+                                                                                adj_type=adj_type, feature_type=feature_type)
 
         # extract database relevant info
-        if not self.cfg.args.n_clusters:
-            self.cfg.args.n_clusters = np.unique(label).shape[0]
-        self.cfg.args.n_nodes = features.shape[0]
-        self.cfg.args.n_features = features.shape[1]
+        temp_sampler = iter(train_loader)
+        temp_stats = {'n_nodes': [], 'labels': []}
+        for batch in temp_sampler:
+            log.debug(f'Sampled N Nodes:  {batch.x.shape[0]}, N Features: {batch.x.shape[1]}')
+            temp_stats['n_nodes'].append(batch.x.shape[0])
+            temp_stats['n_features'] = batch.x.shape[1]
+            temp_stats['labels'].append(np.unique(batch.y).shape[0])
 
-        return features, label, train_adjacency, test_adjacency
+        if not self.cfg.args.n_clusters:
+            self.cfg.args.n_clusters = np.unique(np.array(temp_stats['labels']))[0]
+        self.cfg.args.n_nodes = max(temp_stats['n_nodes'])
+        self.cfg.args.n_features = temp_stats['n_features']
+
+        return train_loader, val_loader, test_loader
     
     def eval(self):
-        ##################### CHANGE #####################
         # loads the database to train on
-        features, label, validation_adjacency, test_adjacency = self.load_database()
+        train_loader, val_loader, test_loader = self.load_database()
 
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)

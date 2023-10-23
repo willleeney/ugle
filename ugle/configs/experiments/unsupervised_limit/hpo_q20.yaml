@@ -20,5 +20,5 @@ study_override_cfg:
     valid_metrics: ['modularity', 'conductance']
     gpu: '0'
     split_scheme: 'drop_edges'
-    train_to_valid_split: 1.0
-    training_to_testing_split: 1.0
+    train_to_valid_split: 0.0
+    training_to_testing_split: 0.0

@@ -121,11 +121,11 @@ def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
     val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
     test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
 
-    device = torch.device('cuda:0')
-    data = train_data.to(device)
-    train_loader = DataLoader([data], batch_size=1, shuffle=False, num_workers=6)
-    sampled = next(iter(train_loader))
-    print(sampled.device)
+    #device = torch.device('cuda:0')
+    #data = train_data.to(device)
+    #train_loader = DataLoader([data], batch_size=1, shuffle=False, num_workers=6)
+    #sampled = next(iter(train_loader))
+    #print(sampled.device)
 
     print(f'Full N Nodes:  {data.x.shape[0]}, N Features: {data.x.shape[1]}')
 
@@ -202,15 +202,56 @@ if __name__ == "__main__":
     from memory_profiler import memory_usage
     from line_profiler import LineProfiler
 
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda:0" if use_cuda else "cpu")
+
     
-    for dataset_name in datasets:
+    for dataset_name in ['Flickr']:
         train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
 
 
-        mem_usage = memory_usage((create_dataset_loader, (dataset_name, 10000, 0.1, 0.2)))
-        print(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
+        #mem_usage = memory_usage((create_dataset_loader, (dataset_name, 10000, 0.1, 0.2)))
+        #print(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
+
+        #lp = LineProfiler()
+        #lp_wrapper = lp(create_dataset_loader)
+        #_, _, _= lp_wrapper(dataset_name, 10000, 0.1, 0.2)
+        #lp.print_stats()
+
+        # load as is and use the data preprocessing 
+        from ugle import process 
+        import scipy as sp 
+
+        def pre_process_dgi(loader):
+            dataset = []
+            for batch in loader:
+                adjacency = to_dense_adj(batch.edge_index)
+                adjacency = adjacency.squeeze(0) + np.eye(adjacency.shape[1])
+                adjacency = process.normalize_adj(adjacency)
+                adj = process.sparse_mx_to_torch_sparse_tensor(adjacency)
+                features = process.preprocess_features(batch.x)
+                features = torch.FloatTensor(features[np.newaxis])
+                dataset.append(Data(x=features, y=batch.y, adj=adj))
+            
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+            return
 
         lp = LineProfiler()
-        lp_wrapper = lp(create_dataset_loader)
-        _, _, _= lp_wrapper(dataset_name, 10000, 0.1, 0.2)
+        lp_wrapper = lp(pre_process_dgi)
+        dataloader = lp_wrapper(iter(train_loader))
         lp.print_stats()
+
+        def load_data_on_device(loader, device):
+            for i in range(1000):
+                for batch in iter(loader):
+                    batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y.to(device), batch.adj.to(device)
+
+        lp = LineProfiler()
+        lp_wrapper = lp(load_data_on_device)
+        dataloader = lp_wrapper(dataloader, device)
+        lp.print_stats()
+
+
+        # GPU features and CPU edge index?
+
+        # pytorch og dataloader with all GPU?

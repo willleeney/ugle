@@ -152,11 +152,24 @@ def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
         val_loader = DataLoader([val_data], batch_size=1, shuffle=False, num_workers=6)
         test_loader = DataLoader([test_data], batch_size=1, shuffle=False, num_workers=6)
     
-    sampled_data = next(iter(train_loader))
-    log.debug(f'Sampled N Nodes:  {sampled_data.x.shape[0]}, N Features: {sampled_data.x.shape[1]}')
     end_time = time.time() - time_spent
     log.debug(f"Time splitting: {round(end_time, 3)}s")
     return train_loader, val_loader, test_loader
+
+def extract_dataset_stats(loader):
+    temp_sampler = iter(loader)
+    temp_stats = {'n_nodes': [], 'labels': []}
+    for batch in temp_sampler:
+        log.debug(f'Sampled N Nodes:  {batch.x.shape[0]}, N Features: {batch.x.shape[1]}')
+        temp_stats['n_nodes'].append(batch.x.shape[0])
+        temp_stats['n_features'] = batch.x.shape[1]
+        temp_stats['labels'].append(np.unique(batch.y).shape[0])
+
+    n_clusters = np.unique(np.array(temp_stats['labels']))[0]
+    n_nodes = max(temp_stats['n_nodes'])
+    n_features = temp_stats['n_features']
+    return n_clusters, n_nodes, n_features
+
 
 
 def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, num_val: float, num_test: float, adj_type: str = 'random', feature_type: str = 'random'):
@@ -213,6 +226,7 @@ if __name__ == "__main__":
     from memory_profiler import memory_usage
     from line_profiler import LineProfiler
     from ugle import process 
+    from torch_geometric.nn.conv import GCNConv
 
     line_profile = False
     preprocess = False
@@ -230,9 +244,13 @@ if __name__ == "__main__":
     
     for dataset_name in datasets:
         try:
+
             # how much memory does it take to load 
             mem_usage, (dataloader, val_loader, test_loader) = memory_usage((create_dataset_loader, (dataset_name, max_nodes_per_batch, 0.1, 0.2)), retval=True)
-            log.info(f"\nMemory CPU usage by {dataset_name}: {max(mem_usage):.2f}MB")
+            print('\n')
+            if use_cuda:
+                torch.cuda.reset_peak_memory_stats(device)
+            log.info(f"Memory CPU usage by {dataset_name}: {max(mem_usage):.2f}MB")
 
             # how long does it take to load data
             if line_profile:
@@ -274,7 +292,6 @@ if __name__ == "__main__":
                         usage = torch.cuda.mem_get_info(device)
                         log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
                         log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
-                        log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024:.2f}MB')
 
                         if edges_on_gpu: 
                             smth.append([batch.x.to(device), batch.edge_index.to(device)])
@@ -284,7 +301,6 @@ if __name__ == "__main__":
                         usage = torch.cuda.mem_get_info(device)
                         log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
                         log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
-                        log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024:.2f}MB')
                         torch.cuda.reset_peak_memory_stats(device)
 
             if line_profile:
@@ -294,6 +310,32 @@ if __name__ == "__main__":
                 lp.print_stats()
             
             load_data_on_device(dataloader, device)
+            
+
+            def forward_pass_example(dataloader, device, layer):
+                if use_cuda:
+                    torch.cuda.reset_peak_memory_stats(device)
+                    usage = torch.cuda.mem_get_info(device)
+                    log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+                    
+                for i, batch in enumerate(iter(dataloader)):
+                    x = batch.x.to(device)
+                    if edges_on_gpu: 
+                        edge_index =  batch.edge_index.to(device)
+                    else:
+                        edge_index =  batch.edge_index
+                    
+                    out = layer(x, edge_index)
+                    usage = torch.cuda.mem_get_info(device)
+                    log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
+
+                        
+            # compute one layer forward pass
+            n_clusters, n_nodes, n_features = extract_dataset_stats(dataloader)
+            layer = GCNConv(n_features, 128, add_self_loops=False, normalize=True)
+            forward_pass_example(dataloader, device, layer)
+
         except:
             log.info(f'couldnt complete: {dataset_name}\n')
             torch.cuda.reset_peak_memory_stats(device)

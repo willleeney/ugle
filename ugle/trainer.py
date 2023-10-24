@@ -271,18 +271,12 @@ class ugleTrainer:
                                                                                 adj_type=adj_type, feature_type=feature_type)
 
         # extract database relevant info
-        temp_sampler = iter(train_loader)
-        temp_stats = {'n_nodes': [], 'labels': []}
-        for batch in temp_sampler:
-            log.debug(f'Sampled N Nodes:  {batch.x.shape[0]}, N Features: {batch.x.shape[1]}')
-            temp_stats['n_nodes'].append(batch.x.shape[0])
-            temp_stats['n_features'] = batch.x.shape[1]
-            temp_stats['labels'].append(np.unique(batch.y).shape[0])
-
+        n_clusters, n_nodes, n_features = datasets.extract_dataset_stats(train_loader)
+    
         if not self.cfg.args.n_clusters:
-            self.cfg.args.n_clusters = np.unique(np.array(temp_stats['labels']))[0]
-        self.cfg.args.n_nodes = max(temp_stats['n_nodes'])
-        self.cfg.args.n_features = temp_stats['n_features']
+            self.cfg.args.n_clusters = n_clusters
+        self.cfg.args.n_nodes = n_nodes
+        self.cfg.args.n_features = n_features
 
         return train_loader, val_loader, test_loader
     

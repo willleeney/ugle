@@ -217,14 +217,15 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if use_cuda else "cpu")
     usage = torch.cuda.mem_get_info(device)
     log.info(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
-
+    #
+    log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
     
     for dataset_name in ['Flickr']:
         train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
 
         # how much memory does it take to load 
         mem_usage = memory_usage((create_dataset_loader, (dataset_name, 10000, 0.1, 0.2)))
-        log.info(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
+        log.info(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB")
 
         # how long does it take to load data
         lp = LineProfiler()
@@ -261,9 +262,11 @@ if __name__ == "__main__":
                     # GPU features and CPU edge index
                     usage = torch.cuda.mem_get_info(device)
                     print(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
-                    batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y, batch.adj
+                    log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
+                    batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y, batch.edge_index
                     usage = torch.cuda.mem_get_info(device)
                     print(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
                     break
 
 

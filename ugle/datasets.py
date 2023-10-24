@@ -269,7 +269,7 @@ if __name__ == "__main__":
                     log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
                     log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
 
-                    smth.append([batch.x.to(device),  batch.y, batch.edge_index])
+                    smth.append([batch.x.to(device),  batch.y, batch.edge_index.to(device)])
                     usage = torch.cuda.mem_get_info(device)
                     log.info(f'Memory usage: {usage[0]/1024/1024/1024:.2f}GB/{usage[1]/1024/1024/1024:.2f}GB')
                     log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')

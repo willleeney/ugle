@@ -148,9 +148,11 @@ class GAT(nn.Module):
         return A_pred
 
 class GCN(nn.Module):
-    def __init__(self, in_ft, out_ft, act, bias=True, skip=False):
+    def __init__(self, in_ft, out_ft, act='prelu', bias=True, skip=False, sparse=True):
         super(GCN, self).__init__()
         self.fc = nn.Linear(in_ft, out_ft, bias=False)
+        self.sparse = sparse
+        self.skip = skip
 
         if act == 'prelu':
             self.act = nn.PReLU()
@@ -181,18 +183,18 @@ class GCN(nn.Module):
                 m.bias.data.fill_(0.0)
 
     # Shape of seq: (batch, nodes, features)
-    def forward(self, seq, adj, sparse=False, skip=False):
+    def forward(self, seq, adj):
         seq_fts = self.fc(seq)
 
-        if skip:
+        if self.skip:
             skip_out = seq_fts * self.skip
 
-        if sparse:
+        if self.sparse:
             out = torch.unsqueeze(torch.spmm(adj, torch.squeeze(seq_fts, 0)), 0)
         else:
             out = torch.bmm(adj, seq_fts)
 
-        if skip:
+        if self.skip:
             out += skip_out
 
         if self.bias is not None:

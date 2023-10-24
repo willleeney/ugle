@@ -254,22 +254,21 @@ if __name__ == "__main__":
         lp.print_stats()
 
         def load_data_on_device(loader, device):
-            for i in range(1000):
-                for batch in iter(loader):
-                    if use_cuda: 
-                        # GPU features and CPU edge index
-                        print(torch.cuda.mem_get_info(device))
-                        batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y.to(device), batch.adj
-                        print(torch.cuda.mem_get_info(device))
-                    else:
-                        batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y.to(device), batch.adj.to(device)
+            for batch in iter(loader):
+                if use_cuda: 
+                    # GPU features and CPU edge index
+                    usage = torch.cuda.mem_get_info(device)
+                    print(f'Memory usage: {usage[1]:.2f}GB/{usage[0]:.2f}GB')
+                    batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y, batch.adj
+                    usage = torch.cuda.mem_get_info(device)
+                    print(f'Memory usage: {usage[1]:.2f}GB/{usage[0]:.2f}GB')
+                    break
 
 
         lp = LineProfiler()
         lp_wrapper = lp(load_data_on_device)
-        dataloader = lp_wrapper(dataloader, device)
+        dataloader = lp_wrapper(dataloader, torch.device('cpu'))
         lp.print_stats()
 
+        load_data_on_device(dataloader, device)
 
-
-        # pytorch og dataloader with all GPU?

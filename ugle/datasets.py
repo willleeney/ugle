@@ -212,51 +212,59 @@ if __name__ == "__main__":
         'Wiki', 'WikiCS', 'NELL', 'GitHub', 'Reddit']
     from memory_profiler import memory_usage
     from line_profiler import LineProfiler
+    from ugle import process 
+
+    line_profile = False
+    preprocess = False
+    max_nodes_per_batch = 1000000
+    edges_on_gpu = True
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")
     if use_cuda:
         usage = torch.cuda.mem_get_info(device)
-        log.info(f'Memory usage: {usage[0]/1024/1024/1024:.2f}GB/{usage[1]/1024/1024/1024:.2f}GB')
-        log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
-        log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
+        log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+        log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
+        log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024:.2f}MB')
 
     
-    for dataset_name in ['Flickr']:
-        train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 100000, 0.1, 0.2)
+    for dataset_name in datasets:
+        dataloader, val_loader, test_loader = create_dataset_loader(dataset_name, max_nodes_per_batch, 0.1, 0.2)
 
         # how much memory does it take to load 
-        mem_usage = memory_usage((create_dataset_loader, (dataset_name, 1000, 0.1, 0.2)))
-        log.info(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB")
+        mem_usage = memory_usage((create_dataset_loader, (dataset_name, max_nodes_per_batch, 0.1, 0.2)))
+        log.info(f"Memory CPU usage by {dataset_name}: {max(mem_usage):.2f}MB")
 
         # how long does it take to load data
-        lp = LineProfiler()
-        lp_wrapper = lp(create_dataset_loader)
-        _, _, _= lp_wrapper(dataset_name, 1000, 0.1, 0.2)
-        lp.print_stats()
+        if line_profile:
+            lp = LineProfiler()
+            lp_wrapper = lp(create_dataset_loader)
+            _, _, _= lp_wrapper(dataset_name, max_nodes_per_batch, 0.1, 0.2)
+            lp.print_stats()
 
-        # load as is and use the data preprocessing 
-        from ugle import process 
-        import scipy as sp 
-
+    
         def pre_process_dgi(loader):
             dataset = []
-            for batch in loader:
+            for batch in iter(loader):
                 adjacency = to_dense_adj(batch.edge_index)
                 adjacency = adjacency.squeeze(0) + np.eye(adjacency.shape[1])
                 adjacency = process.normalize_adj(adjacency)
                 adj = process.sparse_mx_to_torch_sparse_tensor(adjacency)
                 features = process.preprocess_features(batch.x)
                 features = torch.FloatTensor(features[np.newaxis])
-                dataset.append(Data(x=features, y=batch.y, adj=adj))
+                dataset.append(Data(x=features, y=batch.y, edge_index=adj))
             
             dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
             return dataloader
 
-        #lp = LineProfiler()
-        #lp_wrapper = lp(pre_process_dgi)
-        #dataloader = lp_wrapper(iter(train_loader))
-        #lp.print_stats()
+        if line_profile:
+            lp = LineProfiler()
+            lp_wrapper = lp(pre_process_dgi)
+            dataloader = lp_wrapper(dataloader)
+            lp.print_stats()
+        elif preprocess:
+            dataloader = pre_process_dgi(dataloader)
+
 
         def load_data_on_device(loader, device):
             smth = []
@@ -265,21 +273,25 @@ if __name__ == "__main__":
                 if use_cuda: 
                     # GPU features and CPU edge index
                     usage = torch.cuda.mem_get_info(device)
-                    log.info(f'Memory usage: {usage[0]/1024/1024/1024:.2f}GB/{usage[1]/1024/1024/1024:.2f}GB')
-                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
-                    log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
-
-                    smth.append([batch.x.to(device),  batch.y, batch.edge_index.to(device)])
+                    log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
+                    log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024:.2f}MB')
+                    
+                    if edges_on_gpu: 
+                        smth.append([batch.x.to(device), batch.edge_index.to(device)])
+                    else: 
+                        smth.append([batch.x.to(device), batch.edge_index])
+                
                     usage = torch.cuda.mem_get_info(device)
-                    log.info(f'Memory usage: {usage[0]/1024/1024/1024:.2f}GB/{usage[1]/1024/1024/1024:.2f}GB')
-                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
-                    log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
+                    log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024:.2f}MB')
 
-
-        #lp = LineProfiler()
-        #lp_wrapper = lp(load_data_on_device)
-        #lp_wrapper(train_loader, device)
-        #lp.print_stats()
-
-        load_data_on_device(train_loader, device)
+        if line_profile:
+            lp = LineProfiler()
+            lp_wrapper = lp(load_data_on_device)
+            lp_wrapper(dataloader, device)
+            lp.print_stats()
+        
+        load_data_on_device(dataloader, device)
 

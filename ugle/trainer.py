@@ -293,15 +293,10 @@ class ugleTrainer:
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 
-        log.debug('splitting dataset into train/validation')
-        train_adjacency, validation_adjacency = datasets.split_adj(validation_adjacency, 
-                                                          self.cfg.trainer.train_to_valid_split, 
-                                                          self.cfg.trainer.split_scheme)
-
-        ##################### CHANGE #####################
         # process data for training
-        processed_data = self.preprocess_data(features, train_adjacency)
-        processed_valid_data = self.preprocess_data(features, validation_adjacency)
+        train_loader = self.preprocess_data(iter(train_loader))
+        val_loader = self.preprocess_data(iter(val_loader))
+        test_loader = self.preprocess_data(iter(test_loader))
 
         # if only testing then no need to optimise hyperparameters
         if not self.cfg.trainer.only_testing:
@@ -324,14 +319,9 @@ class ugleTrainer:
                 for hps in self.cfg.trainer.hps_found_so_far:
                     study.enqueue_trial(hps)
 
-            study.optimize(lambda trial: self.train(trial,
-                                                    label,
-                                                    features,
-                                                    processed_data,
-                                                    validation_adjacency,
-                                                    processed_valid_data,
+            study.optimize(lambda trial: self.train(trial, train_loader, val_loader,
                                                     prune_params=prune_params),
-                                n_trials=2*self.cfg.trainer.n_trials_hyperopt,
+                                n_trials=self.cfg.trainer.n_trials_hyperopt,
                                 callbacks=[study_stop_cb])
 
             # assigns test parameters found in the study
@@ -344,9 +334,6 @@ class ugleTrainer:
                 self.cfg = utils.assign_test_params(self.cfg, params_to_assign)
         else:
             params_to_assign = 'default'
-
-        ##################### CHANGE #####################
-        processed_test_data = self.preprocess_data(features, test_adjacency)
 
         # retrains the model on the validation adj and evaluates test performance
         # might be weird with the previosu results stuff but that's not done in this paper so meh
@@ -462,8 +449,7 @@ class ugleTrainer:
 
         return objective_results
 
-    def train(self, trial: Trial, label: np.ndarray, features: np.ndarray, processed_data: tuple,
-              validation_adjacency: np.ndarray, processed_valid_data: tuple, prune_params=None):
+    def train(self, trial: Trial, train_loader, val_loader, prune_params=None):
         
         timings = np.zeros(2)
         start = time.time()
@@ -482,12 +468,7 @@ class ugleTrainer:
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, self.cfg.args, prune_params)
 
         
-        ##################### CHANGE #####################
-        # process model creation
-        processed_data = self.move_to_activedevice(processed_data)
-        self.training_preprocessing(self.cfg.args, processed_data)
-
-
+        self.training_preprocessing(self.cfg.args, train_loader)
         self.model.train()
 
         if self.cfg.trainer.finetuning_new_dataset:
@@ -529,25 +510,13 @@ class ugleTrainer:
             start = time.time()
             # check if validation time
             if self.current_epoch % self.cfg.trainer.validate_every_nepochs == 0:
-                # put in validation mode 
-
-                ##################### CHANGE #####################
-                processed_data = self.move_to_cpudevice(processed_data)
-
                 # compute training iteration
                 if self.cfg.trainer.calc_memory and self.current_epoch == 0: 
-                    ##################### CHANGE #####################
-                    mem_usage, results = memory_usage((self.testing_loop, (label, features, validation_adjacency, processed_valid_data, self.cfg.trainer.valid_metrics)), 
-                                                      interval=.005, retval=True) 
+                    mem_usage, results = memory_usage((self.testing_loop, (val_loader, self.cfg.trainer.valid_metrics)), 
+                                                       interval=.005, retval=True) 
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
-                    ##################### CHANGE #####################
-                    results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
-                                                self.cfg.trainer.valid_metrics)
-                
-                # put data back into training mode
-                ##################### CHANGE #####################
-                processed_data = self.move_to_activedevice(processed_data)
+                    results = self.testing_loop(val_loader, self.cfg.trainer.valid_metrics)
 
                 # record best model state over this train/trial for each metric
                 for m, metric in enumerate(self.cfg.trainer.valid_metrics):
@@ -568,7 +537,6 @@ class ugleTrainer:
             start = time.time()
 
             if self.cfg.trainer.calc_memory and self.current_epoch == 0:
-                ##################### CHANGE #####################
                 mem_usage, retvals = memory_usage((self.training_epoch_iter, (self.cfg.args, processed_data)), interval=.005, retval=True) 
                 loss, data_returned = retvals
                 log.info(f"Max memory usage by training_epoch_iter(): {max(mem_usage):.2f}MB")
@@ -609,9 +577,6 @@ class ugleTrainer:
 
         # compute final validation 
         return_results = dict(zip(self.cfg.trainer.valid_metrics, best_so_far))
-       
-        ##################### CHANGE #####################
-        processed_data = self.move_to_cpudevice(processed_data)
         # if saving validation results then record the result on the test metrics
         if self.cfg.trainer.save_validation:
             valid_results = {}
@@ -621,11 +586,7 @@ class ugleTrainer:
             if self.cfg.trainer.save_validation and trial is None:
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
                 self.model.to(self.device)
-                ##################### CHANGE #####################
-                results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
-                                        self.cfg.trainer.test_metrics)
-                
-
+                results = self.testing_loop(val_loader, self.cfg.trainer.test_metrics)
                 valid_results[metric] = results
 
         timings[1] += time.time() - start
@@ -648,24 +609,23 @@ class ugleTrainer:
                 right_order_results = [return_results[k] for k in self.cfg.trainer.valid_metrics]
                 return tuple(right_order_results)
             
-    def testing_loop(self, label: np.ndarray, features: np.ndarray, adjacency: np.ndarray, processed_data: tuple, eval_metrics: ListConfig):
+    def testing_loop(self, loader, eval_metrics: ListConfig):
         """
         testing loop which processes the testing data, run through the model to get predictions
         evaluate those predictions
         """
         self.model.eval()
-        ##################### CHANGE #####################
-        processed_data = self.move_to_activedevice(processed_data)
+        preds = []
+        labels = []
+        for batch in iter(loader):
+            preds.append(self.test(batch))
+            labels.append(batch.y.numpy())
 
-        preds = self.test(processed_data)
-        ##################### CHANGE #####################
-        processed_data = self.move_to_cpudevice(processed_data)
-
-        results, eval_preds = ugle.process.preds_eval(label,
-                                                      preds,
-                                                      sf=4,
-                                                      adj=adjacency,
-                                                      metrics=eval_metrics)
+            results, eval_preds = ugle.process.preds_eval(np.array(labels),
+                                                        np.array(preds),
+                                                        sf=4,
+                                                        adj=adjacency,
+                                                        metrics=eval_metrics)
         self.model.train()
         return results
 
@@ -673,18 +633,18 @@ class ugleTrainer:
         log.error('NO PROCESSING STEP IMPLEMENTED FOR MODEL')
         pass
 
-    def test(self, processed_data: tuple) -> np.ndarray:
+    def test(self) -> np.ndarray:
         log.error('NO TESTING STEP IMPLEMENTED')
         pass
 
-    def training_preprocessing(self, args: DictConfig, processed_data: tuple):
+    def training_preprocessing(self, args: DictConfig):
         """
         preparation steps of training
         """
         log.error('NO TRAINING PREPROCESSING PROCEDURE')
         pass
 
-    def training_epoch_iter(self, args: DictConfig, processed_data: tuple):
+    def training_epoch_iter(self, args: DictConfig):
         """
         this is what happens inside the iteration of epochs
         """

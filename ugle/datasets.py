@@ -267,8 +267,8 @@ if __name__ == "__main__":
 
         lp = LineProfiler()
         lp_wrapper = lp(load_data_on_device)
-        dataloader = lp_wrapper(iter(dataloader), device)
+        lp_wrapper(dataloader, device)
         lp.print_stats()
 
-        load_data_on_device(iter(dataloader), device)
+        load_data_on_device(dataloader, device)
 

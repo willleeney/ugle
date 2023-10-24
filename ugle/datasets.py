@@ -221,7 +221,7 @@ if __name__ == "__main__":
     log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
 
     
-    for dataset_name in ['GitHub']:
+    for dataset_name in ['Reddit']:
         train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
 
         # how much memory does it take to load 

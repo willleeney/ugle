@@ -152,7 +152,6 @@ class GCN(nn.Module):
         super(GCN, self).__init__()
         self.fc = nn.Linear(in_ft, out_ft, bias=False)
         self.sparse = sparse
-        self.skip = skip
 
         if act == 'prelu':
             self.act = nn.PReLU()

@@ -227,6 +227,8 @@ if __name__ == "__main__":
     from line_profiler import LineProfiler
     from ugle import process 
     from torch_geometric.nn.conv import GCNConv
+    import traceback
+    from ugle.gnn_architecture import GCN
 
     line_profile = False
     preprocess = False
@@ -337,12 +339,11 @@ if __name__ == "__main__":
             layer = GCNConv(n_features, 128, add_self_loops=False, normalize=True)
             forward_pass_example(dataloader, device, layer)
 
-
-            from ugle.gnn_architecture import GCN
             layer2 = GCN(n_features, 128)
             forward_pass_example(preprocess_data(dataloader), device, layer2)
 
-        except:
+        except Exception:
             log.info(f'couldnt complete: {dataset_name}\n')
+            print(traceback.format_exc())
             torch.cuda.reset_peak_memory_stats(device)
 

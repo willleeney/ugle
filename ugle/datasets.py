@@ -310,7 +310,6 @@ if __name__ == "__main__":
                 lp.print_stats()
             
             load_data_on_device(dataloader, device)
-            
 
             def forward_pass_example(dataloader, device, layer):
                 if use_cuda:

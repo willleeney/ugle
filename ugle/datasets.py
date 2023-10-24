@@ -259,7 +259,7 @@ if __name__ == "__main__":
                 lp.print_stats()
 
         
-            def pre_process_dgi(loader):
+            def preprocess_data(loader):
                 dataset = []
                 for batch in iter(loader):
                     adjacency = to_dense_adj(batch.edge_index)
@@ -267,19 +267,20 @@ if __name__ == "__main__":
                     adjacency = process.normalize_adj(adjacency)
                     adj = process.sparse_mx_to_torch_sparse_tensor(adjacency)
                     features = process.preprocess_features(batch.x)
-                    features = torch.FloatTensor(features[np.newaxis])
+                    features = torch.FloatTensor(features)
                     dataset.append(Data(x=features, y=batch.y, edge_index=adj))
                 
                 dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
                 return dataloader
 
+
             if line_profile:
                 lp = LineProfiler()
-                lp_wrapper = lp(pre_process_dgi)
+                lp_wrapper = lp(preprocess_data)
                 dataloader = lp_wrapper(dataloader)
                 lp.print_stats()
             elif preprocess:
-                dataloader = pre_process_dgi(dataloader)
+                dataloader = preprocess_data(dataloader)
 
 
             def load_data_on_device(loader, device):
@@ -336,9 +337,10 @@ if __name__ == "__main__":
             layer = GCNConv(n_features, 128, add_self_loops=False, normalize=True)
             forward_pass_example(dataloader, device, layer)
 
+
             from ugle.gnn_architecture import GCN
             layer2 = GCN(n_features, 128)
-            forward_pass_example(dataloader, device, layer2)
+            forward_pass_example(preprocess_data(dataloader), device, layer2)
 
         except:
             log.info(f'couldnt complete: {dataset_name}\n')

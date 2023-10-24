@@ -219,6 +219,8 @@ if __name__ == "__main__":
     log.info(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
     #
     log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
+    log.info(f'Memory GPU usage: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
+
     
     for dataset_name in ['Flickr']:
         train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
@@ -263,10 +265,14 @@ if __name__ == "__main__":
                     usage = torch.cuda.mem_get_info(device)
                     print(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
                     log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory GPU usage: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
+
                     batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y, batch.edge_index
                     usage = torch.cuda.mem_get_info(device)
                     print(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
                     log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory GPU usage: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
+
                     break
 
 

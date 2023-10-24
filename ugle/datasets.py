@@ -215,6 +215,8 @@ if __name__ == "__main__":
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")
+    usage = torch.cuda.mem_get_info(device)
+    log.info(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
 
     
     for dataset_name in ['Flickr']:
@@ -222,12 +224,12 @@ if __name__ == "__main__":
 
         # how much memory does it take to load 
         mem_usage = memory_usage((create_dataset_loader, (dataset_name, 10000, 0.1, 0.2)))
-        print(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
+        log.info(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
 
         # how long does it take to load data
         lp = LineProfiler()
         lp_wrapper = lp(create_dataset_loader)
-        _, _, _= lp_wrapper(dataset_name, 10000, 0.1, 0.2)
+        _, _, _= lp_wrapper(dataset_name, 100000, 0.1, 0.2)
         lp.print_stats()
 
         # load as is and use the data preprocessing 
@@ -248,10 +250,10 @@ if __name__ == "__main__":
             dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
             return dataloader
 
-        lp = LineProfiler()
-        lp_wrapper = lp(pre_process_dgi)
-        dataloader = lp_wrapper(iter(train_loader))
-        lp.print_stats()
+        #lp = LineProfiler()
+        #lp_wrapper = lp(pre_process_dgi)
+        #dataloader = lp_wrapper(iter(train_loader))
+        #lp.print_stats()
 
         def load_data_on_device(loader, device):
             for batch in iter(loader):
@@ -267,8 +269,8 @@ if __name__ == "__main__":
 
         lp = LineProfiler()
         lp_wrapper = lp(load_data_on_device)
-        lp_wrapper(dataloader, device)
+        lp_wrapper(train_loader, device)
         lp.print_stats()
 
-        load_data_on_device(dataloader, device)
+        load_data_on_device(train_loader, device)
 

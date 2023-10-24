@@ -259,7 +259,8 @@ if __name__ == "__main__":
 
         def load_data_on_device(loader, device):
             smth = []
-            for batch in iter(loader):
+            for i, batch in enumerate(iter(loader)):
+                print(i)
                 if use_cuda: 
                     # GPU features and CPU edge index
                     usage = torch.cuda.mem_get_info(device)
@@ -276,10 +277,10 @@ if __name__ == "__main__":
                     break
 
 
-        lp = LineProfiler()
-        lp_wrapper = lp(load_data_on_device)
-        lp_wrapper(train_loader, device)
-        lp.print_stats()
+        #lp = LineProfiler()
+        #lp_wrapper = lp(load_data_on_device)
+        #lp_wrapper(train_loader, device)
+        #lp.print_stats()
 
         load_data_on_device(train_loader, device)
 

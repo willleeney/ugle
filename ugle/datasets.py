@@ -218,8 +218,8 @@ if __name__ == "__main__":
     usage = torch.cuda.mem_get_info(device)
     log.info(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
     #
-    log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
-    log.info(f'Memory GPU usage: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
+    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
+    log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
 
     
     for dataset_name in ['Flickr']:
@@ -263,15 +263,15 @@ if __name__ == "__main__":
                 if use_cuda: 
                     # GPU features and CPU edge index
                     usage = torch.cuda.mem_get_info(device)
-                    print(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
-                    log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
-                    log.info(f'Memory GPU usage: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
 
                     batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y, batch.edge_index
                     usage = torch.cuda.mem_get_info(device)
                     print(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
-                    log.info(f'Memory GPU usage: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
-                    log.info(f'Memory GPU usage: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
+                    log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
 
                     break
 

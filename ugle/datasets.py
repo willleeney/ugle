@@ -258,10 +258,10 @@ if __name__ == "__main__":
                 if use_cuda: 
                     # GPU features and CPU edge index
                     usage = torch.cuda.mem_get_info(device)
-                    print(f'Memory usage: {usage[1]:.2f}GB/{usage[0]:.2f}GB')
+                    print(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
                     batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y, batch.adj
                     usage = torch.cuda.mem_get_info(device)
-                    print(f'Memory usage: {usage[1]:.2f}GB/{usage[0]:.2f}GB')
+                    print(f'Memory usage: {usage[1]/1024/1024/1024:.2f}GB/{usage[0]/1024/1024/1024:.2f}GB')
                     break
 
 

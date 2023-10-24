@@ -231,7 +231,7 @@ if __name__ == "__main__":
     line_profile = False
     preprocess = False
     max_nodes_per_batch = 1000000
-    edges_on_gpu = False
+    edges_on_gpu = True
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")

@@ -223,7 +223,7 @@ if __name__ == "__main__":
 
     
     for dataset_name in ['Flickr']:
-        train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 1000, 0.1, 0.2)
+        train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 100000, 0.1, 0.2)
 
         # how much memory does it take to load 
         mem_usage = memory_usage((create_dataset_loader, (dataset_name, 1000, 0.1, 0.2)))

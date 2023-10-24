@@ -340,7 +340,9 @@ if __name__ == "__main__":
             forward_pass_example(dataloader, device, layer)
 
             layer2 = GCN(n_features, 128)
-            forward_pass_example(preprocess_data(dataloader), device, layer2)
+            pre_loader = preprocess_data(dataloader)
+            log.info('passed preprocessing ')
+            forward_pass_example(pre_loader, device, layer2)
 
         except Exception:
             log.info(f'couldnt complete: {dataset_name}\n')

@@ -222,6 +222,7 @@ if __name__ == "__main__":
 
     
     for dataset_name in ['Reddit']:
+        torch.cuda.memory._record_memory_history()
         train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
 
         # how much memory does it take to load 
@@ -281,4 +282,5 @@ if __name__ == "__main__":
         lp.print_stats()
 
         load_data_on_device(train_loader, device)
+        torch.cuda.memory._dump_snapshot("my_snapshot.pickle")
 

@@ -217,7 +217,7 @@ if __name__ == "__main__":
     line_profile = False
     preprocess = False
     max_nodes_per_batch = 1000000
-    edges_on_gpu = True
+    edges_on_gpu = False
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -276,7 +276,7 @@ if __name__ == "__main__":
                     log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
                     log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
                     log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024:.2f}MB')
-                    
+
                     if edges_on_gpu: 
                         smth.append([batch.x.to(device), batch.edge_index.to(device)])
                     else: 
@@ -286,6 +286,7 @@ if __name__ == "__main__":
                     log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
                     log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
                     log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024:.2f}MB')
+                    torch.cuda.reset_peak_memory_stats(device)
 
         if line_profile:
             lp = LineProfiler()

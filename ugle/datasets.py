@@ -221,8 +221,7 @@ if __name__ == "__main__":
     log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
 
     
-    for dataset_name in ['Reddit']:
-        torch.cuda.memory._record_memory_history()
+    for dataset_name in ['Flickr']:
         train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
 
         # how much memory does it take to load 
@@ -232,7 +231,7 @@ if __name__ == "__main__":
         # how long does it take to load data
         lp = LineProfiler()
         lp_wrapper = lp(create_dataset_loader)
-        _, _, _= lp_wrapper(dataset_name, 100000, 0.1, 0.2)
+        _, _, _= lp_wrapper(dataset_name, 10000, 0.1, 0.2)
         lp.print_stats()
 
         # load as is and use the data preprocessing 
@@ -259,6 +258,7 @@ if __name__ == "__main__":
         #lp.print_stats()
 
         def load_data_on_device(loader, device):
+            smth = []
             for batch in iter(loader):
                 if use_cuda: 
                     # GPU features and CPU edge index
@@ -267,7 +267,7 @@ if __name__ == "__main__":
                     log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
                     log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024/1024:.2f}GB')
 
-                    batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y, batch.edge_index
+                    smth.append([batch.x.to(device),  batch.y, batch.edge_index])
                     usage = torch.cuda.mem_get_info(device)
                     log.info(f'Memory usage: {usage[0]/1024/1024/1024:.2f}GB/{usage[1]/1024/1024/1024:.2f}GB')
                     log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024/1024:.2f}GB')
@@ -282,5 +282,4 @@ if __name__ == "__main__":
         lp.print_stats()
 
         load_data_on_device(train_loader, device)
-        torch.cuda.memory._dump_snapshot("my_snapshot.pickle")
 

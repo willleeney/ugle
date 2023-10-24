@@ -267,7 +267,7 @@ if __name__ == "__main__":
 
         lp = LineProfiler()
         lp_wrapper = lp(load_data_on_device)
-        dataloader = lp_wrapper(dataloader, torch.device('cpu'))
+        dataloader = lp_wrapper(dataloader, device)
         lp.print_stats()
 
         load_data_on_device(dataloader, device)

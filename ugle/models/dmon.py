@@ -40,7 +40,7 @@ class DMoN(nn.Module):
 
     def forward(self, graph, graph_normalised, features, extra_loss=False):
 
-        gcn_out = self.gcn(features, graph_normalised, sparse=True, skip=True)
+        gcn_out = self.gcn(features, graph_normalised)
 
         assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)

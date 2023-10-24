@@ -244,10 +244,9 @@ if __name__ == "__main__":
     
     for dataset_name in datasets:
         try:
-
+            print('\n')
             # how much memory does it take to load 
             mem_usage, (dataloader, val_loader, test_loader) = memory_usage((create_dataset_loader, (dataset_name, max_nodes_per_batch, 0.1, 0.2)), retval=True)
-            print('\n')
             if use_cuda:
                 torch.cuda.reset_peak_memory_stats(device)
             log.info(f"Memory CPU usage by {dataset_name}: {max(mem_usage):.2f}MB")
@@ -315,7 +314,7 @@ if __name__ == "__main__":
                 if use_cuda:
                     torch.cuda.reset_peak_memory_stats(device)
                     usage = torch.cuda.mem_get_info(device)
-                    log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+                    log.info(f'START LAYER: Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
                     layer = layer.to(device)
                     
                 for i, batch in enumerate(iter(dataloader)):
@@ -328,7 +327,7 @@ if __name__ == "__main__":
                     out = layer(x, edge_index)
                     if use_cuda:
                         usage = torch.cuda.mem_get_info(device)
-                        log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+                        log.info(f'END LAYER: Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
                         log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
 
                         
@@ -336,6 +335,10 @@ if __name__ == "__main__":
             n_clusters, n_nodes, n_features = extract_dataset_stats(dataloader)
             layer = GCNConv(n_features, 128, add_self_loops=False, normalize=True)
             forward_pass_example(dataloader, device, layer)
+
+            from ugle.gnn_architecture import GCN
+            layer2 = GCN(n_features, 128)
+            forward_pass_example(dataloader, device, layer2)
 
         except:
             log.info(f'couldnt complete: {dataset_name}\n')

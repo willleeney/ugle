@@ -220,14 +220,15 @@ if __name__ == "__main__":
     for dataset_name in ['Flickr']:
         train_loader, val_loader, test_loader = create_dataset_loader(dataset_name, 10000, 0.1, 0.2)
 
+        # how much memory does it take to load 
+        mem_usage = memory_usage((create_dataset_loader, (dataset_name, 10000, 0.1, 0.2)))
+        print(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
 
-        #mem_usage = memory_usage((create_dataset_loader, (dataset_name, 10000, 0.1, 0.2)))
-        #print(f"Max memory usage by {dataset_name}: {max(mem_usage):.2f}MB\n")
-
-        #lp = LineProfiler()
-        #lp_wrapper = lp(create_dataset_loader)
-        #_, _, _= lp_wrapper(dataset_name, 10000, 0.1, 0.2)
-        #lp.print_stats()
+        # how long does it take to load data
+        lp = LineProfiler()
+        lp_wrapper = lp(create_dataset_loader)
+        _, _, _= lp_wrapper(dataset_name, 10000, 0.1, 0.2)
+        lp.print_stats()
 
         # load as is and use the data preprocessing 
         from ugle import process 
@@ -255,7 +256,14 @@ if __name__ == "__main__":
         def load_data_on_device(loader, device):
             for i in range(1000):
                 for batch in iter(loader):
-                    batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y.to(device), batch.adj.to(device)
+                    if use_cuda: 
+                        # GPU features and CPU edge index
+                        print(torch.cuda.mem_get_info(device))
+                        batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y.to(device), batch.adj
+                        print(torch.cuda.mem_get_info(device))
+                    else:
+                        batch.x, batch.y, batch.adj = batch.x.to(device),  batch.y.to(device), batch.adj.to(device)
+
 
         lp = LineProfiler()
         lp_wrapper = lp(load_data_on_device)
@@ -263,6 +271,5 @@ if __name__ == "__main__":
         lp.print_stats()
 
 
-        # GPU features and CPU edge index?
 
         # pytorch og dataloader with all GPU?

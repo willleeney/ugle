@@ -316,6 +316,7 @@ if __name__ == "__main__":
                     torch.cuda.reset_peak_memory_stats(device)
                     usage = torch.cuda.mem_get_info(device)
                     log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+                    layer = layer.to(device)
                     
                 for i, batch in enumerate(iter(dataloader)):
                     x = batch.x.to(device)
@@ -325,9 +326,10 @@ if __name__ == "__main__":
                         edge_index =  batch.edge_index
                     
                     out = layer(x, edge_index)
-                    usage = torch.cuda.mem_get_info(device)
-                    log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
+                    if use_cuda:
+                        usage = torch.cuda.mem_get_info(device)
+                        log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
+                        log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
 
                         
             # compute one layer forward pass

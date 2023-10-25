@@ -17,11 +17,15 @@ from typing import Tuple
 from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph
 import torch
 from karateclub.dataset import GraphReader
+from torch_geometric.transforms import ToUndirected
+from torch_geometric.datasets import Coauthor
+from torch_geometric.datasets.amazon import Amazon
 
 google_store_datasets = ['acm', 'amac', 'amap', 'bat', 'citeseer', 'cora', 'cocs', 'dblp', 'eat', 'uat', 'pubmed',
                          'cite', 'corafull', 'texas', 'wisc', 'film', 'cornell']
 karate_club_datasets = ['facebook', 'twitch', 'wikipedia', 'github', 'lastfm', 'deezer']
-all_datasets = (google_store_datasets + karate_club_datasets)
+big_datasets = ['Physics', 'CS', 'Photo', 'Computers']
+all_datasets = (google_store_datasets + karate_club_datasets + big_datasets)
 
 
 def check_data_presence(dataset_name: str) -> bool:
@@ -111,6 +115,19 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
         features = loader.get_features().todense()
         label = loader.get_target()
         adjacency = nx.to_numpy_matrix(loader.get_graph())
+
+    elif dataset_name in big_datasets:
+        dataset_path = ugle_path + f'/data/{dataset_name}'
+
+        if dataset_name in ['Photo', 'Computers']:
+            data = Amazon(root=dataset_path, name=dataset_name, transform=ToUndirected(merge=True))[0]
+        elif dataset_name in ['CS', 'Physics']:
+            data = Coauthor(root=dataset_path, name=dataset_name, transform=ToUndirected(merge=True))[0]
+        
+        features = data.x.numpy()
+        label = data.y.numpy()
+        adjacency = to_dense_adj(data.edge_index).numpy().squeeze(0)
+
 
     if split_addition:
         adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition, split_adj=False)

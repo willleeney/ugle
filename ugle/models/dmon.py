@@ -1,12 +1,16 @@
 # https://github.com/google-research/google-research/blob/master/graph_embedding/dmon/dmon.py
-import ugle
 import scipy.sparse as sp
 from ugle.trainer import ugleTrainer
+import ugle.process as process
 import torch.nn as nn
 import torch
 from ugle.gnn_architecture import GCN
 import math
 from collections import OrderedDict
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader
+from torch_geometric.utils import to_dense_adj
+
 
 class DMoN(nn.Module):
     def __init__(self,
@@ -84,19 +88,24 @@ class DMoN(nn.Module):
 
 class dmon_trainer(ugleTrainer):
 
-    def preprocess_data(self, features, adjacency):
-        features = torch.FloatTensor(features)
+    def preprocess_data(self, loader):
+        
+        dataset = []
+        for batch in iter(loader):
+            adjacency = to_dense_adj(batch.edge_index)
+            adjacency = process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency.squeeze(0)))
+            #adjacency = process.normalize_adj(adjacency)
+            #adj = process.sparse_mx_to_torch_sparse_tensor(adjacency)
+            features = torch.FloatTensor(batch.x)
+            dataset.append(Data(x=features, y=batch.y, edge_index=adjacency))
+        
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
-        adjacency = adjacency + sp.eye(adjacency.shape[0])
-        adj_label = adjacency.copy()
-        adjacency = ugle.process.normalize_adj(adjacency)
+        #features = torch.FloatTensor(features)
+        #graph_normalised = ugle.process.sparse_mx_to_torch_sparse_tensor(ugle.process.normalize_adj(adjacency))
+        #graph = ugle.process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency))
 
-        graph_normalised = ugle.process.sparse_mx_to_torch_sparse_tensor(adjacency)
-
-        adj_label = sp.coo_matrix(adj_label)
-        graph = ugle.process.sparse_mx_to_torch_sparse_tensor(adj_label)
-
-        return graph, graph_normalised, features
+        return dataloader
 
     def training_preprocessing(self, args, processed_data):
 

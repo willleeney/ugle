@@ -646,7 +646,6 @@ class ugleTrainer:
         pass
 
     
-    ##################### CHANGE #####################
     def move_to_cpudevice(self, data):
         return tuple(databite.to(torch.device("cpu"), non_blocking=True) if torch.is_tensor(databite) else databite for databite in data)
 

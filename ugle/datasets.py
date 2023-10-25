@@ -315,7 +315,7 @@ if __name__ == "__main__":
                 torch.cuda.reset_peak_memory_stats(device)
                 usage = torch.cuda.mem_get_info(device)
                 log.info(f'START LAYER: Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-                layer = layer.to(device)
+                model = model.to(device)
             # iterate loader
             for i, batch in enumerate(iter(dataloader)):
                 x = batch.x.to(device)

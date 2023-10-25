@@ -5,9 +5,6 @@
     "version": "0.2.0",
     "configurations": [
     
-
-
-
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -61,6 +58,15 @@
             "justMyCode": true,
             "program": "${workspaceFolder}/main.py",
             "args" : ["--model", "daegc_default", "--max_epoch", "20", "--dataset", "cora"]
+        },
+        {
+            "name": "Python: Test dmon large ",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/dmon_large.yaml"]
         },
 
     ]

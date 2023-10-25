@@ -271,12 +271,12 @@ class ugleTrainer:
                                                                                 adj_type=adj_type, feature_type=feature_type)
 
         # extract database relevant info
-        n_clusters, n_nodes, n_features = datasets.extract_dataset_stats(train_loader)
+        dstats = datasets.extract_dataset_stats(train_loader)
     
         if not self.cfg.args.n_clusters:
-            self.cfg.args.n_clusters = n_clusters
-        self.cfg.args.n_nodes = n_nodes
-        self.cfg.args.n_features = n_features
+            self.cfg.args.n_clusters = dstats['n_clusters']
+        self.cfg.args.n_nodes = dstats['n_nodes']
+        self.cfg.args.n_features = dstats['n_features']
 
         return train_loader, val_loader, test_loader
     

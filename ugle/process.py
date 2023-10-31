@@ -6,6 +6,7 @@ from sklearn.metrics import f1_score, normalized_mutual_info_score
 from scipy.optimize import linear_sum_assignment
 import math
 import warnings
+from line_profiler import LineProfiler
 
 SMOOTH_K_TOLERANCE = 1e-5
 MIN_K_DIST_SCALE = 1e-3
@@ -85,10 +86,20 @@ def preds_eval(labels: np.ndarray, preds: np.ndarray, sf=4, adj: np.ndarray = No
 
     if 'modularity' in metrics:
         assert adj is not None, 'adj not provided'
-        results['modularity'] = float(round(modularity(adj, eval_preds), sf))
+        lp = LineProfiler()
+        lp_wrapper = lp(modularity)
+        modularity1 = lp_wrapper(adj, eval_preds)
+        lp.print_stats()
+        results['modularity'] = float(round(modularity1, sf))
+        #results['modularity'] = float(round(modularity(adj, eval_preds), sf))
     if 'conductance' in metrics:
         assert adj is not None, 'adj not provided'
-        results['conductance'] = float(round(conductance(adj, eval_preds), sf))
+        lp = LineProfiler()
+        lp_wrapper = lp(conductance)
+        conductance1 = lp_wrapper(adj, eval_preds)
+        lp.print_stats()
+        results['conductance'] = float(round(conductance1, sf))
+        #results['conductance'] = float(round(conductance(adj, eval_preds), sf))
 
     if 'n_clusters' in metrics:
         results['n_clusters'] = len(np.unique(preds))

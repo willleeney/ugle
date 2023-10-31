@@ -5,6 +5,8 @@
     "version": "0.2.0",
     "configurations": [
     
+    
+    
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -57,7 +59,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/main.py",
-            "args" : ["--model", "daegc_default", "--max_epoch", "20", "--dataset", "cora"]
+            "args" : ["--model", "daegc_default", "--max_epoch", "20", "--dataset", "Computers"]
         },
         {
             "name": "Python: Test dmon large ",

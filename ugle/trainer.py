@@ -610,14 +610,8 @@ class ugleTrainer:
                                                       interval=.005, retval=True) 
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
-                    lp = LineProfiler()
-                    lp_wrap = lp(self.testing_loop)
-                    results = lp_wrap(label, features, validation_adjacency, processed_valid_data,
+                    results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
                                                 self.cfg.trainer.valid_metrics)
-                    lp.print_stats()
-
-                    #results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
-                     #                           self.cfg.trainer.valid_metrics)
                 
                 # put data back into training mode
                 processed_data = self.move_to_activedevice(processed_data)
@@ -724,10 +718,10 @@ class ugleTrainer:
         preds = self.test(processed_data)
         processed_data = self.move_to_cpudevice(processed_data)
         results, eval_preds = ugle.process.preds_eval(label,
-                                                      preds,
-                                                      sf=4,
-                                                      adj=adjacency,
-                                                      metrics=eval_metrics)
+                                                        preds,
+                                                        sf=4,
+                                                        adj=adjacency,
+                                                        metrics=eval_metrics)
         self.model.train()
         return results
 

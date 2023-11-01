@@ -27,7 +27,7 @@ def max_nodes_in_edge_index(edge_index):
 
 
 def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
-    if p <= 0. or p >= 1.:
+    if p < 0. or p > 1.:
         raise ValueError(f'Dropout probability has to be between 0 and 1 -- (got {p})')
 
     row, col = edge_index

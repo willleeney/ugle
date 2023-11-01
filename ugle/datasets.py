@@ -452,3 +452,58 @@ def split_adj(adj, percent, split_scheme):
         validation_adjacency = np.zeros_like(adj)
     
     return train_adjacency, validation_adjacency
+
+
+if __name__ == '__main__':
+    from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj
+    import ugle.process as process
+
+    def sparse_modularity(edge_index, preds, n_edges):
+        degrees = torch.sparse.sum(edge_index, dim=0)._values().unsqueeze(1)
+        graph_pooled = torch.spmm(torch.spmm(edge_index, preds).T, preds)
+        normalizer_left = torch.spmm(preds.T, degrees)
+        normalizer_right = torch.spmm(preds.T, degrees).T
+        normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
+        return torch.trace(graph_pooled - normalizer) / 2 / n_edges
+
+
+    def sparse_conductance(edge_index, preds):
+        edge_index = edge_index.coalesce().indices()
+        inter = 0
+        intra = 0
+        for cluster_id in np.unique(preds):
+            nodes_in_cluster = torch.where(preds == cluster_id)[0]
+            edges_starting_from_cluster = torch.isin(edge_index[0, :], nodes_in_cluster)
+            inter_bool = torch.isin(edge_index[1, edges_starting_from_cluster], nodes_in_cluster)
+            new_inter = int(torch.sum(inter_bool))
+            inter += new_inter
+            intra += len(inter_bool) - new_inter
+        return intra / (inter + intra)
+    
+    def max_nodes_in_edge_index(edge_index):
+        if edge_index.nelement() == 0:
+            return -1
+        else:
+            return int(edge_index.max())
+    
+    def add_all_self_loops(edge_index, n_nodes):
+        edge_index, _ = add_remaining_self_loops(edge_index)
+        # if the end nodes have had all the edges removed then you need to manually add the final self loops
+        last_in_adj = max_nodes_in_edge_index(edge_index)
+        n_ids_left = torch.arange(last_in_adj + 1, n_nodes)
+        edge_index = torch.concat((edge_index, torch.stack((n_ids_left, n_ids_left))), dim=1)
+        return edge_index
+    
+    dataset_path = ugle_path + f'/data/Computers'
+    data = Amazon(root=dataset_path, name='Computers', transform=ToUndirected(merge=True))[0]
+    edge_index = add_all_self_loops(data.edge_index, data.x.shape[0])
+    adj = to_dense_adj(edge_index).squeeze(0).numpy()
+
+    n_clusters = len(np.unique(data.y))
+    n_nodes = data.x.shape[0]
+    n_edges = edge_index.shape[1]
+    print(f' n_nodes:{n_nodes}, n_edges:{n_edges}')
+
+    assignments = torch.softmax(torch.rand((n_nodes, n_clusters)), dim=1)
+    graph = process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adj))
+    preds = torch.argmax(assignments, dim=1)

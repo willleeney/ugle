@@ -94,7 +94,10 @@ class dmon_trainer(ugleTrainer):
             features = torch.FloatTensor(batch.x)
             dataset.append(Data(x=features, y=batch.y, edge_index=adjacency, **{'graph': graph}))
         
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
+        if self.device_name == 'cpu':
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
+        else:
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
         return dataloader
 
     def training_preprocessing(self, args, train_loader):

@@ -29,7 +29,7 @@ def max_nodes_in_edge_index(edge_index):
 def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
     if p < 0. or p > 1.:
         raise ValueError(f'Dropout probability has to be between 0 and 1 -- (got {p})')
-
+    
     row, col = edge_index
     edge_mask = torch.rand(row.size(0)) >= p
     keep_edge_index = edge_index[:, edge_mask]
@@ -80,12 +80,30 @@ def standardize(features):
     return new_data
 
 def split_dataset(data, num_val, num_test):
-    # split data into train/val/test
-    train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test+num_val)
-    train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
-    test_edges, val_edges = dropout_edge_undirected(dropped_edges, p=1-(num_test/(num_test+num_val)))
-    val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
-    test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
+    """
+    splits data by dropping edges meaning no overlapping edges between sets unless 0.0 where all edges are kept
+    """
+    if num_test == 0.0 and num_val == 0.0:
+        train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(data.edge_index, data.x.shape[0]))
+        val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(data.edge_index, data.x.shape[0]))
+        test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(data.edge_index, data.x.shape[0]))
+    elif num_val == 0.0:
+        train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test)
+        train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
+        test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(dropped_edges, data.x.shape[0]))
+        val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
+    elif num_test == 0.0:
+        train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_val)
+        train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
+        test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
+        val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(dropped_edges, data.x.shape[0]))
+    else:
+        train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test+num_val)
+        train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
+        test_edges, val_edges = dropout_edge_undirected(dropped_edges, p=1-(num_test/(num_test+num_val)))
+        test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
+        val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
+        
     return train_data, val_data, test_data
 
 

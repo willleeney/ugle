@@ -169,8 +169,10 @@ class GCN(nn.Module):
         if skip:
             self.skip = nn.Parameter(torch.FloatTensor(out_ft))
             torch.nn.init.normal_(self.skip, mean=0.0, std=0.1)
+            self.do_skip = True
         else:
             self.register_parameter('skip', None)
+            self.do_skip = False
 
         for m in self.modules():
             self.weights_init(m)
@@ -185,7 +187,7 @@ class GCN(nn.Module):
     def forward(self, seq, adj):
         seq_fts = self.fc(seq)
 
-        if self.skip:
+        if self.do_skip:
             skip_out = seq_fts * self.skip
 
         if self.sparse:
@@ -193,7 +195,7 @@ class GCN(nn.Module):
         else:
             out = torch.bmm(adj, seq_fts)
 
-        if self.skip:
+        if self.do_skip:
             out += skip_out
 
         if self.bias is not None:

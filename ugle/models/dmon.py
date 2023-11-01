@@ -1,7 +1,7 @@
 # https://github.com/google-research/google-research/blob/master/graph_embedding/dmon/dmon.py
 import scipy.sparse as sp
 from ugle.trainer import ugleTrainer
-import ugle.process as process
+from ugle.process import preds_eval, sparse_mx_to_torch_sparse_tensor, normalize_adj
 import torch.nn as nn
 import torch
 from ugle.gnn_architecture import GCN
@@ -42,14 +42,13 @@ class DMoN(nn.Module):
         return
 
 
-    def forward(self, graph, graph_normalised, features, extra_loss=False):
+    def forward(self, features, graph_normalised, graph, extra_loss=False):
 
         gcn_out = self.gcn(features, graph_normalised)
-
         assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
-        n_edges = graph._nnz()
+        n_edges = graph.shape[1]
         degrees = torch.sparse.sum(graph, dim=0)._values().unsqueeze(1)
         graph_pooled = torch.spmm(torch.spmm(graph, assignments).T, assignments)
         normalizer_left = torch.spmm(assignments.T, degrees)
@@ -78,56 +77,60 @@ class DMoN(nn.Module):
 
         return loss
 
-    def embed(self, graph, graph_normalised, features):
-        gcn_out = self.gcn(features, graph_normalised, sparse=True)
+    def embed(self, features, graph_normalised):
+        gcn_out = self.gcn(features, graph_normalised)
         assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
-
         return assignments
 
 
 class dmon_trainer(ugleTrainer):
-
     def preprocess_data(self, loader):
-        
         dataset = []
         for batch in iter(loader):
             adjacency = to_dense_adj(batch.edge_index)
-            adjacency = process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency.squeeze(0)))
-            #adjacency = process.normalize_adj(adjacency)
-            #adj = process.sparse_mx_to_torch_sparse_tensor(adjacency)
+            graph = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency.squeeze(0)))
+            adjacency = sparse_mx_to_torch_sparse_tensor(normalize_adj(adjacency.squeeze(0)))
             features = torch.FloatTensor(batch.x)
-            dataset.append(Data(x=features, y=batch.y, edge_index=adjacency))
+            dataset.append(Data(x=features, y=batch.y, edge_index=adjacency, **{'graph': graph}))
         
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
-
-        #features = torch.FloatTensor(features)
-        #graph_normalised = ugle.process.sparse_mx_to_torch_sparse_tensor(ugle.process.normalize_adj(adjacency))
-        #graph = ugle.process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency))
-
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
         return dataloader
 
-    def training_preprocessing(self, args, processed_data):
-
+    def training_preprocessing(self, args, train_loader):
         self.model = DMoN(args).to(self.device)
         optimiser = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
         self.optimizers = [optimiser]
-
         return
 
-    def training_epoch_iter(self, args, processed_data):
-        graph, graph_normalised, features = processed_data
-        loss = self.model(graph, graph_normalised, features)
+    def training_epoch_iter(self, train_loader):
+        for batch in iter(train_loader):
+            # transfer to device
+            batch.x = batch.x.to(self.device, non_blocking=True)
+            batch.edge_index = batch.edge_index.to(self.device, non_blocking=True)
+            batch.graph = batch.graph.to(self.device, non_blocking=True)
+            # forward and backward pass
+            loss = self.model(batch.x, batch.edge_index, batch.graph)
+            self.optimizers[0].zero_grad()
+            loss.backward()
+            self.optimizers[0].step()
+            # right now this is only appropriate for a single batch
+            break
         
-        return loss, None
+        return loss
 
-    def test(self, processed_data):
-        graph, graph_normalised, features = processed_data
+    def test(self, test_loader, eval_metrics):
+        multi_batch_metric_info = None
         with torch.no_grad():
-            assignments = self.model.embed(graph, graph_normalised, features)
-            preds = assignments.detach().cpu().numpy().argmax(axis=1)
+            for batch in iter(test_loader):
+                batch.x, batch.edge_index = batch.x.to(self.device, non_blocking=True), batch.edge_index.to(self.device, non_blocking=True)
+                assignments = self.model.embed(batch.x, batch.edge_index).detach().cpu()
+                results, eval_preds = preds_eval(batch.y, assignments, batch.graph, metrics=eval_metrics, sf=4)
+                # right now this is only appropriate for a single batch
+                break                                          
 
-        return preds
+        return results
+
 
 
 

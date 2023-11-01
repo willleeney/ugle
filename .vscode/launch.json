@@ -5,10 +5,6 @@
     "version": "0.2.0",
     "configurations": [
 
-    
-
-
-
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -55,13 +51,13 @@
             "args" : ["-ec", "ugle/configs/testing/time_memory_test.yaml"]
         },
         {
-            "name": "Python: Test Workflow",
+            "name": "Python: Test New Workflow",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/main.py",
-            "args" : ["--model", "dgi_default", "--max_epoch", "20", "--dataset", "Flickr"]
+            "args" : ["--model", "dmon", "--max_epoch", "20", "--dataset", "Computers"]
         },
 
     ]

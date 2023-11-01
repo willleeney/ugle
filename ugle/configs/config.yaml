@@ -21,7 +21,7 @@ trainer:
 
   training_to_testing_split: 0.2
   train_to_valid_split: 0.2
-  max_nodes_in_dataloader: 10000
+  max_nodes_in_dataloader: 500000
   save_validation: False
 
   split_addition_percentage: False

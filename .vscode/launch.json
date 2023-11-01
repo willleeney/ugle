@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -39,7 +40,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/default_q1.yaml"]
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/dmon_large_hpo.yaml"]
         },
         {
             "name": "Python: Test Time & Memory",

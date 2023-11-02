@@ -92,10 +92,13 @@ class dmon_trainer(ugleTrainer):
             #graph = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency.squeeze(0)))
             adjacency = sparse_mx_to_torch_sparse_tensor(normalize_adj(adjacency.squeeze(0)))
             features = torch.FloatTensor(batch.x)
-            dataset.append(Data(x=features, y=batch.y, edge_index=adjacency, **{'graph': batch.edge_index}))
+            dataset.append(Data(x=features, y=batch.y, 
+                                **{'graph': batch.edge_index,
+                                   'edge_index_indices': adjacency.coalesce().indices(),
+                                   'edge_index_values': adjacency.coalesce().values()}))
         
         if self.device_name == 'cpu':
-            dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=8)
         else:
             dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=8)
         return dataloader
@@ -110,11 +113,12 @@ class dmon_trainer(ugleTrainer):
         for batch in train_loader:
             # transfer to device
             batch.x = batch.x.to(self.device, non_blocking=True)
-            batch.edge_index = batch.edge_index.to(self.device, non_blocking=True)
             graph = torch.sparse_coo_tensor(indices=batch.graph, values=torch.ones(batch.graph.shape[1]))._coalesced_(True)
             graph = graph.to(self.device, non_blocking=True)
+            edge_index = torch.sparse_coo_tensor(indices=batch.edge_index_indices, values=batch.edge_index_values)._coalesced_(True)
+            edge_index = edge_index.to(self.device, non_blocking=True)
             # forward and backward pass
-            loss = self.model(batch.x, batch.edge_index, graph)
+            loss = self.model(batch.x, edge_index, graph)
             self.optimizers[0].zero_grad()
             loss.backward()
             self.optimizers[0].step()
@@ -127,8 +131,10 @@ class dmon_trainer(ugleTrainer):
         multi_batch_metric_info = None
         with torch.no_grad():
             for batch in test_loader:
-                batch.x, batch.edge_index = batch.x.to(self.device, non_blocking=True), batch.edge_index.to(self.device, non_blocking=True)
-                assignments = self.model.embed(batch.x, batch.edge_index).detach().cpu()
+                x = batch.x.to(self.device, non_blocking=True)
+                edge_index = torch.sparse_coo_tensor(indices=batch.edge_index_indices, values=batch.edge_index_values)._coalesced_(True)
+                edge_index = edge_index.to(self.device, non_blocking=True)
+                assignments = self.model.embed(x, edge_index).detach().cpu()
                 graph = torch.sparse_coo_tensor(indices=batch.graph, values=torch.ones(batch.graph.shape[1]))._coalesced_(True)
                 results, eval_preds = preds_eval(batch.y, assignments, graph, metrics=eval_metrics, sf=4)
                 # right now this is only appropriate for a single batch

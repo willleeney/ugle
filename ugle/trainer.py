@@ -498,11 +498,11 @@ class ugleTrainer:
                                                        interval=.005, retval=True) 
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
-                    lp = LineProfiler()
-                    lpwrapper = lp(self.test)
-                    results = lpwrapper(val_loader, self.cfg.trainer.valid_metrics)
-                    lp.print_stats()
-                    #results = self.test(val_loader, self.cfg.trainer.valid_metrics)
+                    #lp = LineProfiler()
+                    #lpwrapper = lp(self.test)
+                    #results = lpwrapper(val_loader, self.cfg.trainer.valid_metrics)
+                    #lp.print_stats()
+                    results = self.test(val_loader, self.cfg.trainer.valid_metrics)
 
                 # record best model state over this train/trial for each metric
                 for m, metric in enumerate(self.cfg.trainer.valid_metrics):

@@ -20,6 +20,7 @@ import warnings
 from os.path import exists
 from os import makedirs, devnull
 from memory_profiler import memory_usage
+from line_profiler import LineProfiler
 
 from optuna.exceptions import ExperimentalWarning
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
@@ -396,12 +397,8 @@ class ugleTrainer:
                 # retrain 
                 log.debug('Retraining model')
                 self.model.train()
-                from line_profiler import LineProfiler
-                lp = LineProfiler()
-                lp_wrapper = lp(self.train)
-                validation_results = lp_wrapper(None, train_loader, val_loader)
-                lp.print_stats()
-                
+                validation_results = self.train(None, train_loader, val_loader)
+
                 # at this point, the self.train() loop should go have saved models for each validation metric 
                 # then go through the best at metrics, and do a test for each of the best models 
                 for opt_metric in best_at_metrics:
@@ -501,7 +498,11 @@ class ugleTrainer:
                                                        interval=.005, retval=True) 
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
-                    results = self.test(val_loader, self.cfg.trainer.valid_metrics)
+                    lp = LineProfiler()
+                    lpwrapper = lp(self.test)
+                    results = lpwrapper(val_loader, self.cfg.trainer.valid_metrics)
+                    lp.print_stats()
+                    #results = self.test(val_loader, self.cfg.trainer.valid_metrics)
 
                 # record best model state over this train/trial for each metric
                 for m, metric in enumerate(self.cfg.trainer.valid_metrics):
@@ -523,7 +524,10 @@ class ugleTrainer:
             start = time.time()
             # do one epoch of training
             self.model.train()
-            loss = self.training_epoch_iter(train_loader)
+            lp = LineProfiler()
+            lpwrapper = lp(self.training_epoch_iter)
+            loss = lpwrapper(train_loader)
+            lp.print_stats()
 
             # update progress bar
             self.progress_bar.set_description(f'Training: m-{self.cfg.model}, d-{self.cfg.dataset}, s-{self.cfg.args.random_seed} -- Loss={loss.item():.4f}', refresh=True)

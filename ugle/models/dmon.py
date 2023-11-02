@@ -132,7 +132,7 @@ class dmon_trainer(ugleTrainer):
                 batch.x = batch.x.to(self.device, non_blocking=True)
                 edge_index = torch.sparse_coo_tensor(indices=batch.edge_index_indices, values=batch.edge_index_values)._coalesced_(True)
                 edge_index = edge_index.to(self.device, non_blocking=True)
-                assignments = self.model.embed(batch.x, batch.edge_index).detach().cpu()
+                assignments = self.model.embed(batch.x, edge_index).detach().cpu()
                 graph = torch.sparse_coo_tensor(indices=batch.graph, values=torch.ones(batch.graph.shape[1]))._coalesced_(True)
                 results, eval_preds = preds_eval(batch.y, assignments, graph, metrics=eval_metrics, sf=4)
                 # right now this is only appropriate for a single batch

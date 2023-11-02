@@ -6,6 +6,7 @@
     "configurations": [
 
 
+
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -58,7 +59,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/main.py",
-            "args" : ["--model", "dmon", "--max_epoch", "20", "--dataset", "Computers"]
+            "args" : ["--model", "dmon", "--max_epoch", "1", "--dataset", "Computers"]
         },
 
     ]

@@ -396,7 +396,11 @@ class ugleTrainer:
                 # retrain 
                 log.debug('Retraining model')
                 self.model.train()
-                validation_results = self.train(None, train_loader, val_loader)
+                from line_profiler import LineProfiler
+                lp = LineProfiler()
+                lp_wrapper = lp(self.train)
+                validation_results = lp_wrapper(None, train_loader, val_loader)
+                lp.print_stats()
                 
                 # at this point, the self.train() loop should go have saved models for each validation metric 
                 # then go through the best at metrics, and do a test for each of the best models 

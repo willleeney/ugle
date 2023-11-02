@@ -97,7 +97,7 @@ class dmon_trainer(ugleTrainer):
         if self.device_name == 'cpu':
             dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
         else:
-            dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=8)
         return dataloader
 
     def training_preprocessing(self, args, train_loader):

@@ -87,7 +87,7 @@ class DMoN(nn.Module):
 class dmon_trainer(ugleTrainer):
     def preprocess_data(self, loader):
         dataset = []
-        for batch in iter(loader):
+        for batch in loader:
             adjacency = to_dense_adj(batch.edge_index)
             graph = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency.squeeze(0)))
             adjacency = sparse_mx_to_torch_sparse_tensor(normalize_adj(adjacency.squeeze(0)))
@@ -107,7 +107,7 @@ class dmon_trainer(ugleTrainer):
         return
 
     def training_epoch_iter(self, train_loader):
-        for batch in iter(train_loader):
+        for batch in train_loader:
             # transfer to device
             batch.x = batch.x.to(self.device, non_blocking=True)
             batch.edge_index = batch.edge_index.to(self.device, non_blocking=True)
@@ -125,7 +125,7 @@ class dmon_trainer(ugleTrainer):
     def test(self, test_loader, eval_metrics):
         multi_batch_metric_info = None
         with torch.no_grad():
-            for batch in iter(test_loader):
+            for batch in test_loader:
                 batch.x, batch.edge_index = batch.x.to(self.device, non_blocking=True), batch.edge_index.to(self.device, non_blocking=True)
                 assignments = self.model.embed(batch.x, batch.edge_index).detach().cpu()
                 results, eval_preds = preds_eval(batch.y, assignments, batch.graph, metrics=eval_metrics, sf=4)

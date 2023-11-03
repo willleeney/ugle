@@ -1,5 +1,5 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['Computers', 'Photo', 'CS', 'Physics']
+datasets: ['Physics', 'CS']
 algorithms: ['dmon']
 dataset_algo_combinations: null
 run_cpu_fallback: False
@@ -21,4 +21,4 @@ study_override_cfg:
     gpu: '2'
     train_to_valid_split: 0.0
     training_to_testing_split: 0.0
-    max_nodes_in_dataloader: 50000
+    max_nodes_in_dataloader: 500000

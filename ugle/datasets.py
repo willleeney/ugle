@@ -9,7 +9,7 @@ from torch_geometric.datasets import WikiCS, Reddit2, Planetoid, Coauthor, Flick
 from torch_geometric.datasets.amazon import Amazon
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader, NeighborLoader
-from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj, stochastic_blockmodel_graph
+from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj, stochastic_blockmodel_graph, remove_self_loops
 from torch_geometric.transforms import ToUndirected, NormalizeFeatures, Compose
 
 
@@ -27,13 +27,18 @@ def max_nodes_in_edge_index(edge_index):
 
 
 def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
-    if p < 0. or p > 1.:
+    if p <= 0. or p >= 1.:
         raise ValueError(f'Dropout probability has to be between 0 and 1 -- (got {p})')
     
+    edge_index = edge_index[:, torch.where(edge_index[1, :] > edge_index[0, :])[0]]
+
     row, col = edge_index
     edge_mask = torch.rand(row.size(0)) >= p
     keep_edge_index = edge_index[:, edge_mask]
     drop_edge_index = edge_index[:, torch.ones_like(edge_mask, dtype=bool) ^ edge_mask]
+
+    keep_edge_index = torch.cat([keep_edge_index, keep_edge_index.flip(0)], dim=1)
+    drop_edge_index = torch.cat([drop_edge_index, drop_edge_index.flip(0)], dim=1)
 
     return keep_edge_index, drop_edge_index
 
@@ -83,6 +88,7 @@ def split_dataset(data, num_val, num_test):
     """
     splits data by dropping edges meaning no overlapping edges between sets unless 0.0 where all edges are kept
     """
+    data.edge_index = remove_self_loops(data.edge_index)
     if num_test == 0.0 and num_val == 0.0:
         train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(data.edge_index, data.x.shape[0]))
         val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(data.edge_index, data.x.shape[0]))
@@ -134,7 +140,7 @@ def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
     elif dataset_name == 'NELL':
         dataset = NELL(root=dataset_path)[0]
         data = Data(x=F.normalize(dataset.x.to_dense(), dim=0), y=dataset.y, 
-                    edge_index=to_undirected(add_all_self_loops(dataset.edge_index, dataset.x.size(dim=0))))
+                    edge_index=to_undirected(dataset.edge_index))
     else:
         raise NameError(f'{dataset_name} is not a valid dataset_name parameter')
 

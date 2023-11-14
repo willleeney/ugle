@@ -172,8 +172,9 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     :return ax: axis on which figure is displayed
 
     """
+    #plt.rcParams["font.family"] = "Times New Roman"
     if not ax:
-        fig, ax = plt.subplots(figsize=(10, 5))
+        fig, ax = plt.subplots(figsize=(10, 10))
 
     #alt_colours = ['#dc143c', '#0bb5ff', '#2ca02c', '#800080']
     alt_colours = ['C2', 'C0', 'C1', 'C3']
@@ -229,25 +230,33 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     x_axis_names = np.arange(len(algorithms))
 
     # plot hyperparameter results in full colour
-    ax.bar(x_axis_names, f1, yerr=f1_std,
-           width=bar_width, facecolor=alt_colours[0], alpha=0.9, linewidth=0, label='f1')
-    ax.bar(x_axis_names + bar_width, nmi, yerr=nmi_std,
-           width=bar_width, facecolor=alt_colours[1], alpha=0.9, linewidth=0, label='nmi')
-    ax.bar(x_axis_names + (2 * bar_width), modularity, yerr=modularity_std,
-           width=bar_width, facecolor=alt_colours[2], alpha=0.9, linewidth=0, label='modularity')
-    ax.bar(x_axis_names + (3 * bar_width), conductance, yerr=conductance_std,
-           width=bar_width, facecolor=alt_colours[3], alpha=0.9, linewidth=0, label='conductance')
+    ax.bar(x_axis_names, f1, yerr=f1_std, ecolor=alt_colours[0],
+           width=bar_width, facecolor=alt_colours[0], alpha=0.8, linewidth=0, label='f1')
+    ax.errorbar(x_axis_names, f1, f1_std, ecolor=alt_colours[0], elinewidth=4.5, linewidth=0)
+    ax.bar(x_axis_names + bar_width, nmi, yerr=nmi_std, ecolor=alt_colours[1],
+           width=bar_width, facecolor=alt_colours[1], alpha=0.8, linewidth=0, label='nmi')
+    ax.errorbar(x_axis_names + bar_width, nmi, nmi_std, ecolor=alt_colours[1], elinewidth=4.5, linewidth=0)
+    ax.bar(x_axis_names + (2 * bar_width), modularity, yerr=modularity_std, ecolor=alt_colours[2],
+           width=bar_width, facecolor=alt_colours[2], alpha=0.8, linewidth=0, label='modularity')
+    ax.errorbar(x_axis_names + (2 * bar_width), modularity, modularity_std, ecolor=alt_colours[2], elinewidth=4.5, linewidth=0)
+    ax.bar(x_axis_names + (3 * bar_width), conductance, yerr=conductance_std, ecolor=alt_colours[3],
+           width=bar_width, facecolor=alt_colours[3], alpha=0.8, linewidth=0, label='conductance')
+    ax.errorbar(x_axis_names + (3 * bar_width), conductance, conductance_std, ecolor=alt_colours[3], elinewidth=4.5, linewidth=0)
 
     # plot default parameters bars in dashed lines
     blank_colours = np.zeros(4)
-    ax.bar(x_axis_names, default_f1, width=bar_width,
+    ax.bar(x_axis_names, default_f1, yerr=default_f1_std, width=bar_width,
            facecolor=blank_colours, edgecolor='black', linewidth=2, linestyle='--', label='default values')
-    ax.bar(x_axis_names + bar_width, default_nmi, width=bar_width,
+    ax.errorbar(x_axis_names, default_f1, default_f1_std, ecolor='black', elinewidth=3, linewidth=3, linestyle='none')
+    ax.bar(x_axis_names + bar_width, default_nmi, yerr=default_nmi_std, width=bar_width,
            facecolor=blank_colours, edgecolor='black', linewidth=2, linestyle='--')
-    ax.bar(x_axis_names + (2 * bar_width), default_modularity, width=bar_width,
+    ax.errorbar(x_axis_names + bar_width, default_nmi, default_nmi_std, ecolor='black', elinewidth=3, linewidth=3, linestyle='none')
+    ax.bar(x_axis_names + (2 * bar_width), default_modularity, yerr=default_modularity_std, width=bar_width, 
            facecolor=blank_colours, edgecolor='black', linewidth=2, linestyle='--')
-    ax.bar(x_axis_names + (3 * bar_width), default_conductance,
+    ax.errorbar(x_axis_names + (2 * bar_width), default_modularity, default_modularity_std, ecolor='black', elinewidth=3, linewidth=3, linestyle='none')
+    ax.bar(x_axis_names + (3 * bar_width), default_conductance, yerr=default_conductance_std,
            facecolor=blank_colours, width=bar_width, edgecolor='black', linewidth=2, linestyle='--')
+    ax.errorbar(x_axis_names + (3 * bar_width), default_conductance, default_conductance_std, ecolor='black', elinewidth=3, linewidth=3, linestyle='none')
 
     # create the tick labels for axis
     ax.set_xticks(x_axis_names - 0.5 * bar_width)
@@ -263,9 +272,13 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     ax.xaxis.grid(False)
 
     # tighten the layout
-    ax.set_title(dataset_name, y=0.95, fontsize=98)
+    ax.set_title('CORA', y=0.95, fontsize=98)
     for item in ([ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
         item.set_fontsize(42)
+    
+    ax.set_ylim(bottom=0)
+    ax.set_xlabel('Algorithm')
+    ax.set_ylabel('Test Metric Result')
 
     return ax
 
@@ -483,7 +496,8 @@ def create_ranking_charts(datasets: list, algorithms: list, metrics: list, seeds
     return ax, ax1
 
 
-def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder, calc_ave_first=False, set_legend=False):
+def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
+    """
     def kendall_w(expt_ratings):
         if expt_ratings.ndim!=2:
             raise 'ratings matrix must be 2-dimensional'
@@ -511,48 +525,38 @@ def create_rand_dist_fig(ax, title, datasets, algorithms, metrics, seeds, folder
     wills_order = np.array(wills_order)
     print(title + f"{np.mean(wills_order):.3f} +- {np.std(wills_order):.3f}")
 
-    
 
     """
-    if calc_ave_first:
-        ave_axis = [0, 2]
-    else:
-        ave_axis = [0, 2, 3]
-
-    n_ranks = 1
-    for axis in ave_axis:
-        n_ranks *= ranking_object.shape[axis]
-
-    # average rank over dataset and metric + sensitivity over seed
-    all_ranks_per_algo = np.zeros(shape=(len(algorithms), n_ranks))
-    for i, algo in enumerate(algorithms):
-        all_ranks_per_algo[i] = ranking_object[:, i, :].flatten()
-
-    # with plt.xkcd():
-    # plot the lines
-    for j, algo_ranks in enumerate(all_ranks_per_algo):
-        kde = gaussian_kde(algo_ranks)
-        y_axis = kde.evaluate(x_axis)
-        ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10)
-
-    # ww_coeff = kendall_w(all_ranks_per_algo.T)
+    cm = plt.get_cmap('tab10').colors
+    #ax.set_prop_cycle(color=[cm(1.*i/len(algorithms)) for i in range(len(algorithms))])
+    x_axis = np.arange(0, len(algorithms), 0.001)
+    max_y = 0
+    for j, algo_ranks in enumerate(all_ranks_per_algo.T):
+        try:
+            kde = gaussian_kde(algo_ranks)
+            y_axis = kde.evaluate(x_axis)
+            ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10, color=cm[j])
+            print(f'{algorithms[j]}: {cm[j]}')
+            max_y = max(max_y, max(y_axis)) + 0.05
+        except:
+            ax.axvline(x=algo_ranks[0], label=algorithms[j], zorder=10, color=cm[j])
 
     if set_legend:
-        #ax.legend(loc='best', fontsize=16, ncol=3)
-        ax.legend(loc='upper center', fontsize=15, ncol=3, bbox_to_anchor=(0.5, -0.35))
+        #ax.legend(loc='best', fontsize=20, ncol=1, bbox_to_anchor=(1, -0.5))
+        #ax.legend(loc='upper center', fontsize=15, ncol=3, bbox_to_anchor=(0.475, -0.5))
+        ax.set_xlabel(r'$r$' + ' : algorithm ranking', fontsize=20)
         #ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
 
     #ax.set_ybound(0, 3)
-    ax.set_xbound(1, 10)
-    ax.set_xlabel(r'$r$' + ' : algorithm ranking', fontsize=20)
+    ax.set_xbound(0.9, 10.1)
+    ax.set_ybound(0, max_y)
     ax.set_ylabel(r'$f_{j}(r)$', fontsize=20) #kde estimatation of rank distribution
 
     #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
     ax.tick_params(axis='x', labelsize=18)
     ax.tick_params(axis='y', labelsize=15)
+    print('break')
 
-    # ax.set_title(title + f'{ww_coeff:.3f}', fontsize=20)
-    """
     return ax
 
 
@@ -561,9 +565,9 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
     creates figure for all datasets tested comparing default and hpo results
     """
     # create holder figure
-    nrows, ncols = 4, 3
+    nrows, ncols = 1, 3
     col_n, row_n = 0, 0
-    fig, axs = plt.subplots(nrows, ncols, figsize=(54, 78))
+    fig, axs = plt.subplots(nrows, ncols, figsize=(36, 24))
 
     for dataset_name in datasets:
         # create a figure on the axis
@@ -571,22 +575,22 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
             col_n += 1
             row_n = 0
 
-        axs[row_n, col_n] = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, axs[row_n, col_n])
+        axs[col_n] = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, axs[col_n])
         row_n += 1
 
-    axs[row_n, col_n].spines['top'].set_visible(False)
-    axs[row_n, col_n].spines['bottom'].set_visible(False)
-    axs[row_n, col_n].spines['left'].set_visible(False)
-    axs[row_n, col_n].spines['right'].set_visible(False)
-    axs[row_n, col_n].set_xticks([])
-    axs[row_n, col_n].set_yticks([])
+    #axs[col_n].spines['top'].set_visible(False)
+    #axs[col_n].spines['bottom'].set_visible(False)
+    #axs[col_n].spines['left'].set_visible(False)
+    #axs[col_n].spines['right'].set_visible(False)
+    #axs[col_n].set_xticks([])
+    #axs[col_n].set_yticks([])
 
-    axs[0, 0].legend()
-    for item in axs[0, 0].get_legend().get_texts():
-        item.set_fontsize(48)
+    axs[0].legend(loc='upper right', bbox_to_anchor=(1, 0.95))
+    for item in axs[0].get_legend().get_texts():
+        item.set_fontsize(36)
 
     fig.tight_layout()
-    fig.savefig(f"{ugle_path}/figures/hpo_investigation.eps", format='eps', bbox_inches='tight')
+    fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
     return
 
 
@@ -646,23 +650,39 @@ def create_comparison_figures(datasets: list, algorithms: list, metrics: list, s
     return
 
 
-def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list, seeds: list, folder: str,
-                                default_algos: list, default_folder: str, titles: list):
+def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list, seeds: list, folder: str, default_algos: list, default_folder: str):
 
     # create holder figure
-    nrows, ncols = 1, 2
+    nrows, ncols = 2, 1
     fig, ax = plt.subplots(nrows, ncols, figsize=(15, 7.5))
-
-    titles[0] = r'$W(\mathcal{T}_{(default)})$: '
-    titles[1] = r'$W(\mathcal{T}_{(hpo)})$: '
-
-    ax[0] = create_rand_dist_fig(ax[0], titles[0], datasets, default_algos, metrics, seeds, default_folder)
-    ax[1] = create_rand_dist_fig(ax[1], titles[1], datasets, algorithms, metrics, seeds, folder, set_legend=True)
 
     result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
     default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
+
+    ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds).squeeze(0)[:, 0, :].T
+    default_ranking_object = calculate_ranking_performance(default_result_object, datasets, metrics, seeds).squeeze(0)[:, 0, :].T
+
+    # rank values 
+    def wordr(rankings):
+        m = rankings.shape[0] # raters
+        n = rankings.shape[1] # items rated
+        denom = m**2*(n**3-n)
+        rating_sums = np.sum(rankings, axis=0)
+        S = n*np.var(rating_sums)
+        return 1 - 12*S/denom
+
+    hpo_w = wordr(ranking_object)
+    default_w = wordr(default_ranking_object)
+
+    titles_0 = 'Default ' + r'$W$: ' + str(round(default_w, 3))
+    titles_1 = 'HPO ' + r'$W$: ' + str(round(hpo_w, 3))
+
+    ax[0] = create_rand_dist_fig(ax[0], algorithms, default_ranking_object, set_legend=False)
+    ax[1] = create_rand_dist_fig(ax[1], algorithms, ranking_object, set_legend=True)
+
     n_comparisons = result_object.flatten().shape[0]
     rankings = np.zeros((n_comparisons, 2))
+
     result_object = result_object.flatten()
     default_result_object = default_result_object.flatten()
     for i in range(n_comparisons):
@@ -679,6 +699,12 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     print("Default: " + f"{means_def:.3f}\\neq{std_def:.3f}")
     print("HPO: " + f"{means_hpo:.3f}\\neq{std_hpo:.3f}")
 
+    titles_0 += f' FCR: {means_def:.3f}'
+    titles_1 += f' FCR: {means_hpo:.3f}'
+    ax[0].set_title(titles_0, fontsize=20)
+    ax[1].set_title(titles_1, fontsize=20)
+
+    #fig.suptitle('Algorithm F1 Score Rank Distribution\n Estimation Comparison on Cora', fontsize=24)
     fig.tight_layout()
     fig.savefig(f'{ugle_path}/figures/le_rand_dist_comparison.png', bbox_inches='tight')
     return
@@ -707,18 +733,6 @@ def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, defau
     create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
     # print('done fats%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%o')
     return
-
-
-algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
-datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
-metrics = ['f1', 'nmi', 'modularity', 'conductance']
-folder = './results/legacy_results/progress_results/'
-seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
-                 'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
-default_folder = './results//legacy_resultsdefault_results/'
-
-#create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, default_folder, default_algos)
 
 # creates a tikz figure to show someone
 #fig, ax = plt.subplots(1, 1, figsize=(15, 15))
@@ -1010,26 +1024,59 @@ def synthetic_evaluation(datasets, algorithms, folder):
 
 
 if __name__ == "__main__":
-    q1_folder = './results/unsupervised_limit/default_q1/'
-    q2_folder = './results/unsupervised_limit/hpo_q2/'
-    q5_folder = './results/unsupervised_limit/synth_default_q5/'
-    q5_folder1 = './results/unsupervised_limit/33_default_q4/'
-    q5_folder2 = './results/unsupervised_limit/66_default_q4/'
-
-    seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-    datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
-    synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
-                        'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
-                        'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
-
-    default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-    algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+    make_ugle = True
+    make_unsuper = False
+    make_rand_dist = True
 
 
-    #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q1_folder, title="Default Hyperparameters")
-    #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder2, title="q4: 66% of the data")
-    #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder1, title="q4: 33% of the data")
+    ### UGLE PAPER RESULTS ###
+    if make_ugle:
+        algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
+        datasets = ['cora', 'citeseer', 'dblp']#, 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
+        metrics = ['f1', 'nmi', 'modularity', 'conductance']
+        folder = './results/legacy_results/progress_results/'
+        seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+        default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
+                        'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
+        default_folder = './results/legacy_results/default_results/'
 
-    synthetic_evaluation(synth_datasets, default_algorithms, q5_folder)
+        if make_rand_dist: 
+            create_rand_dist_comparison(['cora'], algorithms, metrics, seeds, folder, default_algos, default_folder)
 
-#unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation")
+        # create holder figure
+
+        fig, ax = plt.subplots(1, 1, figsize=(20, 16))
+        ax = create_result_bar_chart('cora', algorithms, folder, default_algos, default_folder, ax)
+
+        ax.legend(loc='upper right', bbox_to_anchor=(1.05, 1))
+        for item in ax.get_legend().get_texts():
+            item.set_fontsize(36)
+
+        fig.tight_layout()
+        fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
+
+
+    if make_unsuper:
+        q1_folder = './results/unsupervised_limit/default_q1/'
+        q2_folder = './results/unsupervised_limit/hpo_q2/'
+        q5_folder = './results/unsupervised_limit/synth_default_q5/'
+        q5_folder1 = './results/unsupervised_limit/33_default_q4/'
+        q5_folder2 = './results/unsupervised_limit/66_default_q4/'
+
+        seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+        datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
+        synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
+                            'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
+                            'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
+
+        default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+        algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
+
+
+        #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q1_folder, title="Default Hyperparameters")
+        #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder2, title="q4: 66% of the data")
+        #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder1, title="q4: 33% of the data")
+
+        synthetic_evaluation(synth_datasets, default_algorithms, q5_folder)
+
+        #unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation")

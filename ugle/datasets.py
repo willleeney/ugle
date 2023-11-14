@@ -22,7 +22,7 @@ from torch_geometric.datasets import Coauthor
 from torch_geometric.datasets.amazon import Amazon
 
 google_store_datasets = ['acm', 'amac', 'amap', 'bat', 'citeseer', 'cora', 'cocs', 'dblp', 'eat', 'uat', 'pubmed',
-                         'cite', 'corafull', 'texas', 'wisc', 'film', 'cornell']
+                          'texas', 'wisc', 'cornell']
 karate_club_datasets = ['facebook', 'twitch', 'wikipedia', 'github', 'lastfm', 'deezer']
 big_datasets = ['Physics', 'CS', 'Photo', 'Computers']
 all_datasets = (google_store_datasets + karate_club_datasets + big_datasets)
@@ -455,6 +455,8 @@ def split_adj(adj, percent, split_scheme):
 
 
 if __name__ == '__main__':
+
+
     from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj
     import ugle.process as process
 
@@ -494,16 +496,20 @@ if __name__ == '__main__':
         edge_index = torch.concat((edge_index, torch.stack((n_ids_left, n_ids_left))), dim=1)
         return edge_index
     
-    dataset_path = ugle_path + f'/data/Computers'
-    data = Amazon(root=dataset_path, name='Computers', transform=ToUndirected(merge=True))[0]
-    edge_index = add_all_self_loops(data.edge_index, data.x.shape[0])
-    adj = to_dense_adj(edge_index).squeeze(0).numpy()
+    #dataset_path = ugle_path + f'/data/Computers'
+    #data = Amazon(root=dataset_path, name='Computers', transform=ToUndirected(merge=True))[0]
+    #edge_index = add_all_self_loops(data.edge_index, data.x.shape[0])
+    #adj = to_dense_adj(edge_index).squeeze(0).numpy()
 
-    n_clusters = len(np.unique(data.y))
-    n_nodes = data.x.shape[0]
-    n_edges = edge_index.shape[1]
-    print(f' n_nodes:{n_nodes}, n_edges:{n_edges}')
+    for dataset in google_store_datasets:
+        features, label, train_adj, test_adj,  = load_real_graph_data(dataset, test_split=1.)
+        edge_index = numpy_to_edge_index(train_adj)
+        n_clusters = len(np.unique(label))
+        n_nodes = features.shape[0]
+        n_edges = edge_index.shape[1]
+        n_features = features.shape[1]
+        print(f'{dataset}: n_nodes:{n_nodes}, n_edges:{n_edges}, n_clusters:{n_clusters}, n_features:{n_features}')
 
-    assignments = torch.softmax(torch.rand((n_nodes, n_clusters)), dim=1)
-    graph = process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adj))
-    preds = torch.argmax(assignments, dim=1)
+    #assignments = torch.softmax(torch.rand((n_nodes, n_clusters)), dim=1)
+    #graph = process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adj))
+    #preds = torch.argmax(assignments, dim=1)

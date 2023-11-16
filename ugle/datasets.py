@@ -88,9 +88,43 @@ def download_graph_data(dataset_name: str) -> bool:
 
     return True
 
+
+
+def to_edge_index(adjacency: np.ndarray):
+    """
+    converts adjacency in numpy array form to an array of active edges
+    :param adjacency: input adjacency matrix
+    :return adjacency: adjacency matrix update form
+    """
+    adj_label = sp.coo_matrix(adjacency)
+    adj_label = adj_label.todok()
+
+    outwards = [i[0] for i in adj_label.keys()]
+    inwards = [i[1] for i in adj_label.keys()]
+
+    adjacency = torch.tensor([outwards, inwards], dtype=int)
+    return adjacency
+
+
+def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
+    if p <= 0. or p >= 1.:
+        raise ValueError(f'Dropout probability has to be between 0 and 1 -- (got {p})')
+    
+    edge_index = edge_index[:, torch.where(edge_index[1, :] > edge_index[0, :])[0]]
+
+    row, col = edge_index
+    edge_mask = torch.rand(row.size(0)) >= p
+    keep_edge_index = edge_index[:, edge_mask]
+    drop_edge_index = edge_index[:, torch.ones_like(edge_mask, dtype=bool) ^ edge_mask]
+
+    keep_edge_index = torch.cat([keep_edge_index, keep_edge_index.flip(0)], dim=1)
+    drop_edge_index = torch.cat([drop_edge_index, drop_edge_index.flip(0)], dim=1)
+
+    return keep_edge_index, drop_edge_index
+
+
 def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str = 'drop_edges',
-                         split_addition=None) -> Tuple[
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+                         split_addition=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     loads the graph dataset and splits the adjacency matrix into two
     :param dataset_name: name of the dataset
@@ -242,36 +276,11 @@ def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bo
     :return aug_adj: augmented adjacency matrix
     """
 
-    index_list = input_adj.nonzero()
-    row_idx = index_list[0].tolist()
-    col_idx = index_list[1].tolist()
+    edge_index = to_edge_index(input_adj)
+    keep_index, drop_index = dropout_edge_undirected(edge_index, p=1-drop_percent)
+    aug_adj = to_dense_adj(drop_index).numpy().squeeze(0)
 
-    index_list = []
-    for i in range(len(row_idx)):
-        index_list.append((row_idx[i], col_idx[i]))
-
-    edge_num = int(len(row_idx))
-    add_drop_num = int(edge_num * drop_percent)
-    aug_adj = input_adj.copy().tolist()
-    else_adj = np.zeros_like(input_adj)
-
-    edge_idx = list(np.arange(edge_num))
-    drop_idx = random.sample(edge_idx, add_drop_num)
-    n_drop = len(drop_idx)
-    log.debug(f'dropping {n_drop} edges from {edge_num}')
-
-    for i in drop_idx:
-        aug_adj[index_list[i][0]][index_list[i][1]] = 0
-        aug_adj[index_list[i][1]][index_list[i][0]] = 0
-
-        else_adj[index_list[i][0]][index_list[i][1]] = 1
-        else_adj[index_list[i][1]][index_list[i][0]] = 1
-
-    aug_adj = np.array(aug_adj)
-    if split_adj: 
-        return aug_adj, else_adj
-    else:
-        return aug_adj, input_adj
+    return aug_adj, input_adj
 
 
 def numpy_to_edge_index(adjacency: np.ndarray):

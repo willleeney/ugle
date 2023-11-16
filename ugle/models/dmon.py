@@ -86,6 +86,8 @@ class dmon_trainer(ugleTrainer):
 
     def preprocess_data(self, features, adjacency):
         features = torch.FloatTensor(features)
+        features[features != 0.] = 1.
+
 
         adjacency = adjacency + sp.eye(adjacency.shape[0])
         adj_label = adjacency.copy()

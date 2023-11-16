@@ -501,15 +501,15 @@ class ugleTrainer:
 
                 # do testing
                 log.debug('Retraining model')
-
-                lp = LineProfiler()
-                lp_wrapper = lp(self.train)
-                validation_results = lp_wrapper(None, label, features, processed_data, validation_adjacency,
+                validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
-                lp.print_stats()
 
-                #validation_results = self.train(None, label, features, processed_data, validation_adjacency,
-                           #processed_valid_data)
+                #lp = LineProfiler()
+                #lp_wrapper = lp(self.train)
+                #validation_results = lp_wrapper(None, label, features, processed_data, validation_adjacency,
+                #           processed_valid_data)
+                #lp.print_stats()
+
                 
                 # at this point, the self.train() loop should go have saved models for each validation metric 
                 # then go through the best at metrics, and do a test for each of the best models 

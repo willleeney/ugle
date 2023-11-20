@@ -280,6 +280,11 @@ def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bo
     keep_index, drop_index = dropout_edge_undirected(edge_index, p=1-drop_percent)
     aug_adj = to_dense_adj(drop_index).numpy().squeeze(0)
 
+    n_missing = input_adj.shape[0] - aug_adj.shape[0]
+    pad_width = ((0, n_missing), (0, n_missing))
+    aug_adj = np.pad(aug_adj, pad_width, mode='constant', constant_values=0.)
+    assert input_adj.shape == aug_adj.shape
+
     return aug_adj, input_adj
 
 

@@ -1,7 +1,7 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: []
 algorithms: []
-dataset_algo_combinations: ["dblp_dgi"]
+dataset_algo_combinations: ["cora_bgrl"]
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False

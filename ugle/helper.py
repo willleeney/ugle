@@ -19,7 +19,6 @@ matplotlib.use("macosx")
 import scienceplots
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
-from sklearn.preprocessing import minmax_scale
 
 def search_results(folder, filename):
 
@@ -1068,7 +1067,6 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
         con_f1_std = []
         con_nmi_std = []
 
-        wru = []
         for algo in algorithms:
             mod_results, con_results = extract_results([dataset], [algo], folder)
             mod.append(np.mean(mod_results[:, 0]))
@@ -1077,18 +1075,6 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
             con.append(np.mean(con_results[:, 0]))
             con_f1.append(np.mean(con_results[:, 1]))
             con_nmi.append(np.mean(con_results[:, 2]))
-            
-            def algo_r_uncertainty(results):
-                if min(results) < 0. or max(results) > 1.:
-                    results = minmax_scale(results, feature_range=(0, 1), axis=0, copy=False)
-                max_point = np.mean(results)
-                return wasserstein_distance([max_point], results)
-            
-            w_ind = []
-            for res in [mod_results[:, 0], mod_results[:, 1], mod_results[:, 2], con_results[:, 0], con_results[:, 1], con_results[:, 2]]:
-               w_ind.append(algo_r_uncertainty(res))
-            wru.append(np.mean(w_ind))
-
 
             mod_std.append(np.std(mod_results[:, 0]))
             mod_f1_std.append(np.std(mod_results[:, 1]))
@@ -1118,10 +1104,10 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
 
         if "Large" not in title:
             ax.set_xticks(x_axis_points - 0.5 * bar_width)
-            ax.set_xticklabels([r'$\omega$' + f'({name.upper()}):{wum:.2f}' for name, wum in zip(x_axis_names, wru)], ha='left', rotation=-45, position=(-0.5, 0.0), fontsize=7)
+            ax.set_xticklabels([name.upper() for name in x_axis_names], ha='left', rotation=-45, position=(-0.5, 0.0), fontsize=9)
         else:
             ax.set_xticks(x_axis_points + 0.4)
-            ax.set_xticklabels([r'$\omega$' + f'({name.upper()}):{wum:.2f}' for name, wum in zip(x_axis_names, wru)], fontsize=12)
+            ax.set_xticklabels([name.upper() for name in x_axis_names], fontsize=15)
         
         ax.set_axisbelow(True)
         ax.set_ylim(0.0, 1.0)
@@ -1175,7 +1161,7 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 
 if __name__ == "__main__":
-    make_ugle = False
+    make_ugle = True
     make_unsuper = True
     make_presentation_figures = False
 

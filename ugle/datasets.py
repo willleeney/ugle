@@ -186,9 +186,10 @@ def compute_datasets_info(dataset_names: list, visualise: bool=False):
         display_string = dataset_name + ' & '  # name
         display_string += str(train_adjacency.shape[0]) + ' & '  # n_nodes
         display_string += str(features.shape[1]) + ' & '  # n_features
-        display_string += str(int(np.nonzero(train_adjacency)[0].shape[0]/2)) + ' & '  # n_edges
+        display_string += str(int(np.nonzero(train_adjacency)[0].shape[0])) + ' & '  # n_edges
         display_string += str(len(np.unique(label))) + ' & '  # n_classes
-
+        print(display_string)
+        continue
         nx_g = nx.Graph(train_adjacency)
         clustering = nx.average_clustering(nx_g)
         cercania = nx.closeness_centrality(nx_g)
@@ -199,8 +200,7 @@ def compute_datasets_info(dataset_names: list, visualise: bool=False):
 
         display_string += str(round(clustering, 3)) + ' & '  # clustering coefficient
         display_string += str(round(cercania, 3)) + ' \\\\'  # closeness centrality
-        if visualise:
-            print(display_string)
+        print(display_string)
     if visualise:
         _ = display_figure_dataset_stats(clustering_x_data, closeness_y_data, dataset_names)
 
@@ -514,8 +514,8 @@ if __name__ == '__main__':
     #data = Amazon(root=dataset_path, name='Computers', transform=ToUndirected(merge=True))[0]
     #edge_index = add_all_self_loops(data.edge_index, data.x.shape[0])
     #adj = to_dense_adj(edge_index).squeeze(0).numpy()
-
-    for dataset in google_store_datasets:
+    
+    for dataset in ['pubmed', 'CS', 'Physics']:
         features, label, train_adj, test_adj,  = load_real_graph_data(dataset, test_split=1.)
         edge_index = numpy_to_edge_index(train_adj)
         n_clusters = len(np.unique(label))

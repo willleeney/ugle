@@ -14,6 +14,12 @@ from scipy.stats import linregress
 from scipy.stats import spearmanr 
 from sklearn.metrics import r2_score
 import pandas as pd
+import matplotlib
+matplotlib.use("macosx")
+import scienceplots
+import matplotlib.patches as mpatches
+import matplotlib.lines as mlines
+from sklearn.preprocessing import minmax_scale
 
 def search_results(folder, filename):
 
@@ -555,7 +561,6 @@ def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
     #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
     ax.tick_params(axis='x', labelsize=18)
     ax.tick_params(axis='y', labelsize=15)
-    print('break')
 
     return ax
 
@@ -658,7 +663,7 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
 
     result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
     default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
-
+    
     ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds).squeeze(0)[:, 0, :].T
     default_ranking_object = calculate_ranking_performance(default_result_object, datasets, metrics, seeds).squeeze(0)[:, 0, :].T
 
@@ -779,7 +784,12 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
                             con_results.append([con, f1, nmi])
                             df.loc[len(df)] = {'Dataset': dataset, 'Algorithm': algo, 'Seed': seed_result.seed, 'A_Metric': 'Conductance', 'A_Metric_Value': con, 'B_Metric': 'F1', 'B_Metric_Value': f1}
                             df.loc[len(df)] = {'Dataset': dataset, 'Algorithm': algo, 'Seed': seed_result.seed, 'A_Metric': 'Conductance', 'A_Metric_Value': con, 'B_Metric': 'NMI', 'B_Metric_Value': nmi}
-
+            else:
+                print(f"did not find: {filename}")
+                # can only really do this because i know that there's 10 seeds
+                for seed in range(10):
+                    mod_results.append([0., 0., 0.])
+                    con_results.append([0., 0., 0.])
 
 
     mod_results = np.asarray(mod_results)
@@ -790,24 +800,32 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
         return mod_results, con_results
 
 
-def print_dataset_table(datasets, algorithms, folder):
+def print_dataset_table(datasets, algorithms, folder, power_d=2):
     # extract results
     for dataset in datasets:
-        print(dataset, end = ' ')
         mod_results, con_results = extract_results([dataset], algorithms, folder)
+        print(dataset, end = ' ')
+        print(f'mod_f1_nmi: {np.mean(mod_results[:, 0]):.3f} & {np.mean(mod_results[:, 1]):.3f} & {np.mean(mod_results[:, 2]):.3f}', end=' ')
+        print(f'con_f1_nmi: {np.mean(con_results[:, 0]):.3f} & {np.mean(con_results[:, 1]):.3f} & {np.mean(con_results[:, 2]):.3f}', end=' ')
+        print(f'correlations: ', end=' ')
         for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
-            slope, intercept, _, _, _ = linregress(x, y)
-            y_line_predicted = (x * slope) + intercept
-            r_value_line = np.round(r2_score(y, y_line_predicted), 3)
-            print(f'& {r_value_line:.2f}', end=' ')
+            coefficients = np.polyfit(x, y, power_d)
+            poly = np.poly1d(coefficients)
+            # Calculate predicted values
+            predicted_y = poly(x)
+            r_value_quad = np.round(r2_score(y, predicted_y), 3)
+            print(f'& {r_value_quad:.2f}', end=' ')
         print('')
 
-def print_algo_table(datasets, algorithms, folder):
+def print_algo_table(datasets, algorithms, folder, power_d=2):
     for algorithm in algorithms:
-        print(algorithm, end = ' ')
         mod_results, con_results = extract_results(datasets, [algorithm], folder)
+        print(algorithm, end = ' ')
+        print(f'mod_f1_nmi: {np.mean(mod_results[:, 0]):.3f} & {np.mean(mod_results[:, 1]):.3f} & {np.mean(mod_results[:, 2]):.3f}', end=' ')
+        print(f'con_f1_nmi: {np.mean(con_results[:, 0]):.3f} & {np.mean(con_results[:, 1]):.3f} & {np.mean(con_results[:, 2]):.3f}', end=' ')
+        print(f'correlations: ', end=' ')
         for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
-            coefficients = np.polyfit(x, y, 2)
+            coefficients = np.polyfit(x, y, power_d)
             poly = np.poly1d(coefficients)
             # Calculate predicted values
             predicted_y = poly(x)
@@ -834,25 +852,9 @@ def rank_values(scores):
     return ranks_array
 
 
-def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, marker_style=None):
-    # extract results 
-    if "q4" in title:
-        extract_validation = True
-        return_df = False
-    else: 
-        extract_validation = False
-        if marker_style: 
-            return_df = True
-        else: 
-            return_df = False
-    if return_df:
-        mod_results, con_results, df = extract_results(datasets, algorithms, folder, extract_validation=extract_validation, return_df=return_df)
-    else:
-        mod_results, con_results = extract_results(datasets, algorithms, folder, extract_validation=extract_validation, return_df=return_df)
-    
-    # compute W order
+# compute W order
+def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, datasets):
     different_comparisons = [mod_results[:, 0], mod_results[:, 1], mod_results[:, 2], con_results[:, 0], con_results[:, 1], con_results[:, 2]]
-    testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
     total_w_order = []
 
     for result, testname in zip(different_comparisons, testnames):
@@ -875,6 +877,26 @@ def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, ma
         print(f"{testname} W Order: {np.mean(w_order):.3f} +- {np.std(w_order):.3f}")
     # the W order over the whole 66% experiment
     total_w_order = np.asarray(total_w_order)
+    
+    return total_w_order
+
+
+def unsupervised_prediction_graph(datasets, algorithms, folder, title):
+    plt.style.use(['science', 'nature'])
+    plt.rcParams["font.family"] = "Times New Roman"
+    plt.rcParams["figure.dpi"] = 144
+    nature_colours = ["#0C5DA5", "#00B945", "#FF9500", "#FF2C00", "#845B97", "#474747", "#9e9e9e"]
+    algorithm_colors = ["#434982", "#00B945", "#EA907A", "#845B97", "#4F8A8B", "#FFCB74", "#B5DEFF"]
+    # extract results 
+    if "q4" in title:
+        extract_validation = True
+    else: 
+        extract_validation = False
+    
+    mod_results, con_results, df = extract_results(datasets, algorithms, folder, extract_validation=extract_validation, return_df=True)
+    testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
+
+    total_w_order = compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, datasets)
     print(f"Overall W Order: {np.mean(total_w_order):.3f} +- {np.std(total_w_order):.3f}")
     # the W order of each comparison 
     indv_tests = np.array([[0, 1], [0, 2], [3, 4], [3, 5]])
@@ -884,7 +906,7 @@ def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, ma
         print(f"W Order {n}: {w:.2f}")
    
     nrows, ncols = 2, 2
-    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 12))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(7, 4))
     for i, ax in enumerate(axes.flat):
         if i == 0:
             x_label = "Modularity"
@@ -933,106 +955,234 @@ def unsupervised_prediction_graph(datasets, algorithms, seeds, folder, title, ma
         spearman_stats = spearmanr(a=x, b=y)
         print(f"Spearmans Correlation Coefficient: {spearman_stats.correlation:.2f}")
         
-        if marker_style == 'algorithms':
-            markers = ['o', 's', '^', 'D', 'p', '*', 'H', '+', 'X', '$f$']
-            markers = markers[:len(algorithms)]
-            for opt_in in range(len(markers)):
-                df_axis = df[(df['Algorithm'] == algorithms[opt_in]) & (df['A_Metric'] == x_label) & (df['B_Metric'] == y_label)]
-                ax.scatter(df_axis['A_Metric_Value'], df_axis['B_Metric_Value'], color='tab:blue', s=15, marker=markers[opt_in], label=algorithms[opt_in])
+        if "Large" in title:
+            continue
+        markers =  ['.', 'v', '2', 'D', '*', 'X']
+        handles = []
+        for opt_in in range(len(markers)): 
+            df_axis = df[(df['Dataset'] == datasets[opt_in]) & (df['A_Metric'] == x_label) & (df['B_Metric'] == y_label)]
+            handles.append(mlines.Line2D([], [], label=datasets[opt_in], color="#474747", marker=markers[opt_in], linestyle='None'))
 
-        elif marker_style == 'datasets':
-            markers =  ['$ci$', '$co$', '$tx$', '$db$', '$wc$', '$cn$']
-            for opt_in in range(len(markers)): 
-                df_axis = df[(df['Dataset'] == datasets[opt_in]) & (df['A_Metric'] == x_label) & (df['B_Metric'] == y_label)]
-                ax.scatter(df_axis['A_Metric_Value'], df_axis['B_Metric_Value'], color='tab:blue', s=15, marker=markers[opt_in], label=datasets[opt_in])
+            for a, col in enumerate(algorithm_colors):
+                if "_" in algorithms[a]:
+                    algo_name = algorithms[a].split("_")[0]
+                else:
+                    algo_name = algorithms[a]
+                if opt_in == 5:
+                    handles.append(mlines.Line2D([], [], label=algo_name, color=col, marker="s", linestyle='None'))
 
-        elif marker_style == 'seeds':
-            markers = ['o', 's', '^', 'D', 'p', '*', 'H', '+', 'X', '$f$']
-            markers = markers[:len(seeds)]
-            for opt_in in range(len(markers)): 
-                df_axis = df[(df['Seed'] == seeds[opt_in]) & (df['A_Metric'] == x_label) & (df['B_Metric'] == y_label)]
-                ax.scatter(df_axis['A_Metric_Value'], df_axis['B_Metric_Value'], color='tab:blue', s=15, marker=markers[opt_in], label=seeds[opt_in])
-        else:
-            ax.scatter(x, y, color='tab:blue', s=15, label='Test Data')
+                ax.scatter(df_axis[df_axis['Algorithm'] == algorithms[a]]['A_Metric_Value'], df_axis[df_axis['Algorithm'] == algorithms[a]]['B_Metric_Value'], color=col, s=10, marker=markers[opt_in])
 
-        ax.plot(x_space, y_line, color='tab:red', label=r'Linear Fit, $R^2:$' + f'{r_value_line:.2f}', linewidth=3)
-        ax.plot(x_space, y_line_quad, color="tab:orange", label=r'Quadratic Fit, $R^2:$' + f'{r_value_quad:.2f}', linewidth=3)
+        handles.append(mlines.Line2D([], [], color=nature_colours[3], linestyle='dashed', linewidth=2, label='Quadratic Fit'))#, $R^2$' + f': {r_value_quad:.2f}'))
+        handles.append(mlines.Line2D([], [], color=nature_colours[3], linewidth=2, label='Linear Fit'))
+        ax.plot(x_space, y_line, color=nature_colours[3], linewidth=2)#, label=r'Linear Fit', $R^2$' + f': {r_value_line:.2f}')
+        ax.plot(x_space, y_line_quad, color=nature_colours[3], linestyle='dashed', linewidth=2)#, label=r'Quadratic Fit')#, $R^2$' + f': {r_value_quad:.2f}', linewidth=2)
         if i == 0:
-            ax.set_ylabel(y_label, fontsize=20)
+            ax.set_ylabel(y_label, fontsize=12)
         if i == 2:
-            ax.set_ylabel(y_label, fontsize=20) 
-            ax.set_xlabel(x_label, fontsize=20)
+            ax.set_ylabel(y_label, fontsize=12) 
+            ax.set_xlabel(x_label, fontsize=12)
         if i == 3:
-            ax.set_xlabel(x_label, fontsize=20)
+            ax.set_xlabel(x_label, fontsize=12)
         
-        ax.set_title(f"    {x_label}" + r' $\rightarrow$ '+ f"{y_label} (W: {W_order:.2f})", fontsize=20)
-        ax.legend(loc='best', fontsize=18)
-        ax.tick_params(axis='y', labelsize=18)
-        ax.tick_params(axis='x', labelsize=18)
+        ax.set_ylim(0, 1)
+        ax.set_title(f"{x_label[:3]}" + r' $\rightarrow$ '+ y_label + " (l-"+ r"$R^2$" + f": {r_value_line:.2f}, q-" + r"$R^2$"  + f": {r_value_quad:.2f}, " + r"$W$" + f": {W_order:.2f})", fontsize=9)
+        #if i == 1:
+        #    ax.legend(handles=handles, bbox_to_anchor=(1.10, 1.5), fontsize=8, ncols=1)
+        ax.tick_params(axis='y', labelsize=7)
+        ax.tick_params(axis='x', labelsize=7)
        
-    
     print_algo_table(datasets, algorithms, folder)
     print_dataset_table(datasets, algorithms, folder)
 
-    fig.suptitle(title, fontsize=24)
-    plt.subplots_adjust(top=0.80)
-    plt.tight_layout()
-    plt.savefig(f'./figures/unsupervised_limit/{os.path.basename(os.path.normpath(folder))}.png')
+    if "Large" in title:
+        print('TO THE POWER OF ONE')
+        print_algo_table(datasets, algorithms, folder)
+        print_dataset_table(datasets, algorithms, folder)
+
+    if "Large" not in title:
+        fig.suptitle(title, fontsize=16)
+        plt.subplots_adjust(top=0.85, bottom=0.22, hspace=0.33)
+        #fig.add_subplot(111, frameon=False)
+        #plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
+        #plt.legend(handles=handles, bbox_to_anchor=(0, 0), fontsize=8, ncols=6)
+        blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+        blank_ax.axis('off')
+        blank_ax.legend(handles=handles, loc='lower center', fontsize=8, ncols=6)
+        #plt.tight_layout()
+        if "66" in title:
+            title_name = '66_data'
+        elif "33" in title:
+            title_name  = '33_data'
+        else:
+            title_name = title.replace(" ", "_")
+            title_name = title_name.replace("\'", "")
+        plt.savefig(f'./figures/unsupervised_limit/{title_name}.eps', format='eps')
+    return
 
 
-def synthetic_evaluation(datasets, algorithms, folder):
+def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims, figsize):
+    plt.style.use(['science', 'nature'])
+    plt.rcParams["font.family"] = "Times New Roman"
+    plt.rcParams["figure.dpi"] = 144
+    plt.rcParams["hatch.linewidth"] = 0.3
+
+    nature_colours = ["#0C5DA5", "#00B945", "#FF9500", "#FF2C00", "#845B97", "#474747", "#9e9e9e"]
+
+    nrows, ncols = plot_dims[0], plot_dims[1]
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+
     x_axis_names = [algo.split("_")[0] for algo in algorithms]
     x_axis_points = np.arange(len(x_axis_names))
-    bar_width = 1/4
-    # extract results
-    nrows, ncols = 3, 3
-    fig, axes = plt.subplots(nrows, ncols, figsize=(9, 9))
+    bar_width = 1/6
+
     for i, ax in enumerate(axes.flat):
         dataset = datasets[i]
-        dataset_name = r"$A:$" + dataset.split("_")[1] + ' ' + r"$X:$" + dataset.split("_")[2]
-        ax.set_title(dataset_name)
+        mod_results, con_results = extract_results([dataset], algorithms, folder)
+        testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
+        total_w_order = np.mean(compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, [dataset]))
 
+        if dataset == 'dblp':
+            ax.set_title("DBLP" + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=15)
+        elif 'synth' in dataset:
+            dataset_name = r"$A$" + ": " + dataset.split("_")[1] + '  ' + r"$X$" ": " + dataset.split("_")[2]
+            dataset_name = dataset_name.replace("disjoint", "Distinct")
+            dataset_name = dataset_name.replace("random", "Random")
+            dataset_name = dataset_name.replace("complete", "Null")
+            ax.set_title(dataset_name + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=12)
+        else:
+            ax.set_title(dataset.capitalize() + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=15)
+
+
+        mod = []
         mod_f1 = []
         mod_nmi = []
+        con = []
         con_f1 = []
         con_nmi = []
 
+        mod_std = []
+        mod_f1_std = []
+        mod_nmi_std = []
+        con_std = []
+        con_f1_std = []
+        con_nmi_std = []
+
+        wru = []
         for algo in algorithms:
             mod_results, con_results = extract_results([dataset], [algo], folder)
+            mod.append(np.mean(mod_results[:, 0]))
             mod_f1.append(np.mean(mod_results[:, 1]))
             mod_nmi.append(np.mean(mod_results[:, 2]))
+            con.append(np.mean(con_results[:, 0]))
             con_f1.append(np.mean(con_results[:, 1]))
             con_nmi.append(np.mean(con_results[:, 2]))
+            
+            def algo_r_uncertainty(results):
+                if min(results) < 0. or max(results) > 1.:
+                    results = minmax_scale(results, feature_range=(0, 1), axis=0, copy=False)
+                max_point = np.mean(results)
+                return wasserstein_distance([max_point], results)
+            
+            w_ind = []
+            for res in [mod_results[:, 0], mod_results[:, 1], mod_results[:, 2], con_results[:, 0], con_results[:, 1], con_results[:, 2]]:
+               w_ind.append(algo_r_uncertainty(res))
+            wru.append(np.mean(w_ind))
 
-        ax.bar(x_axis_points, mod_f1, width=bar_width, facecolor="C3", linewidth=0, label=r'Mod$\rightarrow$F1')
-        ax.bar(x_axis_points + 1/4, mod_nmi, width=bar_width, facecolor="C3", linewidth=0, alpha=0.5, label=r'Mod$\rightarrow$NMI')
-        ax.bar(x_axis_points + 1/2, con_f1, width=bar_width, facecolor="C0", linewidth=0, label=r'Con$\rightarrow$F1')
-        ax.bar(x_axis_points + 3/4, con_nmi, width=bar_width, facecolor="C0", linewidth=0, alpha=0.5, label=r'Mod$\rightarrow$NMI')
-               
-        ax.set_xticks(x_axis_points - 0.5 * bar_width)
-        ax.set_xticklabels(x_axis_names, ha='left', rotation=-45, position=(-0.5, 0.0))
+
+            mod_std.append(np.std(mod_results[:, 0]))
+            mod_f1_std.append(np.std(mod_results[:, 1]))
+            mod_nmi_std.append(np.std(mod_results[:, 2]))
+            con_std.append(np.std(con_results[:, 0]))
+            con_f1_std.append(np.std(con_results[:, 1]))
+            con_nmi_std.append(np.std(con_results[:, 2]))
+
+
+        ax.bar(x_axis_points, mod, width=bar_width, linewidth=0, facecolor=nature_colours[0], label=r'Mod')
+        ax.errorbar(x_axis_points, mod, mod_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+
+        ax.bar(x_axis_points + 1/6, mod_f1, width=bar_width, linewidth=0, facecolor=nature_colours[0], alpha=0.9, hatch="/////", label=r'Mod$\rightarrow$F1')
+        ax.errorbar(x_axis_points + 1/6, mod_f1, mod_f1_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+
+        ax.bar(x_axis_points + 1/3, mod_nmi, width=bar_width, linewidth=0, facecolor=nature_colours[0], alpha=0.7, hatch="\\\\\\\\\\",label=r'Mod$\rightarrow$NMI')
+        ax.errorbar(x_axis_points + 1/3, mod_nmi, mod_nmi_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+
+        ax.bar(x_axis_points + 1/2, con, width=bar_width, linewidth=0,  facecolor=nature_colours[2], label=r'Con')
+        ax.errorbar(x_axis_points + 1/2, con, con_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+        
+        ax.bar(x_axis_points + 2/3, con_f1, width=bar_width, linewidth=0, facecolor=nature_colours[2],alpha=0.9, hatch="/////", label=r'Con$\rightarrow$F1')
+        ax.errorbar(x_axis_points + 2/3, con_f1, con_f1_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+        
+        ax.bar(x_axis_points + 5/6, con_nmi, width=bar_width, linewidth=0, facecolor=nature_colours[2], alpha=0.7, hatch="\\\\\\\\\\", label=r'Con$\rightarrow$NMI')
+        ax.errorbar(x_axis_points + 5/6, con_nmi, con_nmi_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+
+        if "Large" not in title:
+            ax.set_xticks(x_axis_points - 0.5 * bar_width)
+            ax.set_xticklabels([r'$\omega$' + f'({name.upper()}):{wum:.2f}' for name, wum in zip(x_axis_names, wru)], ha='left', rotation=-45, position=(-0.5, 0.0), fontsize=7)
+        else:
+            ax.set_xticks(x_axis_points + 0.4)
+            ax.set_xticklabels([r'$\omega$' + f'({name.upper()}):{wum:.2f}' for name, wum in zip(x_axis_names, wru)], fontsize=12)
+        
         ax.set_axisbelow(True)
         ax.set_ylim(0.0, 1.0)
-        ax.axhline(y=0.5, color='k', linestyle='-')
-        if i == 8:
+
+        if "Large" in title and i == 1:
+            ax.legend(loc='best')
+        elif "Synthetic" in title and i == 4: 
+            ax.legend(loc='best')
+        elif "Optimisation" in title and i == 5: 
+            ax.legend(loc='best')
+        elif i == 3:
             ax.legend(loc='best')
 
-
-    fig.suptitle("Default Hyperparameters on Synthetic Data")
+    if "Large" not in title:
+        fig.suptitle(title, fontsize=20)
+    else:
+        fig.suptitle(title, fontsize=16) 
+    save_name = f'{os.path.basename(os.path.normpath(folder))}'
+    save_name = save_name.replace("\'", "")
     plt.tight_layout()
-    plt.savefig(f'./figures/unsupervised_limit/{os.path.basename(os.path.normpath(folder))}.png')
+    plt.savefig(f'./figures/unsupervised_limit/{save_name}.eps', format='eps')
+
+
+def calculate_framework_comparison_rank(datasets, algorithms, folder, default_algorithms, dfolder):
+    # get results for both
+    mod_results, con_results = extract_results(datasets, algorithms, folder)
+    dmod_results, dcon_results = extract_results(datasets, default_algorithms, dfolder)
+    dcon_results[:, 0] = 1 - dcon_results[:, 0]
+    con_results[:, 0] = 1 - con_results[:, 0]
+    result_object = np.concatenate((mod_results.flatten(), con_results.flatten()))
+    default_result_object = np.concatenate((dmod_results.flatten(), dcon_results.flatten()))
+
+    # rank them 
+    n_comparisons = result_object.flatten().shape[0]
+    rankings = np.zeros((n_comparisons, 2))
+    for i in range(n_comparisons):
+        if result_object[i] > default_result_object[i]:
+            rankings[i] = [1, 2]
+        elif default_result_object[i] < result_object[i]:
+            rankings[i] = [2, 1]
+        else:
+            rankings[i] = [1.5, 1.5]
+    
+    # calculate the average
+    means_hpo = np.mean(rankings, axis=0)[0]
+    means_def = np.mean(rankings, axis=0)[1]
+    print(f'HPO FCR: {means_hpo:.3f}')
+    print(f'Default FCR: {means_def:.3f}')
+    return 
+
 
 
 if __name__ == "__main__":
-    make_ugle = True
-    make_unsuper = False
-    make_rand_dist = True
+    make_ugle = False
+    make_unsuper = True
+    make_presentation_figures = False
 
 
-    ### UGLE PAPER RESULTS ###
     if make_ugle:
         algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
-        datasets = ['cora', 'citeseer', 'dblp']#, 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
+        datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
         metrics = ['f1', 'nmi', 'modularity', 'conductance']
         folder = './results/legacy_results/progress_results/'
         seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
@@ -1040,25 +1190,53 @@ if __name__ == "__main__":
                         'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
         default_folder = './results/legacy_results/default_results/'
 
-        if make_rand_dist: 
+        if make_presentation_figures: 
             create_rand_dist_comparison(['cora'], algorithms, metrics, seeds, folder, default_algos, default_folder)
 
-        # create holder figure
+            # create holder figure
+            fig, ax = plt.subplots(1, 1, figsize=(20, 16))
+            ax = create_result_bar_chart('cora', algorithms, folder, default_algos, default_folder, ax)
 
-        fig, ax = plt.subplots(1, 1, figsize=(20, 16))
-        ax = create_result_bar_chart('cora', algorithms, folder, default_algos, default_folder, ax)
+            ax.legend(loc='upper right', bbox_to_anchor=(1.05, 1))
+            for item in ax.get_legend().get_texts():
+                item.set_fontsize(36)
 
-        ax.legend(loc='upper right', bbox_to_anchor=(1.05, 1))
-        for item in ax.get_legend().get_texts():
-            item.set_fontsize(36)
+            fig.tight_layout()
+            fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
+        else: 
+            result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
+            default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
 
-        fig.tight_layout()
-        fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
+            # change conductance to be one minus so that it works with FCR
+            con_out = np.array([1 - res if res != -10 else res for res in result_object[:, :, 3, :].flatten()])
+            dcon_out = np.array([1 - res if res != -10 else res for res in default_result_object[:, :, 3, :].flatten()])
+
+            result_object = np.concatenate((con_out, result_object[:, :, 0:3, :].flatten()))
+            default_result_object = np.concatenate((dcon_out, default_result_object[:, :, 0:3, :].flatten()))
+            
+            # make comparisons
+            n_comparisons = result_object.shape[0]
+            rankings = np.zeros((n_comparisons, 2))
+            result_object = result_object.flatten()
+            default_result_object = default_result_object.flatten()
+            for i in range(n_comparisons):
+                if result_object[i] > default_result_object[i]:
+                    rankings[i] = [1, 2]
+                elif default_result_object[i] < result_object[i]:
+                    rankings[i] = [2, 1]
+                else:
+                    rankings[i] = [1.5, 1.5]
+            means_hpo = np.mean(rankings, axis=0)[0]
+            means_def = np.mean(rankings, axis=0)[1]
+
+            print(f'HPO FCR: {means_hpo:.3f}')
+            print(f'Default FCR: {means_def:.3f}')
 
 
     if make_unsuper:
         q1_folder = './results/unsupervised_limit/default_q1/'
         q2_folder = './results/unsupervised_limit/hpo_q2/'
+        qlarge_folder = './results/unsupervised_limit/hpo_large/'
         q5_folder = './results/unsupervised_limit/synth_default_q5/'
         q5_folder1 = './results/unsupervised_limit/33_default_q4/'
         q5_folder2 = './results/unsupervised_limit/66_default_q4/'
@@ -1072,11 +1250,18 @@ if __name__ == "__main__":
         default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
         algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
 
+        #calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder)
 
-        #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q1_folder, title="Default Hyperparameters")
-        #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder2, title="q4: 66% of the data")
-        #unsupervised_prediction_graph(datasets, default_algorithms, seeds, q5_folder1, title="q4: 33% of the data")
+        create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(8, 6))
+        #create_abs_performance_figure(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Performance", plot_dims=[2, 3], figsize=(8, 6))
+        #create_abs_performance_figure(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="DMoN Performance Large Datasets with HPO", plot_dims=[1, 2], figsize=(5, 2.5))
+        #create_abs_performance_figure(synth_datasets, default_algorithms, q5_folder, title="Default Hyperparameter's Performance on Synthetic Data", plot_dims=[3, 3], figsize=(9, 9))
+        #create_abs_performance_figure(datasets, default_algorithms, q5_folder2, title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 3], figsize=(8, 6))
+        #create_abs_performance_figure(datasets, default_algorithms, q5_folder1, title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 3], figsize=(8, 6))
 
-        synthetic_evaluation(synth_datasets, default_algorithms, q5_folder)
-
-        #unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation")
+        #unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation")
+        #unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Correlation")
+        #unsupervised_prediction_graph(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="Large Dataset HPO")
+        #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
+        #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")
+        

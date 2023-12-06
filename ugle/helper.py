@@ -237,16 +237,16 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     # plot hyperparameter results in full colour
     ax.bar(x_axis_names, f1, yerr=f1_std, ecolor=alt_colours[0],
            width=bar_width, facecolor=alt_colours[0], alpha=0.8, linewidth=0, label='f1')
-    ax.errorbar(x_axis_names, f1, f1_std, ecolor=alt_colours[0], elinewidth=4.5, linewidth=0)
+    ax.errorbar(x_axis_names, f1, f1_std, ecolor=alt_colours[0], elinewidth=2.5, linewidth=0)
     ax.bar(x_axis_names + bar_width, nmi, yerr=nmi_std, ecolor=alt_colours[1],
            width=bar_width, facecolor=alt_colours[1], alpha=0.8, linewidth=0, label='nmi')
-    ax.errorbar(x_axis_names + bar_width, nmi, nmi_std, ecolor=alt_colours[1], elinewidth=4.5, linewidth=0)
+    ax.errorbar(x_axis_names + bar_width, nmi, nmi_std, ecolor=alt_colours[1], elinewidth=2.5, linewidth=0)
     ax.bar(x_axis_names + (2 * bar_width), modularity, yerr=modularity_std, ecolor=alt_colours[2],
            width=bar_width, facecolor=alt_colours[2], alpha=0.8, linewidth=0, label='modularity')
-    ax.errorbar(x_axis_names + (2 * bar_width), modularity, modularity_std, ecolor=alt_colours[2], elinewidth=4.5, linewidth=0)
+    ax.errorbar(x_axis_names + (2 * bar_width), modularity, modularity_std, ecolor=alt_colours[2], elinewidth=2.5, linewidth=0)
     ax.bar(x_axis_names + (3 * bar_width), conductance, yerr=conductance_std, ecolor=alt_colours[3],
            width=bar_width, facecolor=alt_colours[3], alpha=0.8, linewidth=0, label='conductance')
-    ax.errorbar(x_axis_names + (3 * bar_width), conductance, conductance_std, ecolor=alt_colours[3], elinewidth=4.5, linewidth=0)
+    ax.errorbar(x_axis_names + (3 * bar_width), conductance, conductance_std, ecolor=alt_colours[3], elinewidth=2.5, linewidth=0)
 
     # plot default parameters bars in dashed lines
     blank_colours = np.zeros(4)
@@ -277,13 +277,19 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     ax.xaxis.grid(False)
 
     # tighten the layout
-    ax.set_title('CORA', y=0.95, fontsize=98)
+    if dataset_name == 'citeseer':
+        title_name = 'CiteSeer'
+    elif dataset_name == 'texas' or dataset_name == 'cornell' or dataset_name == 'wisc' or dataset_name == 'cora':
+        title_name = dataset_name.capitalize()
+    else:
+         title_name = dataset_name.upper()
+    ax.set_title(title_name, y=0.95, fontsize=98)
     for item in ([ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
         item.set_fontsize(42)
     
     ax.set_ylim(bottom=0)
-    ax.set_xlabel('Algorithm')
-    ax.set_ylabel('Test Metric Result')
+    #ax.set_xlabel('Algorithm')
+    #ax.set_ylabel('Test Metric Result')
 
     return ax
 
@@ -569,9 +575,9 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
     creates figure for all datasets tested comparing default and hpo results
     """
     # create holder figure
-    nrows, ncols = 1, 3
+    nrows, ncols = 4, 3
     col_n, row_n = 0, 0
-    fig, axs = plt.subplots(nrows, ncols, figsize=(36, 24))
+    fig, axs = plt.subplots(nrows, ncols, figsize=(56, 74))
 
     for dataset_name in datasets:
         # create a figure on the axis
@@ -579,22 +585,32 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
             col_n += 1
             row_n = 0
 
-        axs[col_n] = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, axs[col_n])
+        axs[row_n, col_n] = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, axs[row_n, col_n])
         row_n += 1
 
-    #axs[col_n].spines['top'].set_visible(False)
-    #axs[col_n].spines['bottom'].set_visible(False)
-    #axs[col_n].spines['left'].set_visible(False)
-    #axs[col_n].spines['right'].set_visible(False)
-    #axs[col_n].set_xticks([])
-    #axs[col_n].set_yticks([])
+    axs[row_n, col_n].spines['top'].set_visible(False)
+    axs[row_n, col_n].spines['bottom'].set_visible(False)
+    axs[row_n, col_n].spines['left'].set_visible(False)
+    axs[row_n, col_n].spines['right'].set_visible(False)
+    axs[row_n, col_n].set_xticks([])
+    axs[row_n, col_n].set_yticks([])
+    handles = []
+    alt_colours = ['C2', 'C0', 'C1', 'C3']
+    metrics = ['f1', 'nmi', 'modularity', 'conductance']
+    for i in range(len(alt_colours)):
+        handles.append(mlines.Line2D([], [], color=alt_colours[i], linewidth=8, label=metrics[i]))
 
-    axs[0].legend(loc='upper right', bbox_to_anchor=(1, 0.95))
-    for item in axs[0].get_legend().get_texts():
-        item.set_fontsize(36)
+    handles.append(mlines.Line2D([], [], color='black', linewidth=8, linestyle='--', label='Default\nHyperparameters'))
+
+    blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+    blank_ax.axis('off')
+    blank_ax.legend(handles=handles, bbox_to_anchor=(0.975, 0.2), fontsize=90)
+    #axs[0].legend(loc='upper right', bbox_to_anchor=(1, 0.95))
+    #for item in axs[0].get_legend().get_texts():
+    #   item.set_fontsize(36)
 
     fig.tight_layout()
-    fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
+    fig.savefig(f"{ugle_path}/figures/hpo_investigation.eps", format='eps', bbox_inches='tight')
     return
 
 
@@ -745,6 +761,73 @@ def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, defau
 #fig.savefig(f'{ugle_path}/figures/tkiz_fig.png', bbox_inches='tight')
 
 
+
+def reshape_ranking_to_test_object(ranking_object):
+    # datasets, algorithms, metrics, seeds ->  tests(datasets+metrics), seeds, algorithms
+    ranking_object = np.transpose(ranking_object, axes=(0, 2, 3, 1))
+    ranking_object = ranking_object.reshape((-1,) + ranking_object.shape[2:])
+    return ranking_object
+
+
+def og_randomness(ranking_object):
+    wills_order = []
+    for test in ranking_object:
+        wills_order.append(kendall_w(test))
+    wills_order = np.array(wills_order)
+
+    return np.mean(wills_order)
+
+def ties_randomness(ranking_object):
+    wills_order = []
+    for test in ranking_object:
+        rank_test = np.zeros_like(test)
+        for rs, rs_test in enumerate(test):
+            rank_test[rs] = rank_scores(rs_test)
+        wills_order.append(w_randomness_w_ties(rank_test))
+    wills_order = np.array(wills_order)
+    return np.mean(wills_order)
+
+def rank_scores(scores):
+    # Get indices in descending order
+    indices = np.flip(np.argsort(scores))
+
+    # Initialize an array to store the ranks
+    ranks = np.zeros_like(indices, dtype=float)
+
+    # Assign ranks to the sorted indices
+    ranks[indices] = np.arange(len(scores)) + 1
+
+    # Find unique scores and their counts
+    unique_scores, counts = np.unique(scores, return_counts=True)
+
+    # Calculate mean ranks for tied scores
+    for score, count in zip(unique_scores, counts):
+        if count > 1:
+            score_indices = np.where(scores == score)[0]
+            mean_rank = np.mean(ranks[score_indices])
+            ranks[score_indices] = mean_rank
+
+    return ranks
+
+def w_randomness_w_ties(test):
+    n = test.shape[0]
+    a = test.shape[1]
+
+    Ti = np.zeros(n)
+    for j in range(n):
+        _, counts = np.unique(test[j, :], return_counts=True)
+        tied_groups = counts[counts > 1]
+        Ti[j] = np.sum(tied_groups ** 3 - tied_groups)
+
+    T = np.sum(Ti) * n
+    
+    R = np.sum(test, axis=0)
+    R = np.sum(r ** 2 for r in R)
+
+    W = ((12*R) - 3 * (n**2) * a *((a + 1) ** 2)) / (((n ** 2) * a * ((a ** 2)  - 1)) -  T)
+
+    return 1 - W
+
 def extract_results(datasets, algorithms, folder, extract_validation=False, return_df=False):
     # modularity and conductance may have different hyperparameters or model selection points 
     mod_results = []
@@ -798,7 +881,6 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
     else: 
         return mod_results, con_results
 
-
 def print_dataset_table(datasets, algorithms, folder, power_d=2):
     # extract results
     for dataset in datasets:
@@ -832,7 +914,6 @@ def print_algo_table(datasets, algorithms, folder, power_d=2):
             print(f'& {r_value_quad:.2f}', end=' ')
         print('')
 
-
 def kendall_w(expt_ratings):
     if expt_ratings.ndim!=2:
         raise 'ratings matrix must be 2-dimensional'
@@ -843,15 +924,12 @@ def kendall_w(expt_ratings):
     S = n*np.var(rating_sums)
     return 1 - (12*S/denom)
 
-
 def rank_values(scores):
     argsort_array = scores.argsort().argsort()
     ranks_array = np.empty_like(argsort_array)
     ranks_array[argsort_array] = np.arange(len(scores))
     return ranks_array
 
-
-# compute W order
 def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, datasets):
     different_comparisons = [mod_results[:, 0], mod_results[:, 1], mod_results[:, 2], con_results[:, 0], con_results[:, 1], con_results[:, 2]]
     total_w_order = []
@@ -878,7 +956,6 @@ def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorit
     total_w_order = np.asarray(total_w_order)
     
     return total_w_order
-
 
 def unsupervised_prediction_graph(datasets, algorithms, folder, title):
     plt.style.use(['science', 'nature'])
@@ -1019,7 +1096,6 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
         plt.savefig(f'./figures/unsupervised_limit/{title_name}.eps', format='eps')
     return
 
-
 def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims, figsize):
     plt.style.use(['science', 'nature'])
     plt.rcParams["font.family"] = "Times New Roman"
@@ -1118,7 +1194,7 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
             ax.legend(loc='best')
         elif "Optimisation" in title and i == 5: 
             ax.legend(loc='best')
-        elif i == 3:
+        elif i == 3 and "Optimisation" not in title:
             ax.legend(loc='best')
 
     if "Large" not in title:
@@ -1129,7 +1205,6 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
     save_name = save_name.replace("\'", "")
     plt.tight_layout()
     plt.savefig(f'./figures/unsupervised_limit/{save_name}.eps', format='eps')
-
 
 def calculate_framework_comparison_rank(datasets, algorithms, folder, default_algorithms, dfolder):
     # get results for both
@@ -1162,7 +1237,9 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     make_ugle = True
-    make_unsuper = True
+    make_big_figure = False
+
+    make_unsuper = False
     make_presentation_figures = False
 
 
@@ -1190,6 +1267,10 @@ if __name__ == "__main__":
             fig.tight_layout()
             fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
         else: 
+            if make_big_figure:
+                create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
+
+            # fetch absolute results
             result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
             default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
 
@@ -1197,26 +1278,48 @@ if __name__ == "__main__":
             con_out = np.array([1 - res if res != -10 else res for res in result_object[:, :, 3, :].flatten()])
             dcon_out = np.array([1 - res if res != -10 else res for res in default_result_object[:, :, 3, :].flatten()])
 
-            result_object = np.concatenate((con_out, result_object[:, :, 0:3, :].flatten()))
-            default_result_object = np.concatenate((dcon_out, default_result_object[:, :, 0:3, :].flatten()))
+            # flatten object 
+            result_object_fcr = np.concatenate((con_out, result_object[:, :, 0:3, :].flatten()))
+            default_result_object_fcr = np.concatenate((dcon_out, default_result_object[:, :, 0:3, :].flatten()))
             
             # make comparisons
-            n_comparisons = result_object.shape[0]
+            n_comparisons = result_object_fcr.shape[0]
             rankings = np.zeros((n_comparisons, 2))
-            result_object = result_object.flatten()
-            default_result_object = default_result_object.flatten()
+            result_object_fcr = result_object_fcr.flatten()
+            default_result_object_fcr = default_result_object_fcr.flatten()
             for i in range(n_comparisons):
-                if result_object[i] > default_result_object[i]:
+                if result_object_fcr[i] > default_result_object_fcr[i]:
                     rankings[i] = [1, 2]
-                elif default_result_object[i] < result_object[i]:
+                elif default_result_object_fcr[i] < result_object_fcr[i]:
                     rankings[i] = [2, 1]
                 else:
                     rankings[i] = [1.5, 1.5]
             means_hpo = np.mean(rankings, axis=0)[0]
             means_def = np.mean(rankings, axis=0)[1]
 
-            print(f'HPO FCR: {means_hpo:.3f}')
-            print(f'Default FCR: {means_def:.3f}')
+            print(f'HPO FCR: {means_hpo:.3f}+_ {np.std(rankings, axis=0)[0]:.2f}')
+            print(f'Default FCR: {means_def:.3f}+_ {np.std(rankings, axis=0)[1]:.2f}')
+
+            # calculate ranking of each metric
+            ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=False)
+            default_ranking_object = calculate_ranking_performance(default_result_object, datasets, metrics, seeds, calc_ave_first=False)
+            ranking_object = reshape_ranking_to_test_object(ranking_object)
+            default_ranking_object = reshape_ranking_to_test_object(default_ranking_object)
+
+            og_w = og_randomness(ranking_object)
+            print(f"OG W HPO: {og_w:.3f}")
+            og_w_def = og_randomness(default_ranking_object)
+            print(f"OG W Default: {og_w_def:.3f}")
+
+            result_object = np.concatenate((result_object[:, :, 0:3, :], con_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
+            default_result_object = np.concatenate((default_result_object[:, :, 0:3, :], dcon_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
+            result_object = reshape_ranking_to_test_object(result_object)
+            default_result_object = reshape_ranking_to_test_object(default_result_object)
+
+            ties_w = ties_randomness(result_object)
+            print(f"TIES W HPO: {ties_w:.3f}")
+            ties_w_def = ties_randomness(default_result_object)
+            print(f"TIES W Default: {ties_w_def:.3f}")
 
 
     if make_unsuper:

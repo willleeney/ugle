@@ -777,6 +777,16 @@ def og_randomness(ranking_object):
 
     return np.mean(wills_order)
 
+def og_newOld_randomness(ranking_object):
+    wills_order = []
+    for test in ranking_object:
+        rank_test = np.zeros_like(test)
+        for rs, rs_test in enumerate(test):
+            rank_test[rs] = rank_scores(rs_test)
+        wills_order.append(kendall_w(rank_test))
+    wills_order = np.array(wills_order)
+    return np.mean(wills_order)
+
 def ties_randomness(ranking_object):
     wills_order = []
     for test in ranking_object:
@@ -1315,6 +1325,11 @@ if __name__ == "__main__":
             default_result_object = np.concatenate((default_result_object[:, :, 0:3, :], dcon_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
             result_object = reshape_ranking_to_test_object(result_object)
             default_result_object = reshape_ranking_to_test_object(default_result_object)
+
+            ties_w = og_newOld_randomness(result_object)
+            print(f"NEW OLD W HPO: {ties_w:.3f}")
+            ties_w_def = og_newOld_randomness(default_result_object)
+            print(f"NEW OLD W Default: {ties_w_def:.3f}")
 
             ties_w = ties_randomness(result_object)
             print(f"TIES W HPO: {ties_w:.3f}")

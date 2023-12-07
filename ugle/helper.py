@@ -770,14 +770,22 @@ def reshape_ranking_to_test_object(ranking_object):
 
 
 def og_randomness(ranking_object):
+    # og W coefficient where draws are the lowest rank that would occur from the ties
+    n_draws = 0
     wills_order = []
     for test in ranking_object:
+        for rs, rs_test in enumerate(test):
+            unique_scores, counts = np.unique(rs_test, return_counts=True)
+            if len(unique_scores) != 10:
+                n_draws += 10 - len(unique_scores)
         wills_order.append(kendall_w(test))
     wills_order = np.array(wills_order)
+    print(f'n_draws: {n_draws}', end=',  ')
 
     return np.mean(wills_order)
 
 def og_newOld_randomness(ranking_object):
+    # og W coefficient where draws are the average rank between those tied
     wills_order = []
     for test in ranking_object:
         rank_test = np.zeros_like(test)
@@ -788,6 +796,7 @@ def og_newOld_randomness(ranking_object):
     return np.mean(wills_order)
 
 def ties_randomness(ranking_object):
+    # TIES W coefficient where draws are the average rank between those tied
     wills_order = []
     for test in ranking_object:
         rank_test = np.zeros_like(test)
@@ -796,6 +805,35 @@ def ties_randomness(ranking_object):
         wills_order.append(w_randomness_w_ties(rank_test))
     wills_order = np.array(wills_order)
     return np.mean(wills_order)
+
+
+def wasserstein_randomness(ranking_object):
+    #  W coefficient from wasserstein where draws are the average rank between those tied
+    wills_order = []
+    for test in ranking_object:
+        rank_test = np.zeros_like(test)
+        for rs, rs_test in enumerate(test):
+            rank_test[rs] = rank_scores(rs_test)
+        wills_order.append(w_rand_wasserstein(rank_test))
+    wills_order = np.array(wills_order)
+    return np.mean(wills_order)
+
+def nrule(n):
+    j = 0 
+    for i in range(1,n+1):
+        j += (i*(i-1))/2
+    return j
+
+def w_rand_wasserstein(rankings):
+    n_seeds = rankings.shape[0]
+    n_algorithms = rankings.shape[1]
+
+    # rank_test[:, 0] -> all seeds, one algorithm
+    wass_agg = []
+    for i in range(n_seeds):
+        for j in range(i):  # Iterate up to i to stay to the left of the diagonal
+            wass_agg.append(wasserstein_distance(rankings[:, i], rankings[:, j]))
+    return 1 - (np.sum(wass_agg) / nrule(n_algorithms))
 
 def rank_scores(scores):
     # Get indices in descending order
@@ -832,7 +870,7 @@ def w_randomness_w_ties(test):
     T = np.sum(Ti) * n
     
     R = np.sum(test, axis=0)
-    R = np.sum(r ** 2 for r in R)
+    R = sum(r ** 2 for r in R)
 
     W = ((12*R) - 3 * (n**2) * a *((a + 1) ** 2)) / (((n ** 2) * a * ((a ** 2)  - 1)) -  T)
 
@@ -1327,14 +1365,26 @@ if __name__ == "__main__":
             default_result_object = reshape_ranking_to_test_object(default_result_object)
 
             ties_w = og_newOld_randomness(result_object)
-            print(f"NEW OLD W HPO: {ties_w:.3f}")
+            print(f"New ranking system, OLD W HPO: {ties_w:.3f}")
             ties_w_def = og_newOld_randomness(default_result_object)
-            print(f"NEW OLD W Default: {ties_w_def:.3f}")
+            print(f"New ranking system, OLD W Default: {ties_w_def:.3f}")
 
             ties_w = ties_randomness(result_object)
             print(f"TIES W HPO: {ties_w:.3f}")
             ties_w_def = ties_randomness(default_result_object)
             print(f"TIES W Default: {ties_w_def:.3f}")
+
+            ties_w = wasserstein_randomness(result_object)
+            print(f"WW HPO: {ties_w:.3f}")
+            ties_w_def =  wasserstein_randomness(default_result_object)
+            print(f"WW Default: {ties_w_def:.3f}")
+
+            random_rankings = np.array([[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3], [4, 4, 4, 4]])
+            print(f'{random_rankings[:, 0]} -> all seeds, one algorithm')
+            print(f'WW random: {w_rand_wasserstein(random_rankings)}')
+            perfect_rankings = random_rankings.T
+            print(f'WW perfect: {w_rand_wasserstein(perfect_rankings)}')
+
 
 
     if make_unsuper:

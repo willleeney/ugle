@@ -19,6 +19,7 @@ matplotlib.use("macosx")
 import scienceplots
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
+import random
 
 def search_results(folder, filename):
 
@@ -780,7 +781,7 @@ def og_randomness(ranking_object):
                 n_draws += 10 - len(unique_scores)
         wills_order.append(kendall_w(test))
     wills_order = np.array(wills_order)
-    print(f'n_draws: {n_draws}', end=',  ')
+    #print(f'n_draws: {n_draws}', end=',  ')
 
     return np.mean(wills_order)
 
@@ -875,6 +876,16 @@ def w_randomness_w_ties(test):
     W = ((12*R) - 3 * (n**2) * a *((a + 1) ** 2)) / (((n ** 2) * a * ((a ** 2)  - 1)) -  T)
 
     return 1 - W
+
+
+def create_random_results(n_tests, n_seeds, n_algorithms):
+    ranks = []
+    for i in range(n_tests):
+        test = []
+        for j in range(n_seeds):
+            test.append(np.random.permutation(n_algorithms))
+        ranks.append(test)
+    return np.asarray(ranks)
 
 def extract_results(datasets, algorithms, folder, extract_validation=False, return_df=False):
     # modularity and conductance may have different hyperparameters or model selection points 
@@ -1286,6 +1297,7 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 if __name__ == "__main__":
     make_ugle = True
     make_big_figure = False
+    make_dist_figure = True
 
     make_unsuper = False
     make_presentation_figures = False
@@ -1384,6 +1396,56 @@ if __name__ == "__main__":
             print(f'WW random: {w_rand_wasserstein(random_rankings)}')
             perfect_rankings = random_rankings.T
             print(f'WW perfect: {w_rand_wasserstein(perfect_rankings)}')
+
+            #random_rankings = create_random_results(44, 10, 10)
+
+            if make_dist_figure: 
+                plt.style.use(['science', 'nature'])
+                plt.rcParams["font.family"] = "Times New Roman"
+                plt.rcParams["figure.dpi"] = 300
+                fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(4, 4))
+
+                test_interval = 1
+                n_tests = result_object.shape[0]
+                n_repeats = 10
+                input_idxs = range(0, n_tests)
+                titles = ['Original ' + r'$W$' + ' Randomness', r'$W$' + ' Randomness\nw/ Mean Ties', 'Tied ' + r'$W$' + ' Randomness', r'$W$' + ' Wasserstein Randomness']
+                w_fns = ['og_randomness', 'og_newOld_randomness', 'ties_randomness', 'wasserstein_randomness']
+                
+
+                for a, ax in enumerate(axes.flat):
+                    print(f'axis: {a}')
+                    if w_fns[a] == 'og_randomness':
+                        temp_object = ranking_object
+                        default_temp_object = default_ranking_object
+                    else:
+                        temp_object = result_object
+                        default_temp_object = default_result_object
+                    for test_interval in range(1, n_tests):
+                        for i in range(n_repeats):
+                            test_idx = random.sample(input_idxs, test_interval)
+
+                            temp_rankings = temp_object[test_idx, :, :]
+                            WW_HPO = locals()[w_fns[a]](temp_rankings)
+                            ax.plot(test_interval, WW_HPO, 'x', c='C4', markersize=2)
+
+                            temp_rankings = default_temp_object[test_idx, :, :]
+                            WW_DEF = locals()[w_fns[a]](temp_rankings)
+                            ax.plot(test_interval, WW_DEF, 'x', c='C3', markersize=2)
+                    
+                    handles = []
+                    handles.append(mlines.Line2D([], [], label='HPO', color="C4", marker='x', linestyle='None'))
+                    handles.append(mlines.Line2D([], [], label='Default', color="C3", marker='x', linestyle='None'))
+
+                    ax.set_xlabel('N Tests', fontsize=6)
+                    ax.set_ylabel(r'$W$', fontsize=6)
+                    ax.set_title(titles[a], fontsize=8)
+                    ax.set_ylim(0, 0.75)
+                    ax.legend(handles=handles, loc='best', fontsize=4)
+                
+
+                fig.tight_layout()
+                fig.savefig(f"{ugle_path}/figures/w_distribution_entropy.eps", format='eps', bbox_inches='tight')
 
 
 

@@ -1295,7 +1295,7 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 
 if __name__ == "__main__":
-    make_ugle = True
+    make_ugle = False
     make_big_figure = False
     make_dist_figure = True
 
@@ -1409,7 +1409,7 @@ if __name__ == "__main__":
                 n_tests = result_object.shape[0]
                 n_repeats = 10
                 input_idxs = range(0, n_tests)
-                titles = ['Original ' + r'$W$' + ' Randomness', r'$W$' + ' Randomness\nw/ Mean Ties', 'Tied ' + r'$W$' + ' Randomness', r'$W$' + ' Wasserstein Randomness']
+                titles = ['Original ' + r'$W$' + ' Randomness', r'$W$' + ' Randomness\nw/ Mean Ties', 'Tied ' + r'$W_t$' + ' Randomness', r'$W_w$' + ' Wasserstein Randomness']
                 w_fns = ['og_randomness', 'og_newOld_randomness', 'ties_randomness', 'wasserstein_randomness']
                 
 

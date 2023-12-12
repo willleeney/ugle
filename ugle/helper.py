@@ -15,7 +15,6 @@ from scipy.stats import spearmanr
 from sklearn.metrics import r2_score
 import pandas as pd
 import matplotlib
-matplotlib.use("macosx")
 import scienceplots
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
@@ -1315,6 +1314,7 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 
 if __name__ == "__main__":
+    matplotlib.use("macosx")
     make_ugle = False
     make_big_figure = False
     make_dist_figure = False

@@ -769,7 +769,6 @@ def reshape_ranking_to_test_object(ranking_object):
     ranking_object = ranking_object.reshape((-1,) + ranking_object.shape[2:])
     return ranking_object
 
-
 def og_randomness(ranking_object):
     # og W coefficient where draws are the lowest rank that would occur from the ties
     n_draws = 0
@@ -806,7 +805,6 @@ def ties_randomness(ranking_object):
         wills_order.append(w_randomness_w_ties(rank_test))
     wills_order = np.array(wills_order)
     return np.mean(wills_order)
-
 
 def wasserstein_randomness(ranking_object):
     #  W coefficient from wasserstein where draws are the average rank between those tied
@@ -877,7 +875,6 @@ def w_randomness_w_ties(test):
 
     return 1 - W
 
-
 def create_random_results(n_tests, n_seeds, n_algorithms):
     ranks = []
     for i in range(n_tests):
@@ -939,6 +936,29 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
         return mod_results, con_results, df
     else: 
         return mod_results, con_results
+
+
+def extract_supervised_results(datasets, algorithms, folder):
+    f1_nmi_results = np.zeros((len(datasets)*len(algorithms)*10, 2))
+    i = 0
+    
+    for dataset in datasets:
+        for algo in algorithms:
+            filename = f"{dataset}_{algo}.pkl"
+            file_found = search_results(folder, filename)
+            if file_found:
+                result = pickle.load(open(file_found, "rb"))
+            
+                for seed_result in result.results:
+                    for metric_result in seed_result.study_output:
+                        if 'f1' in metric_result.metrics:
+                            f1_nmi_results[i, 0] = metric_result.results['f1']
+                        if 'nmi' in metric_result.metrics:
+                            f1_nmi_results[i, 1] = metric_result.results['nmi']
+                    i += 1
+            else:
+                print(f"did not find: {filename}")
+    return f1_nmi_results
 
 def print_dataset_table(datasets, algorithms, folder, power_d=2):
     # extract results
@@ -1297,10 +1317,11 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 if __name__ == "__main__":
     make_ugle = False
     make_big_figure = False
-    make_dist_figure = True
-
-    make_unsuper = False
+    make_dist_figure = False
     make_presentation_figures = False
+
+    make_unsuper = True
+    calc_increases = True
 
 
     if make_ugle:
@@ -1466,9 +1487,30 @@ if __name__ == "__main__":
         default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
         algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
 
+        if calc_increases:
+            # calculate the percentage drops
+            f1_nmi_results = extract_supervised_results(datasets, default_algorithms, './results/legacy_results/q1_default_predict_super')
+            dmod_results, dcon_results = extract_results(datasets, default_algorithms, q1_folder)
+
+            diff = np.zeros((f1_nmi_results.shape[0], 4))
+            for i, row in enumerate(f1_nmi_results):
+                # f1 - modf1 
+                diff[i, 0] = (row[0] - dmod_results[i, 1]) / dmod_results[i, 1]
+
+                # f1 - conf1 
+                diff[i, 1] = (row[0] - dcon_results[i, 1]) / dcon_results[i, 1]
+
+                # nmi - modnmi
+                diff[i, 2] = (row[1] - dmod_results[i, 2]) / dmod_results[i, 2]
+
+                # nmi - connmi 
+                diff[i, 3] = (row[1] - dcon_results[i, 2]) / dcon_results[i, 2]
+
+            print(np.mean(diff, axis=0))
+
         #calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder)
 
-        create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(8, 6))
+        #create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(8, 6))
         #create_abs_performance_figure(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Performance", plot_dims=[2, 3], figsize=(8, 6))
         #create_abs_performance_figure(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="DMoN Performance Large Datasets with HPO", plot_dims=[1, 2], figsize=(5, 2.5))
         #create_abs_performance_figure(synth_datasets, default_algorithms, q5_folder, title="Default Hyperparameter's Performance on Synthetic Data", plot_dims=[3, 3], figsize=(9, 9))

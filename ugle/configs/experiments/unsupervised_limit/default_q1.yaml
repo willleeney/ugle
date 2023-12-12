@@ -1,8 +1,8 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: []
-algorithms: []
-dataset_algo_combinations: ["amac_dgi_default" ,"amac_daegc_default" ,"amac_dmon_default" ,"amac_grace_default" ,"amac_sublime_default" ,"amac_bgrl_default" ,"amac_vgaer_default"]
-run_cpu_fallback: True
+datasets: ['cora', 'citeseer', 'texas', 'dblp', 'vgaer']
+algorithms: ['sublime', 'bgrl', 'vgaer', 'daegc', 'dmon', 'grace']
+dataset_algo_combinations: null
+run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False
   retrain_on_each_dataset: False
@@ -10,7 +10,7 @@ special_training:
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 1
-    results_path: './results/default_q1/'
+    results_path: './results/default_sup_select/'
     only_testing: True
 
     show_config: False
@@ -18,7 +18,7 @@ study_override_cfg:
     calc_time: False
 
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
-    valid_metrics: ['modularity', 'conductance']
+    valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     gpu: '0'
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0

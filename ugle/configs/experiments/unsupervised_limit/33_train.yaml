@@ -1,7 +1,7 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: []
-algorithms: []
-dataset_algo_combinations: ["wisc_dmon_default", 'texas_dmon_default', 'cornell_dmon_default', "cora_dmon_default", 'citeseer_dmon_default', 'dblp_dmon_default']
+datasets: ['cora', 'citeseer', 'texas', 'dblp', 'vgaer']
+algorithms: ['sublime', 'bgrl', 'vgaer', 'daegc', 'dmon', 'grace']
+dataset_algo_combinations: null
 run_cpu_fallback: False
 special_training: 
   split_addition_percentage: False
@@ -10,10 +10,9 @@ special_training:
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 1
-    results_path: './results/default_dmon_33/'
+    results_path: './results/default_33_sup/'
     only_testing: True
     
-
     show_config: False
     load_existing_test: False
     calc_time: False

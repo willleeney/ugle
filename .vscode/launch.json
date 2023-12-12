@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+    
 
     
     {"name":"Python: Current File","type":"python","request":"launch","program":"${file}","console":"integratedTerminal","justMyCode":true},
@@ -37,13 +38,13 @@
             "args" : ["-ec", "ugle/configs/testing/failing.yaml"]
         },
         {
-            "name": "Python: Test Dataset 33%",
+            "name": "Python: Test Dataset 66%",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/33_train.yaml"]
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/66_train.yaml"]
         },
         {
             "name": "Python: Test Time & Memory",

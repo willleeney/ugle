@@ -25,6 +25,8 @@ def neural_run(override_model: str = None,
     if override_dataset:
         cfg.dataset = override_dataset
 
+    assert not(cfg.trainer.only_testing and 'default' not in cfg.model), "Attempting hyperparameter analyis config with only_testing param enabled"
+
     if cfg.trainer.load_existing_test and 'default' not in override_model:
         # try load the pickle file from previous study 
         hpo_path = f"{cfg.trainer.load_hps_path}{cfg.dataset}_{cfg.model}.pkl"

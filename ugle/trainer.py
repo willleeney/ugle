@@ -21,7 +21,7 @@ from collections import defaultdict
 import optuna
 import warnings
 from os.path import exists
-from os import makedirs, devnull
+from os import makedirs, devnull, get_terminal_size
 import psutil
 from memory_profiler import memory_usage
 
@@ -595,15 +595,16 @@ class ugleTrainer:
             if self.current_epoch % self.cfg.trainer.log_interval == 0:
                 if self.current_epoch != 0:
                     if not (self.current_epoch - self.cfg.trainer.log_interval == 0 and self.cfg.trainer.calc_memory):
-                        nlength_term = utils.remove_last_line()
-                        if len_prev_line > nlength_term:
-                            _ = utils.remove_last_line(nlength_term)
+                        nlength_terminal = get_terminal_size().columns
+                        utils.remove_last_line()
+                        if len_prev_line > nlength_terminal:
+                            utils.remove_last_line()
                     log.info(str(self.progress_bar))
                     len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
                 else:
                     log.info(str(self.progress_bar))
                     len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
-        
+
             timings[0] += time.time() - start
             start = time.time()
             # check if validation time
@@ -670,10 +671,12 @@ class ugleTrainer:
             if patience_waiting.all() >= self.cfg.args.patience:
                 log.info(f'Early stopping at epoch {self.current_epoch}!')
                 break
-
-        nlength_term = utils.remove_last_line()
-        if len_prev_line > nlength_term:
-            _ = utils.remove_last_line(nlength_term)
+        
+        len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
+        nlength_terminal = get_terminal_size().columns
+        utils.remove_last_line()
+        if len_prev_line > nlength_terminal:
+            utils.remove_last_line()
         log.info(str(self.progress_bar))
         # finished training, record time taken
         timings[0] += time.time() - start

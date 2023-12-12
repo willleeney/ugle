@@ -124,11 +124,13 @@ def set_device(gpu: int):
     return device
 
 
-def remove_last_line(cols=None):
-    if not cols:
-        cols = os.get_terminal_size().columns
-    print("\033[A{}\033[A".format(' '*cols))
-    return cols
+def remove_last_line():
+    # move line up, move to column one, clear entire line
+    print("\033[1F\033[1G\033[2K\033[", end='')
+    return
+
+# \x1B
+# \u001b
 
 
 def sample_hyperparameters(trial: optuna.trial.Trial, args: DictConfig, prune_params=None) -> DictConfig:

@@ -596,9 +596,8 @@ class ugleTrainer:
                 if self.current_epoch != 0:
                     if not (self.current_epoch - self.cfg.trainer.log_interval == 0 and self.cfg.trainer.calc_memory):
                         nlength_terminal = get_terminal_size().columns
-                        utils.remove_last_line()
-                        if len_prev_line > nlength_terminal:
-                            utils.remove_last_line()
+                        for _ in range((len_prev_line // nlength_terminal) + 1):
+                            utils.remove_last_line() 
                     log.info(str(self.progress_bar))
                     len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
                 else:
@@ -674,9 +673,8 @@ class ugleTrainer:
         
         len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
         nlength_terminal = get_terminal_size().columns
-        utils.remove_last_line()
-        if len_prev_line > nlength_terminal:
-            utils.remove_last_line()
+        for _ in range((len_prev_line // nlength_terminal) + 1):
+            utils.remove_last_line() 
         log.info(str(self.progress_bar))
         # finished training, record time taken
         timings[0] += time.time() - start

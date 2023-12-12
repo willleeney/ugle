@@ -24,7 +24,9 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
                                       'model': algorithm,
                                       'average_results': {},
                                       'results': []})
-    
+    if 'default' not in algorithm:
+        assert not study_cfg.trainer.only_testing, "Attempting hyperparameter analyis config with only_testing param enabled"
+
     # repeat training over all seeds
     for idx, seed in enumerate(seeds):
         study_cfg.args.random_seed = seed

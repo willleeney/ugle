@@ -7,7 +7,10 @@ from fast_pytorch_kmeans import KMeans
 import scipy.sparse as sp
 from torch_geometric.nn import GCNConv
 import copy
-from torch_geometric.utils import dropout_adj
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=DeprecationWarning)
+    from torch_geometric.utils import dropout_adj
 import ugle
 from ugle.trainer import ugleTrainer
 

@@ -959,6 +959,29 @@ def extract_supervised_results(datasets, algorithms, folder):
                 print(f"did not find: {filename}")
     return f1_nmi_results
 
+def calc_percent_increase(f1_nmi_results, dmod_results, dcon_results):
+
+    diff = np.zeros((f1_nmi_results.shape[0], 4))
+    for i, row in enumerate(f1_nmi_results):
+        # f1 - modf1 
+        diff[i, 0] = (row[0] - dmod_results[i, 1]) / dmod_results[i, 1]
+
+        # f1 - conf1 
+        diff[i, 1] = (row[0] - dcon_results[i, 1]) / dcon_results[i, 1]
+
+        # nmi - modnmi
+        diff[i, 2] = (row[1] - dmod_results[i, 2]) / dmod_results[i, 2]
+
+        # nmi - connmi 
+        diff[i, 3] = (row[1] - dcon_results[i, 2]) / dcon_results[i, 2]
+
+    increases = np.mean(diff, axis=0)
+    print(f'Increase from using Modularity to select for F1 compared to just F1: {increases[0]*100:.2f}%')
+    print(f'Increase from using Conductance to select for F1 compared to just F1: {increases[1]*100:.2f}%')
+    print(f'Increase from using Modularity to select for NMI compared to just NMI: {increases[2]*100:.2f}%')
+    print(f'Increase from using Conductance to select for NMI compared to just NMI: {increases[3]*100:.2f}%')
+    return
+
 def print_dataset_table(datasets, algorithms, folder, power_d=2):
     # extract results
     for dataset in datasets:
@@ -1484,29 +1507,15 @@ if __name__ == "__main__":
                             'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
                             'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
 
-        default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+        default_algorithms = ['daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
         algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
 
         if calc_increases:
             # calculate the percentage drops
-            f1_nmi_results = extract_supervised_results(datasets, default_algorithms, './results/legacy_results/q1_default_predict_super')
+            f1_nmi_results = extract_supervised_results(datasets, default_algorithms, './results/unsupervised_limit/default_sup_select/')
             dmod_results, dcon_results = extract_results(datasets, default_algorithms, q1_folder)
+            calc_percent_increase(f1_nmi_results, dmod_results, dcon_results)
 
-            diff = np.zeros((f1_nmi_results.shape[0], 4))
-            for i, row in enumerate(f1_nmi_results):
-                # f1 - modf1 
-                diff[i, 0] = (row[0] - dmod_results[i, 1]) / dmod_results[i, 1]
-
-                # f1 - conf1 
-                diff[i, 1] = (row[0] - dcon_results[i, 1]) / dcon_results[i, 1]
-
-                # nmi - modnmi
-                diff[i, 2] = (row[1] - dmod_results[i, 2]) / dmod_results[i, 2]
-
-                # nmi - connmi 
-                diff[i, 3] = (row[1] - dcon_results[i, 2]) / dcon_results[i, 2]
-
-            print(np.mean(diff, axis=0))
 
         #calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder)
 

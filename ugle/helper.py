@@ -823,12 +823,10 @@ def nrule(n):
     return j
 
 def w_rand_wasserstein(rankings):
-    n_seeds = rankings.shape[0]
     n_algorithms = rankings.shape[1]
-
     # rank_test[:, 0] -> all seeds, one algorithm
     wass_agg = []
-    for i in range(n_seeds):
+    for i in range(n_algorithms):
         for j in range(i):  # Iterate up to i to stay to the left of the diagonal
             wass_agg.append(wasserstein_distance(rankings[:, i], rankings[:, j]))
     return 1 - (np.sum(wass_agg) / nrule(n_algorithms))
@@ -935,7 +933,6 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
         return mod_results, con_results, df
     else: 
         return mod_results, con_results
-
 
 def extract_supervised_results(datasets, algorithms, folder):
     f1_nmi_results = np.zeros((len(datasets)*len(algorithms)*10, 2))
@@ -1338,12 +1335,12 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = False
+    make_ugle = True
     make_big_figure = False
-    make_dist_figure = False
+    make_dist_figure = True
     make_presentation_figures = False
 
-    make_unsuper = True
+    make_unsuper = False
     calc_increases = True
 
 

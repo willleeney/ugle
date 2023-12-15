@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: null
-algorithms: null
+datasets: ['Photo']
+algorithms: ['dmon']
 dataset_algo_combinations: null
 run_cpu_fallback: False
 special_training: 
@@ -10,7 +10,7 @@ special_training:
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 250
-    results_path: './results/hpo_q2_sup/'
+    results_path: './results/hpo_large_sup/'
     save_hpo_study: True
 
     show_config: False

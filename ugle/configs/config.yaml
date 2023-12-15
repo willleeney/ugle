@@ -12,6 +12,7 @@ trainer:
   models_path: './models/'
   load_existing_test: False
   only_testing: False
+  save_hpo_study: False
 
   test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
   valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']

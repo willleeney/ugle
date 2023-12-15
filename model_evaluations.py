@@ -181,5 +181,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='parsing the experiment to run')
     parser.add_argument('-ec', '--experiment_config', type=str, required=True,
                         help='the location of the experiment config')
+    parser.add_argument('-ad', '--dataset_algorithm_override', type=str, required=False,
+                        help='dataset')
     parsed = parser.parse_args()
+
+    if parsed.dataset_algorithm_override:
+        parsed.experiment_config.dataset_algo_combinations = [parsed.dataset_algorithm_override]
     run_experiment(parsed.experiment_config)

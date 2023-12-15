@@ -24,6 +24,7 @@ from os.path import exists
 from os import makedirs, devnull, get_terminal_size
 import psutil
 from memory_profiler import memory_usage
+import pickle
 
 from optuna.exceptions import ExperimentalWarning
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
@@ -542,6 +543,8 @@ class ugleTrainer:
                                 "args": best_hp_params},
                                f"{self.cfg.trainer.models_path}{self.cfg.model}_{test_metrics}.pt")
 
+        if study and self.cfg.trainer.save_hpo_study:
+                pickle.dump(study, open(f"{self.cfg.trainer.results_path}study_{self.cfg.args.random_seed}_{self.cfg.dataset}_{self.cfg.model}.pkl","wb"))
 
         return objective_results
 

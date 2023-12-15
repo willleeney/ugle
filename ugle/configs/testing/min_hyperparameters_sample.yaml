@@ -6,3 +6,4 @@ study_override_cfg:
   trainer:
     gpu: "0"
     n_trials_hyperopt: 5
+    save_hpo_study: True

@@ -599,7 +599,10 @@ class ugleTrainer:
             if self.current_epoch % self.cfg.trainer.log_interval == 0:
                 if self.current_epoch != 0:
                     if not (self.current_epoch - self.cfg.trainer.log_interval == 0 and self.cfg.trainer.calc_memory):
-                        nlength_terminal = get_terminal_size().columns
+                        try: 
+                            nlength_terminal = get_terminal_size().columns
+                        except: 
+                           nlength_terminal = 80
                         for _ in range((len_prev_line // nlength_terminal) + 1):
                             utils.remove_last_line() 
                     log.info(str(self.progress_bar))
@@ -676,7 +679,10 @@ class ugleTrainer:
                 break
         
         len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
-        nlength_terminal = get_terminal_size().columns
+        try: 
+            nlength_terminal = get_terminal_size().columns
+        except: 
+            nlength_terminal = 80
         for _ in range((len_prev_line // nlength_terminal) + 1):
             utils.remove_last_line() 
         log.info(str(self.progress_bar))

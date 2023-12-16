@@ -75,7 +75,7 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
     return average_results
 
 
-def run_experiment(exp_cfg_name: str):
+def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str):
     """
     run experiments which consists of multiple models and datasets
     :param exp_cfg_name: location of the yaml file containing experiment configuration
@@ -84,7 +84,9 @@ def run_experiment(exp_cfg_name: str):
     log.info(f'loading experiment: {exp_cfg_name}')
     exp_cfg = OmegaConf.load('ugle/configs/experiments/exp_cfg_template.yaml')
     exp_cfg = ugle.utils.merge_yaml(exp_cfg, exp_cfg_name)
-
+    if dataset_algorithm_override: 
+        exp_cfg.dataset_algo_combinations = [dataset_algorithm_override]
+    
     # iterate
     if exp_cfg.special_training.split_addition_percentage:
         log.info('Special Experiment: Removes percentage from whole dataset')
@@ -181,10 +183,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='parsing the experiment to run')
     parser.add_argument('-ec', '--experiment_config', type=str, required=True,
                         help='the location of the experiment config')
-    parser.add_argument('-ad', '--dataset_algorithm_override', type=str, required=False,
+    parser.add_argument('-da', '--dataset_algorithm_override', type=str, default=None,
                         help='dataset')
     parsed = parser.parse_args()
 
-    if parsed.dataset_algorithm_override:
-        parsed.experiment_config.dataset_algo_combinations = [parsed.dataset_algorithm_override]
-    run_experiment(parsed.experiment_config)
+    run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override)

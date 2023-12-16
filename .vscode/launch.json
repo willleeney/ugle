@@ -6,6 +6,7 @@
     "configurations": [
 
 
+
     
 
     
@@ -30,6 +31,18 @@
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/testing/min_hpo.yaml"]
         },
+
+        {
+            "name": "Python: Test AD",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/hpo_new.yaml", "-ad", "cora_daegc"]
+        },
+
+        
         {
             "name": "Python: Test Main",
             "type": "python",

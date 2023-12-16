@@ -434,6 +434,7 @@ class ugleTrainer:
                 self.cfg = utils.assign_test_params(self.cfg, params_to_assign)
         else:
             params_to_assign = 'default'
+            study = None
 
         processed_test_data = self.preprocess_data(features, test_adjacency)
 
@@ -544,7 +545,7 @@ class ugleTrainer:
                                f"{self.cfg.trainer.models_path}{self.cfg.model}_{test_metrics}.pt")
 
         if study and self.cfg.trainer.save_hpo_study:
-                pickle.dump(study, open(f"{self.cfg.trainer.results_path}study_{self.cfg.args.random_seed}_{self.cfg.dataset}_{self.cfg.model}.pkl","wb"))
+            pickle.dump(study, open(f"{self.cfg.trainer.results_path}study_{self.cfg.args.random_seed}_{self.cfg.dataset}_{self.cfg.model}.pkl","wb"))
 
         return objective_results
 

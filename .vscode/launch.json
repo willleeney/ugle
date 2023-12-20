@@ -31,6 +31,15 @@
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/testing/min_hpo.yaml"]
         },
+        {
+            "name": "Python: Test MIN HPO DEFAULT",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/testing/min_hpodefault.yaml"]
+        },
 
         {
             "name": "Python: Test AD",

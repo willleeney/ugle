@@ -24,3 +24,5 @@ study_override_cfg:
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0
     training_to_testing_split: 1.0
+  args:
+    max_epoch: 5000

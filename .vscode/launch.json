@@ -48,7 +48,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/hpo_new.yaml", "-ad", "cora_daegc"]
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/hpo_new.yaml", "-da", "cora_daegc"]
         },
 
         

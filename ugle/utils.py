@@ -230,7 +230,7 @@ def create_experiment_tracker(exp_cfg: DictConfig) -> list:
     :experiment_tracker: list of results objects that store results from individual experiment
     """
     experiment_tracker = []
-    if exp_cfg.dataset_algo_combinations != []:
+    if exp_cfg.dataset_algo_combinations:
         for dataset_algo in exp_cfg.dataset_algo_combinations:
             dataset, algorithm = dataset_algo.split('_', 1)
             experiment_tracker.append(OmegaConf.create(

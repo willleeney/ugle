@@ -40,9 +40,12 @@ def neural_run(override_model: str = None,
                 cfg.args = OmegaConf.merge(cfg.args, found_args)
         cfg.trainer.only_testing = True
 
-    # make model save path 
-    cfg.trainer.models_path += f'{cfg.dataset}_{cfg.model}/'
-    
+    # make model save path
+    if not override_model:
+        cfg.trainer.models_path += f'{cfg.dataset}_{cfg.model}/'
+    else: 
+        cfg.trainer.models_path += f'{cfg.dataset}_{override_model}/'
+
     # create trainer object defined in models and init with config
     Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)
 

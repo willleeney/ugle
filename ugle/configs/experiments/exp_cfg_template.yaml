@@ -20,6 +20,8 @@ study_override_cfg: # override default config args
     load_existing_test: False # whether to check for existing hyperparameters
     split_addition_percentage: False
     load_hps_path: './found_hps/'
+    only_testing: False
+    save_hpo_study: False
 
 
     retrain_on_each_dataset: False

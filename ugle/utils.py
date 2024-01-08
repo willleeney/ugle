@@ -124,11 +124,9 @@ def set_device(gpu: int):
     return device
 
 
-def remove_last_line(cols=None):
-    if not cols:
-        cols = os.get_terminal_size().columns
-    print("\033[A{}\033[A".format(' '*cols))
-    return cols
+def remove_last_line():
+    print(f"\033[2F\033[", end='\n')
+    return
 
 
 def sample_hyperparameters(trial: optuna.trial.Trial, args: DictConfig, prune_params=None) -> DictConfig:
@@ -232,16 +230,7 @@ def create_experiment_tracker(exp_cfg: DictConfig) -> list:
     :experiment_tracker: list of results objects that store results from individual experiment
     """
     experiment_tracker = []
-    if exp_cfg.datasets != [] and exp_cfg.algorithms != []:
-        for dataset in exp_cfg.datasets:
-            for algorithm in exp_cfg.algorithms:
-                experiment_tracker.append(OmegaConf.create(
-                                {'dataset': dataset,
-                                'algorithm': algorithm,
-                                'seeds': exp_cfg.seeds,
-                                'results': {}
-                                }))
-    elif exp_cfg.dataset_algo_combinations != []:
+    if exp_cfg.dataset_algo_combinations:
         for dataset_algo in exp_cfg.dataset_algo_combinations:
             dataset, algorithm = dataset_algo.split('_', 1)
             experiment_tracker.append(OmegaConf.create(
@@ -250,7 +239,16 @@ def create_experiment_tracker(exp_cfg: DictConfig) -> list:
                                 'seeds': exp_cfg.seeds,
                                 'results': {}
                                 }))
-
+            
+    elif exp_cfg.datasets and exp_cfg.algorithms:
+        for dataset in exp_cfg.datasets:
+            for algorithm in exp_cfg.algorithms:
+                experiment_tracker.append(OmegaConf.create(
+                                {'dataset': dataset,
+                                'algorithm': algorithm,
+                                'seeds': exp_cfg.seeds,
+                                'results': {}
+                                }))
 
     return experiment_tracker
 

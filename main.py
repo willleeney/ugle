@@ -7,7 +7,7 @@ import time
 from os.path import isfile
 import pickle
 from memory_profiler import memory_usage
-
+import shutil
 
 def neural_run(override_model: str = None,
                override_dataset: str = None,
@@ -40,6 +40,12 @@ def neural_run(override_model: str = None,
                 cfg.args = OmegaConf.merge(cfg.args, found_args)
         cfg.trainer.only_testing = True
 
+    # make model save path
+    if not override_model:
+        cfg.trainer.models_path += f'{cfg.dataset}_{cfg.model}/'
+    else: 
+        cfg.trainer.models_path += f'{cfg.dataset}_{override_model}/'
+
     # create trainer object defined in models and init with config
     Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)
 
@@ -53,6 +59,9 @@ def neural_run(override_model: str = None,
     if cfg.trainer.calc_time:
         log.info(f"Total Time for {cfg.model} {cfg.dataset}: {round(time.time() - start_time, 3)}s")
 
+    # end model save path 
+    shutil.rmtree(cfg.trainer.models_path)
+        
     return results
 
 

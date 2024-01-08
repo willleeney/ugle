@@ -6,6 +6,7 @@ from sklearn.metrics import f1_score, normalized_mutual_info_score
 from scipy.optimize import linear_sum_assignment
 import math
 import warnings
+from line_profiler import LineProfiler
 
 SMOOTH_K_TOLERANCE = 1e-5
 MIN_K_DIST_SCALE = 1e-3

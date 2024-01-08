@@ -11,6 +11,7 @@ study_override_cfg:
   trainer:
     n_trials_hyperopt: 2
     results_path: './results/failing/'
+    save_hpo_study: True
 
     show_config: False
     load_existing_test: False

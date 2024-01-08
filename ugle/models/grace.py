@@ -7,6 +7,7 @@ import scipy.sparse as sp
 import numpy as np
 from fast_pytorch_kmeans import KMeans
 import warnings
+warnings.filterwarnings('ignore')
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     from torch_geometric.utils import dropout_adj

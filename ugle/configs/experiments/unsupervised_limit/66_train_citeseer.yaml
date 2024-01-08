@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['cora', 'citeseer', 'texas', 'dblp', 'wisc', 'cornell']
-algorithms: ['dgi_default']
+datasets: ['citeseer']
+algorithms: ['bgrl_default', 'sublime_default', 'vgaer_default', 'daegc_default', 'dmon_default', 'grace_default']
 dataset_algo_combinations: null
 run_cpu_fallback: False
 special_training: 
@@ -10,9 +10,9 @@ special_training:
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 1
-    results_path: './results/default_sup_select/'
+    results_path: './results/default_66_sup/'
     only_testing: True
-
+    
     show_config: False
     load_existing_test: False
     calc_time: False
@@ -22,6 +22,5 @@ study_override_cfg:
     gpu: '0'
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0
-    training_to_testing_split: 1.0
-  args:
-    max_epoch: 5000
+    training_to_testing_split: 0.66
+    save_validation: True

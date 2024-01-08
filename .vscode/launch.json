@@ -7,6 +7,12 @@
 
 
 
+    
+
+    
+    {"name":"Python: Current File","type":"python","request":"launch","program":"${file}","console":"integratedTerminal","justMyCode":true},
+    
+    
         {
             "name": "Python: Test Model Evaluations",
             "type": "python",
@@ -16,6 +22,36 @@
             "program": "${workspaceFolder}/model_evaluations.py",
             "args" : ["-ec", "ugle/configs/testing/min_full.yaml"]
         },
+        {
+            "name": "Python: Test MIN HPO",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/testing/min_hpo.yaml"]
+        },
+        {
+            "name": "Python: Test MIN HPO DEFAULT",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/testing/min_hpodefault.yaml"]
+        },
+
+        {
+            "name": "Python: Test AD",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/hpo_new.yaml", "-da", "cora_daegc"]
+        },
+
+        
         {
             "name": "Python: Test Main",
             "type": "python",
@@ -35,13 +71,13 @@
             "args" : ["-ec", "ugle/configs/testing/failing.yaml"]
         },
         {
-            "name": "Python: Test newest ",
+            "name": "Python: Test Dataset 66%",
             "type": "python",
             "request": "launch",
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/model_evaluations.py",
-            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/dmon_large_hpo.yaml"]
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/66_train.yaml"]
         },
         {
             "name": "Python: Test Time & Memory",
@@ -59,7 +95,16 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "program": "${workspaceFolder}/main.py",
-            "args" : ["--model", "dmon", "--max_epoch", "1", "--dataset", "Computers"]
+            "args" : ["--model", "dmon_default", "--max_epoch", "20", "--dataset", "Computers"]
+        },
+        {
+            "name": "Python: Test dmon large ",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "program": "${workspaceFolder}/model_evaluations.py",
+            "args" : ["-ec", "ugle/configs/experiments/unsupervised_limit/dmon_large.yaml"]
         },
 
     ]

@@ -4,26 +4,94 @@ from typing import Union, Tuple
 import torch.nn.functional as F
 from ugle.logger import ugle_path, log
 import torch
-import time
-from torch_geometric.datasets import WikiCS, Reddit2, Planetoid, Coauthor, Flickr, WebKB, AttributedGraphDataset, NELL, GitHub
+from karateclub.dataset import GraphReader
+from torch_geometric.transforms import ToUndirected
+from torch_geometric.datasets import Coauthor
 from torch_geometric.datasets.amazon import Amazon
-from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader, NeighborLoader
-from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj, stochastic_blockmodel_graph, remove_self_loops
-from torch_geometric.transforms import ToUndirected, NormalizeFeatures, Compose
+
+google_store_datasets = ['acm', 'amac', 'amap', 'bat', 'citeseer', 'cora', 'cocs', 'dblp', 'eat', 'uat', 'pubmed',
+                          'texas', 'wisc', 'cornell']
+karate_club_datasets = ['facebook', 'twitch', 'wikipedia', 'github', 'lastfm', 'deezer']
+big_datasets = ['Physics', 'CS', 'Photo', 'Computers']
+all_datasets = (google_store_datasets + karate_club_datasets + big_datasets)
 
 
-
-def split(n, k):
-    d, r = divmod(n, k)
-    return [d + 1] * r + [d] * (k - r)
-
-
-def max_nodes_in_edge_index(edge_index):
-    if edge_index.nelement() == 0:
-        return -1
+def check_data_presence(dataset_name: str) -> bool:
+    """
+    checks for dataset presence in local memory
+    :param dataset_name: dataset name to check
+    """
+    dataset_path = ugle_path + f'/data/{dataset_name}'
+    if not os.path.exists(dataset_path):
+        return False
+    elif not os.path.exists(f'{dataset_path}/{dataset_name}_feat.npy'):
+        return False
+    elif not os.path.exists(f'{dataset_path}/{dataset_name}_label.npy'):
+        return False
+    elif not os.path.exists(f'{dataset_path}/{dataset_name}_adj.npy'):
+        return False
     else:
-        return int(edge_index.max())
+        return True
+
+
+def download_graph_data(dataset_name: str) -> bool:
+    """
+    downloads a graph dataset
+    :param dataset_name: name of the dataset to download
+    :return True if successful
+    """
+    log.info(f'Downloading {dataset_name}')
+    download_link_path = ugle_path + '/data/download_links.yaml'
+    download_links = OmegaConf.load(download_link_path)
+    url = download_links[dataset_name]
+    dataset_path = ugle_path + f'/data/{dataset_name}'
+    if not os.path.exists(dataset_path):
+        os.mkdir(dataset_path)
+
+    dataset_zip_path = dataset_path + f'/{dataset_name}.zip'
+    gdown.download(url=url, output=dataset_zip_path, quiet=False, fuzzy=True)
+    log.info('Finished downloading')
+
+    # extract the zip file
+    log.info('Extracting dataset')
+    with zipfile.ZipFile(dataset_zip_path, 'r') as zip_ref:
+        zip_ref.printdir()
+        zip_ref.extractall(dataset_path)
+    log.info('Extraction complete')
+
+    # correct the path dir
+    extended_path = f'{dataset_path}/{dataset_name}'
+    dataset_path += '/'
+    if os.path.exists(extended_path):
+        log.info('Extraction to wrong location')
+        for subdir, dirs, files in os.walk(extended_path):
+            for file in files:
+                extract_path = os.path.join(subdir, file)
+                file = Path(file)
+                out_path = os.path.join(dataset_path, file)
+                log.info(f'Extracting {extract_path} to ... {out_path} ...')
+                shutil.move(Path(extract_path), Path(out_path))
+
+        shutil.rmtree(extended_path)
+
+    return True
+
+
+
+def to_edge_index(adjacency: np.ndarray):
+    """
+    converts adjacency in numpy array form to an array of active edges
+    :param adjacency: input adjacency matrix
+    :return adjacency: adjacency matrix update form
+    """
+    adj_label = sp.coo_matrix(adjacency)
+    adj_label = adj_label.todok()
+
+    outwards = [i[0] for i in adj_label.keys()]
+    inwards = [i[1] for i in adj_label.keys()]
+
+    adjacency = torch.tensor([outwards, inwards], dtype=int)
+    return adjacency
 
 
 def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -39,6 +107,88 @@ def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[t
 
     keep_edge_index = torch.cat([keep_edge_index, keep_edge_index.flip(0)], dim=1)
     drop_edge_index = torch.cat([drop_edge_index, drop_edge_index.flip(0)], dim=1)
+
+    return keep_edge_index, drop_edge_index
+
+
+def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str = 'drop_edges',
+                         split_addition=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    loads the graph dataset and splits the adjacency matrix into two
+    :param dataset_name: name of the dataset
+    :param test_split: percentage of edges to keep
+    :return features, label, train_adj, adjacency: loaded graph data
+    """
+    assert dataset_name in all_datasets, f"{dataset_name} not a real dataset"
+
+    if dataset_name in google_store_datasets:
+        if not check_data_presence(dataset_name):
+            extraction_success = download_graph_data(dataset_name)
+            assert extraction_success, f'download/extraction of dataset {dataset_name} failed'
+            assert check_data_presence(dataset_name)
+
+        dataset_path = ugle_path + f'/data/{dataset_name}/{dataset_name}'
+        features = np.load(dataset_path + "_feat.npy", allow_pickle=True)
+        label = np.load(dataset_path + "_label.npy", allow_pickle=True)
+        adjacency = np.load(dataset_path + "_adj.npy", allow_pickle=True)
+
+
+    elif dataset_name in big_datasets:
+        dataset_path = ugle_path + f'/data/{dataset_name}'
+
+        if dataset_name in ['Photo', 'Computers']:
+            data = Amazon(root=dataset_path, name=dataset_name, transform=ToUndirected(merge=True))[0]
+        elif dataset_name in ['CS', 'Physics']:
+            data = Coauthor(root=dataset_path, name=dataset_name, transform=ToUndirected(merge=True))[0]
+        
+        features = data.x.numpy()
+        label = data.y.numpy()
+        adjacency = to_dense_adj(data.edge_index).numpy().squeeze(0)
+
+
+    if split_addition:
+        adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition, split_adj=False)
+
+    log.debug('Splitting dataset into training/testing')
+    train_adj, test_adj = split_adj(adjacency, test_split, split_scheme)
+
+    return features, label, train_adj, test_adj
+
+def split(n, k):
+    d, r = divmod(n, k)
+    return [d + 1] * r + [d] * (k - r)
+
+
+def max_nodes_in_edge_index(edge_index):
+    if edge_index.nelement() == 0:
+        return -1
+    else:
+        return int(edge_index.max())
+
+    for dataset_name in dataset_names:
+        features, label, train_adjacency, test_adjacency = load_real_graph_data(dataset_name, test_split=1.)
+        display_string = dataset_name + ' & '  # name
+        display_string += str(train_adjacency.shape[0]) + ' & '  # n_nodes
+        display_string += str(features.shape[1]) + ' & '  # n_features
+        display_string += str(int(np.nonzero(train_adjacency)[0].shape[0])) + ' & '  # n_edges
+        display_string += str(len(np.unique(label))) + ' & '  # n_classes
+        print(display_string)
+        continue
+        nx_g = nx.Graph(train_adjacency)
+        clustering = nx.average_clustering(nx_g)
+        cercania = nx.closeness_centrality(nx_g)
+        cercania = np.mean(list(cercania.values()))
+
+    row, col = edge_index
+    edge_mask = torch.rand(row.size(0)) >= p
+    keep_edge_index = edge_index[:, edge_mask]
+    drop_edge_index = edge_index[:, torch.ones_like(edge_mask, dtype=bool) ^ edge_mask]
+
+        display_string += str(round(clustering, 3)) + ' & '  # clustering coefficient
+        display_string += str(round(cercania, 3)) + ' \\\\'  # closeness centrality
+        print(display_string)
+    if visualise:
+        _ = display_figure_dataset_stats(clustering_x_data, closeness_y_data, dataset_names)
 
     return keep_edge_index, drop_edge_index
 
@@ -75,10 +225,29 @@ def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_perce
 
 def standardize(features):
     """
-    Applies a zscore node feature data augmentation.
+    augmentation by randomly dropping edges with given probability
+    :param input_adj: input adjacency matrix
+    :param drop_percent: percent that any edge is dropped
+    :return aug_adj: augmented adjacency matrix
+    """
 
-    :param data: The data to be augmented
-    :return: a new augmented instance of the input data
+    edge_index = to_edge_index(input_adj)
+    keep_index, drop_index = dropout_edge_undirected(edge_index, p=1-drop_percent)
+    aug_adj = to_dense_adj(drop_index).numpy().squeeze(0)
+
+    n_missing = input_adj.shape[0] - aug_adj.shape[0]
+    pad_width = ((0, n_missing), (0, n_missing))
+    aug_adj = np.pad(aug_adj, pad_width, mode='constant', constant_values=0.)
+    assert input_adj.shape == aug_adj.shape
+
+    return aug_adj, input_adj
+
+
+def numpy_to_edge_index(adjacency: np.ndarray):
+    """
+    converts adjacency in numpy array form to an array of active edges
+    :param adjacency: input adjacency matrix
+    :return adjacency: adjacency matrix update form
     """
     mean, std = features.mean(), features.std()
     new_data = (features - mean) / (std + 10e-7)
@@ -334,86 +503,65 @@ if __name__ == "__main__":
             model = Net(dstats)
             optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     
-            # cuda stats
-            if use_cuda:
-                torch.cuda.reset_peak_memory_stats(device)
-                usage = torch.cuda.mem_get_info(device)
-                log.info(f'START LAYER: Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-                model = model.to(device)
-            # iterate loader
-            for i, batch in enumerate(iter(dataloader)):
-                x = batch.x.to(device)
-                if edges_on_gpu: 
-                    edge_index =  batch.edge_index.to(device)
-                else:
-                    edge_index =  batch.edge_index
-                
-                optimizer.zero_grad()
-                preds, loss = model(x, edge_index)
-                loss.backward()
-                optimizer.step()
+    return train_adjacency, validation_adjacency
 
-            if use_cuda:
-                usage = torch.cuda.mem_get_info(device)
-                log.info(f'END LAYER: Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-                log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
 
-                    
-        # compute one layer forward pass
-        forward_pass_pyg_layer(dataloader, device)
+if __name__ == '__main__':
 
-        def preprocess_data(loader):
-            dataset = []
-            for batch in iter(loader):
-                adjacency = to_dense_adj(batch.edge_index)
-                adjacency = process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency.squeeze(0)))
-                #adjacency = process.normalize_adj(adjacency)
-                #adj = process.sparse_mx_to_torch_sparse_tensor(adjacency)
-                features = torch.FloatTensor(batch.x)
-                dataset.append(Data(x=features, y=batch.y, edge_index=adjacency))
-            
-            dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
-            return dataloader
 
-        def dmon_normal_pass(dataloader, device):
-            dstats = extract_dataset_stats(dataloader)
-            if line_profile:
-                lp = LineProfiler()
-                lp_wrapper = lp(preprocess_data)
-                dataloader = lp_wrapper(dataloader)
-                lp.print_stats()
-            else:
-                dataloader = preprocess_data(dataloader)    
-            layer = GCN(dstats['n_features'], dstats['n_clusters'])
+    from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj
+    import ugle.process as process
 
-            # cuda stats
-            if use_cuda:
-                torch.cuda.reset_peak_memory_stats(device)
-                usage = torch.cuda.mem_get_info(device)
-                log.info(f'START LAYER: Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-                layer = layer.to(device)
-            # iterate loader
-            for i, batch in enumerate(iter(dataloader)):
-                x = batch.x.to(device)
-                if edges_on_gpu: 
-                    edge_index =  batch.edge_index.to(device)
-                else:
-                    edge_index =  batch.edge_index
-                
-                out = layer(x, edge_index)
-                assignments = nn.functional.softmax(out, dim=1)
+    def sparse_modularity(edge_index, preds, n_edges):
+        degrees = torch.sparse.sum(edge_index, dim=0)._values().unsqueeze(1)
+        graph_pooled = torch.spmm(torch.spmm(edge_index, preds).T, preds)
+        normalizer_left = torch.spmm(preds.T, degrees)
+        normalizer_right = torch.spmm(preds.T, degrees).T
+        normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
+        return torch.trace(graph_pooled - normalizer) / 2 / n_edges
 
-                degrees = torch.sparse.sum(edge_index, dim=0)._values().unsqueeze(1)
-                graph_pooled = torch.spmm(torch.spmm(edge_index, assignments).T, assignments)
-                normalizer_left = torch.spmm(assignments.T, degrees)
-                normalizer_right = torch.spmm(assignments.T, degrees).T
-                normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / dstats['n_edges']
-                modularity = torch.trace(graph_pooled - normalizer) / 2 / dstats['n_edges']
 
-                if use_cuda:
-                    usage = torch.cuda.mem_get_info(device)
-                    log.info(f'END LAYER: Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
-        
-        #dmon_normal_pass(dataloader, device)
+    def sparse_conductance(edge_index, preds):
+        edge_index = edge_index.coalesce().indices()
+        inter = 0
+        intra = 0
+        for cluster_id in np.unique(preds):
+            nodes_in_cluster = torch.where(preds == cluster_id)[0]
+            edges_starting_from_cluster = torch.isin(edge_index[0, :], nodes_in_cluster)
+            inter_bool = torch.isin(edge_index[1, edges_starting_from_cluster], nodes_in_cluster)
+            new_inter = int(torch.sum(inter_bool))
+            inter += new_inter
+            intra += len(inter_bool) - new_inter
+        return intra / (inter + intra)
+    
+    def max_nodes_in_edge_index(edge_index):
+        if edge_index.nelement() == 0:
+            return -1
+        else:
+            return int(edge_index.max())
+    
+    def add_all_self_loops(edge_index, n_nodes):
+        edge_index, _ = add_remaining_self_loops(edge_index)
+        # if the end nodes have had all the edges removed then you need to manually add the final self loops
+        last_in_adj = max_nodes_in_edge_index(edge_index)
+        n_ids_left = torch.arange(last_in_adj + 1, n_nodes)
+        edge_index = torch.concat((edge_index, torch.stack((n_ids_left, n_ids_left))), dim=1)
+        return edge_index
+    
+    #dataset_path = ugle_path + f'/data/Computers'
+    #data = Amazon(root=dataset_path, name='Computers', transform=ToUndirected(merge=True))[0]
+    #edge_index = add_all_self_loops(data.edge_index, data.x.shape[0])
+    #adj = to_dense_adj(edge_index).squeeze(0).numpy()
+    
+    for dataset in ['pubmed', 'CS', 'Physics']:
+        features, label, train_adj, test_adj,  = load_real_graph_data(dataset, test_split=1.)
+        edge_index = numpy_to_edge_index(train_adj)
+        n_clusters = len(np.unique(label))
+        n_nodes = features.shape[0]
+        n_edges = edge_index.shape[1]
+        n_features = features.shape[1]
+        print(f'{dataset}: n_nodes:{n_nodes}, n_edges:{n_edges}, n_clusters:{n_clusters}, n_features:{n_features}')
 
+    #assignments = torch.softmax(torch.rand((n_nodes, n_clusters)), dim=1)
+    #graph = process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adj))
+    #preds = torch.argmax(assignments, dim=1)

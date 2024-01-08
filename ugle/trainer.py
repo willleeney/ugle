@@ -18,9 +18,10 @@ from collections import defaultdict
 import optuna
 import warnings
 from os.path import exists
-from os import makedirs, devnull
+from os import makedirs, devnull, get_terminal_size
+import psutil
 from memory_profiler import memory_usage
-from line_profiler import LineProfiler
+import pickle
 
 from optuna.exceptions import ExperimentalWarning
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
@@ -243,8 +244,9 @@ class ugleTrainer:
         cfg = ugle.utils.process_study_cfg_parameters(cfg)
 
         self.cfg = cfg
-        if not exists(cfg.trainer.models_path):
-            makedirs(cfg.trainer.models_path)
+
+        makedirs(cfg.trainer.models_path, exist_ok=True)
+        makedirs(cfg.trainer.results_path, exist_ok=True)
 
         self.progress_bar = None
         self.model = None
@@ -333,6 +335,7 @@ class ugleTrainer:
                 self.cfg = utils.assign_test_params(self.cfg, params_to_assign)
         else:
             params_to_assign = 'default'
+            study = None
 
 
         if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
@@ -396,9 +399,16 @@ class ugleTrainer:
 
                 # retrain 
                 log.debug('Retraining model')
-                self.model.train()
-                validation_results = self.train(None, train_loader, val_loader)
+                validation_results = self.train(None, label, features, processed_data, validation_adjacency,
+                           processed_valid_data)
 
+                #lp = LineProfiler()
+                #lp_wrapper = lp(self.train)
+                #validation_results = lp_wrapper(None, label, features, processed_data, validation_adjacency,
+                #           processed_valid_data)
+                #lp.print_stats()
+
+                
                 # at this point, the self.train() loop should go have saved models for each validation metric 
                 # then go through the best at metrics, and do a test for each of the best models 
                 for opt_metric in best_at_metrics:
@@ -424,6 +434,16 @@ class ugleTrainer:
 
                 # re init the args object for assign_test params
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
+
+                # this isnt the best code
+                if self.cfg.trainer.save_model and self.cfg.trainer.model_resolution_metric in best_at_metrics:
+                    log.info(f'Saving best version of model for {best_at_metrics}')
+                    torch.save({"model": self.model.state_dict(),
+                                "args": best_hp_params},
+                               f"{self.cfg.trainer.models_path}{self.cfg.model}_{test_metrics}.pt")
+
+        if study and self.cfg.trainer.save_hpo_study:
+            pickle.dump(study, open(f"{self.cfg.trainer.results_path}study_{self.cfg.args.random_seed}_{self.cfg.dataset}_{self.cfg.model}.pkl","wb"))
 
         return objective_results
 
@@ -478,16 +498,18 @@ class ugleTrainer:
             if self.current_epoch % self.cfg.trainer.log_interval == 0:
                 if self.current_epoch != 0:
                     if not (self.current_epoch - self.cfg.trainer.log_interval == 0 and self.cfg.trainer.calc_memory):
-                        nlength_term = utils.remove_last_line()
-                        if len_prev_line > nlength_term:
-                            _ = utils.remove_last_line(nlength_term)
+                        try: 
+                            nlength_terminal = get_terminal_size().columns
+                        except: 
+                           nlength_terminal = 80
+                        for _ in range((len_prev_line // nlength_terminal) + 1):
+                            utils.remove_last_line() 
                     log.info(str(self.progress_bar))
                     len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
                 else:
                     log.info(str(self.progress_bar))
                     len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
 
-            # add time to train time, reset for val
             timings[0] += time.time() - start
             start = time.time()
             # check if validation time
@@ -536,10 +558,13 @@ class ugleTrainer:
                 log.info(f'Early stopping at epoch {self.current_epoch}!')
                 break
         
-        # finalise progress bar logging
-        nlength_term = utils.remove_last_line()
-        if len_prev_line > nlength_term:
-            _ = utils.remove_last_line(nlength_term)
+        len_prev_line = len(log.name) + 19 + len(str(self.progress_bar))
+        try: 
+            nlength_terminal = get_terminal_size().columns
+        except: 
+            nlength_terminal = 80
+        for _ in range((len_prev_line // nlength_terminal) + 1):
+            utils.remove_last_line() 
         log.info(str(self.progress_bar))
         # finished training, record time taken
         timings[0] += time.time() - start
@@ -582,6 +607,22 @@ class ugleTrainer:
                 right_order_results = [return_results[k] for k in self.cfg.trainer.valid_metrics]
                 return tuple(right_order_results)
             
+    def testing_loop(self, label: np.ndarray, features: np.ndarray, adjacency: np.ndarray, processed_data: tuple, eval_metrics: ListConfig):
+        """
+        testing loop which processes the testing data, run through the model to get predictions
+        evaluate those predictions
+        """
+        self.model.eval()
+        processed_data = self.move_to_activedevice(processed_data)
+        preds = self.test(processed_data)
+        processed_data = self.move_to_cpudevice(processed_data)
+        results, eval_preds = ugle.process.preds_eval(label,
+                                                        preds,
+                                                        sf=4,
+                                                        adj=adjacency,
+                                                        metrics=eval_metrics)
+        self.model.train()
+        return results
 
     def preprocess_data(self, loader):
         log.error('NO PROCESSING STEP IMPLEMENTED FOR MODEL')

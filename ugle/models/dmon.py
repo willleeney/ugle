@@ -84,6 +84,23 @@ class DMoN(nn.Module):
         return assignments
 
 
+class dmon_trainer(ugleTrainer):
+
+    def preprocess_data(self, features, adjacency):
+        features = torch.FloatTensor(features)
+        features[features != 0.] = 1.
+
+
+        adjacency = adjacency + sp.eye(adjacency.shape[0])
+        adj_label = adjacency.copy()
+        adjacency = ugle.process.normalize_adj(adjacency)
+
+        graph_normalised = ugle.process.sparse_mx_to_torch_sparse_tensor(adjacency)
+
+        adj_label = sp.coo_matrix(adj_label)
+        graph = ugle.process.sparse_mx_to_torch_sparse_tensor(adj_label)
+
+        return graph, graph_normalised, features
 
 class dmon_trainer(ugleTrainer):
     def preprocess_data(self, loader):

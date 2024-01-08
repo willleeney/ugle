@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: ['cora']
-algorithms: ['sublime', 'bgrl', 'vgaer', 'dgi']
+algorithms: ['bgrl']
 dataset_algo_combinations: null
 run_cpu_fallback: False
 special_training: 

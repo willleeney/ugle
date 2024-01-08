@@ -31,3 +31,4 @@ unsuper_predict_default/*
 q3_train_06_default/*
 *.lprof
 mprofile*
+.vscode

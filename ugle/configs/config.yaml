@@ -13,35 +13,30 @@ trainer:
   load_existing_test: False
   only_testing: False
   save_hpo_study: False
+  save_model: False
 
+  # hyperparameter options
   test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
   valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
   validate_every_nepochs: 5
   n_trials_hyperopt: 1
   max_n_pruned: 20
+  suggest_hps_from_previous_seed: False
 
   training_to_testing_split: 0.2
   train_to_valid_split: 0.2
-  max_nodes_in_dataloader: 500000
   save_validation: False
 
-  split_addition_percentage: False
-
-  retrain_on_each_dataset: False
-  model_save_location: './models/'
-  model_resolution_metric: 'nmi'
-  finetuning_new_dataset: False 
-  save_model: False
-  same_init_hpo: False
-  suggest_hps_from_previous_seed: False
+  # logging options
   calc_time: True
   calc_memory: False
   log_interval: 5
 
+  # online wandb logger 
   logger:
     log_wandb: False
-    project: 'ugle'
-    entity: 'phd-keep-learning'
+    project: 'project-code'
+    entity: 'entity-code'
     log_cmd: 50
 
 args:

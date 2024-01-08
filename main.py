@@ -13,7 +13,7 @@ def neural_run(override_model: str = None,
                override_dataset: str = None,
                override_cfg: DictConfig = None) -> dict:
     """
-    runs a GNN neural experiment
+    runs a GNN experiment
     :param override_model: name of model to override default config
     :param override_dataset: name of the dataset to override default config
     :param override_cfg: override config options
@@ -49,6 +49,7 @@ def neural_run(override_model: str = None,
     # create trainer object defined in models and init with config
     Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)
 
+    # log the max memory usage by the evaluation
     start_time = time.time()
     if cfg.trainer.calc_memory: 
         mem_usage, results = memory_usage((Trainer.eval), retval=True)
@@ -56,12 +57,14 @@ def neural_run(override_model: str = None,
     else:
         results = Trainer.eval()
 
+    # log the time taken to train the model
     if cfg.trainer.calc_time:
         log.info(f"Total Time for {cfg.model} {cfg.dataset}: {round(time.time() - start_time, 3)}s")
 
-    # end model save path 
-    shutil.rmtree(cfg.trainer.models_path)
-        
+    # remove model save path 
+    if not cfg.trainer.save_model:
+        shutil.rmtree(cfg.trainer.models_path)
+
     return results
 
 

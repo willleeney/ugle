@@ -807,6 +807,7 @@ def ties_randomness(ranking_object):
 
 def wasserstein_randomness(ranking_object):
     #  W coefficient from wasserstein where draws are the average rank between those tied
+    # ranking_object shape [tests, seeds, algorithms]
     wills_order = []
     for test in ranking_object:
         rank_test = np.zeros_like(test)

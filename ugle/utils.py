@@ -240,7 +240,7 @@ def create_experiment_tracker(exp_cfg: DictConfig) -> list:
                                 'results': {}
                                 }))
             
-    if exp_cfg.datasets and exp_cfg.algorithms:
+    elif exp_cfg.datasets and exp_cfg.algorithms:
         for dataset in exp_cfg.datasets:
             for algorithm in exp_cfg.algorithms:
                 experiment_tracker.append(OmegaConf.create(

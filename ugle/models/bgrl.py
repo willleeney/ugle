@@ -8,6 +8,7 @@ import scipy.sparse as sp
 from torch_geometric.nn import GCNConv
 import copy
 import warnings
+warnings.filterwarnings('ignore')
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     from torch_geometric.utils import dropout_adj

@@ -6,8 +6,6 @@ from ugle.logger import log
 import pickle
 from os.path import exists
 from os import makedirs
-from copy import deepcopy
-
 
 def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seeds: list):
     """
@@ -79,6 +77,8 @@ def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str):
     """
     run experiments which consists of multiple models and datasets
     :param exp_cfg_name: location of the yaml file containing experiment configuration
+    :param dataset_algorithm_override: dataset_algorithm combination which can be used to run a single experiment if datasets
+           and algorithms are both empty
     """
     # load experiment config
     log.info(f'loading experiment: {exp_cfg_name}')
@@ -87,70 +87,33 @@ def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str):
     if dataset_algorithm_override: 
         exp_cfg.dataset_algo_combinations = [dataset_algorithm_override]
     
-    # iterate
-    if exp_cfg.special_training.split_addition_percentage:
-        log.info('Special Experiment: Removes percentage from whole dataset')
-        saved_cfg = deepcopy(exp_cfg)
-        special_runs = deepcopy(exp_cfg.study_override_cfg.trainer.split_addition_percentage)
-    elif exp_cfg.study_override_cfg.trainer.retrain_on_each_dataset: 
-        log.info('Special Experiment: Finetuning on each new dataset given')
-        special_runs = [-1]
-        iterations_before_fine_tuning = len(exp_cfg.algorithms) - 1
-        if not exists(exp_cfg.study_override_cfg.trainer.models_path):
-            makedirs(exp_cfg.study_override_cfg.trainer.models_path)
-
-    elif exp_cfg.study_override_cfg.trainer.same_init_hpo:
-        log.info('Special Experiment: Same initilisation of Parameters')
-        special_runs = [-1]
-        if not exists(exp_cfg.study_override_cfg.trainer.models_path):
-            makedirs(exp_cfg.study_override_cfg.trainer.models_path)
-
-    else:
-        special_runs = [-1]
 
     save_path = exp_cfg.study_override_cfg.trainer.results_path
-    
-    for special_var in special_runs:
-        if special_var != -1:
-            log.info(f'Experiment: {special_var}% of the entire dataset')
-            exp_cfg = deepcopy(saved_cfg)
-            exp_cfg.study_override_cfg.trainer.split_addition_percentage = special_var
-            exp_cfg.study_override_cfg.trainer.results_path += str(special_var).replace('.', '') + '/'
-            if not exists(exp_cfg.study_override_cfg.trainer.results_path):
-                makedirs(exp_cfg.study_override_cfg.trainer.results_path)
 
-        # creating experiment iterator
-        experiment_tracker = ugle.utils.create_experiment_tracker(exp_cfg)
-        experiments_cpu = []
+    # creating experiment iterator
+    experiment_tracker = ugle.utils.create_experiment_tracker(exp_cfg)
+    experiments_cpu = []
 
-        for exp_num, experiment in enumerate(experiment_tracker):
-            log.debug(f'starting new experiment ... ...')
-            log.debug(f'testing dataset: {experiment.dataset}')
-            log.debug(f'testing algorithm: {experiment.algorithm}')
-            
-            if exp_cfg.study_override_cfg.trainer.retrain_on_each_dataset:
-                if exp_num > iterations_before_fine_tuning:
-                    exp_cfg.study_override_cfg.trainer.finetuning_new_dataset = True
-                    exp_cfg.study_override_cfg.trainer.only_testing = False
-                    exp_cfg.study_override_cfg.trainer.save_model = False
+    for experiment in experiment_tracker:
+        log.debug(f'starting new experiment ... ...')
+        log.debug(f'testing dataset: {experiment.dataset}')
+        log.debug(f'testing algorithm: {experiment.algorithm}')
+        
+        try:
+            # run experiment
+            experiment_results = run_study(exp_cfg.study_override_cfg,
+                                            experiment.algorithm,
+                                            experiment.dataset,
+                                            exp_cfg.seeds)
+            # save result in experiment tracker
+            experiment.results = experiment_results
+            ugle.utils.save_experiment_tracker(experiment_tracker, save_path)
 
-            try:
-                # run experiment
-                experiment_results = run_study(exp_cfg.study_override_cfg,
-                                                experiment.algorithm,
-                                                experiment.dataset,
-                                                exp_cfg.seeds)
-                # save result in experiment tracker
-                experiment.results = experiment_results
-                ugle.utils.save_experiment_tracker(experiment_tracker, save_path)
-
-
-
-            # if breaks then tests on cpu
-            except Exception as e:
-                log.exception(str(e))
-                log.info(f"adding to cpu fallback test")
-                experiments_cpu.append(experiment)
+        # if breaks then tests on cpu
+        except Exception as e:
+            log.exception(str(e))
+            log.info(f"adding to cpu fallback test")
+            experiments_cpu.append(experiment)
 
         # run all experiments that didn't work on gpu
         if experiments_cpu and exp_cfg.run_cpu_fallback:
@@ -186,5 +149,4 @@ if __name__ == "__main__":
     parser.add_argument('-da', '--dataset_algorithm_override', type=str, default=None,
                         help='dataset')
     parsed = parser.parse_args()
-
     run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override)

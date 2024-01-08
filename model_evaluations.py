@@ -58,17 +58,6 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
         makedirs(study_cfg.trainer.results_path)
     save_path = f"{study_cfg.trainer.results_path}{dataset}_{algorithm}"
     pickle.dump(study_results, open(f"{save_path}.pkl", "wb"))
-
-    # after all results have been collected, get best result seed, retrain and save
-    if study_cfg.trainer.retrain_on_each_dataset:
-        args, best_seed = ugle.utils.get_best_args(study_results.results, study_cfg.trainer.model_resolution_metric)
-        study_cfg.args = args
-        study_cfg.args.random_seed = best_seed
-        study_cfg.trainer.only_testing = True
-        study_cfg.trainer.save_model = True
-        _ = neural_run(override_model=algorithm,
-                        override_dataset=dataset,
-                        override_cfg=study_cfg)
         
     return average_results
 

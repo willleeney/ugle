@@ -9,12 +9,15 @@ from os import makedirs
 
 def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seeds: list):
     """
-    runs a study of one algorithm on one dataset over multiple seeds
-    :param study_override_cfg: study configuration object
-    :param algorithm: string of algorithm to test on
-    :param dataset: string of the dataset to test on
-    :param seeds: list of seeds to test over
-    :return average_results: the results for each metric averaged over the seeds
+    Runs a study of one algorithm on one dataset over multiple seeds.
+
+    Args:
+        study_override_cfg (DictConfig): study configuration object
+        algorithm (str): name of the algorithm to test on 
+        dataset (str): name of the dataset to test on 
+        seeds (list): list of seeds to test over
+    Returns:
+        average_results (Dict): the results for each metric averaged over the seeds
     """
     study_cfg = study_override_cfg.copy()
     average_results = ugle.utils.create_study_tracker(len(seeds), study_cfg.trainer.test_metrics)
@@ -64,10 +67,13 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
 
 def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str):
     """
-    run experiments which consists of multiple models and datasets
-    :param exp_cfg_name: location of the yaml file containing experiment configuration
-    :param dataset_algorithm_override: dataset_algorithm combination which can be used to run a single experiment if datasets
+    Run experiments which consists of multiple models and datasets
+
+    Args:
+        exp_cfg_name: location of the yaml file containing experiment configuration
+        dataset_algorithm_override: dataset_algorithm combination which can be used to run a single experiment if datasets
            and algorithms are both empty
+    
     """
     # load experiment config
     log.info(f'loading experiment: {exp_cfg_name}')

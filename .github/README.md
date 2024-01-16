@@ -36,18 +36,35 @@ $ bash install_ugle.sh
 ```python3 model_evaluations.py -ec=ugle/configs/experiments/unsupervised_limit/hpo_new.yaml -da=<dataset>_<model>```
 
 
+Multiple datasets and models
+
 
 The ```model_evaluations.py``` executes a HPO investigation. 
 Use ```python model_evaluations.py --exp=ugle/configs/evaluations/hpo_investigation.yaml``` to reproduce the results from the paper.
 
 The ```main.py``` script trains a single model on a single dataset as follows:
-
 ```python main.py --model=daegc --dataset=cora```
-
 ```python main.py --model=daegc_default --dataset=citeseer```
+where the name of the model is as such 
 
 
-## Existing Implementations 
+if you want to use this as an api then do
+```python 
+import ugle
+import numpy as np
+
+dataset = {'features': np.ndarry[n_nodes, n_features],
+           'adjacency': np.ndarray[n_nodes, n_nodes],
+           'label': np.ndarray[n_nodes]}
+Trainer = ugle.trainer("dmon")
+results = Trainer.eval(dataset)
+
+Trainer = ugle.trainer("daegc")
+Trainer.cfg.dataset = "cora"
+results = Trainer.eval()
+```
+
+## Existing GNN Implementations 
 
 [daegc](https://github.com/Tiger101010/DAEGC)
 [dgi](https://github.com/PetarV-/DGI)
@@ -59,6 +76,34 @@ The ```main.py``` script trains a single model on a single dataset as follows:
 [bgrl](https://github.com/Namkyeong/BGRL_Pytorch)
 [vgaer](https://github.com/qcydm/VGAER/tree/main/VGAER_codes)
 [cagc](https://github.com/wangtong627/CAGC/)
+
+## Existing Datasets
+
+- acm
+- amac 
+- amap
+- bat
+- citeseer
+- cora
+- cocs
+- dblp
+- eat
+- uat
+- pubmed
+- texas
+- wisc
+- cornell
+- facebook 
+- twitch
+- wikipedia
+- github
+- lastfm
+- deezer
+- Physics
+- CS
+- Photo
+- Computers
+
 
 ## Adding a new model <MODEL_NAME> 
 
@@ -73,7 +118,7 @@ To create a model with the name <NEW_MODEL_NAME>, you need to create minimum two
 * create a file for the model: ```ugle/models/<NEW_MODEL_NAME>.py```
 * create a file to hold the hyperparameters: ```ugle/configs/models/<NEW_MODEL_NAME>/<NEW_MODEL_NAME>.yaml```
 * optional* create file to hold default hyperparameters : ```ugle/configs/models/<NEW_MODEL_NAME>/<NEW_MODEL_NAME>_default.yaml```
-* optional* create a new .yaml file to hold other variations :  ```ugle/configs/models/<MODEL_NAME>/<MODEL_NAME>_myparameters.yaml``` 
+* optional* create a new .yaml file to hold other variations:  ```ugle/configs/models/<MODEL_NAME>/<MODEL_NAME>_myparameters.yaml``` 
 * run an experiments or a single model run using the name reference as : ```"<MODEL_NAME>_myparameters"```
 
 Inside ```ugle/models/<NEW_MODEL_NAME>.py```, define four hooks to process the whole model

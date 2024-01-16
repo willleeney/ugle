@@ -389,10 +389,7 @@ class ugleTrainer:
             
             features = dataset['features']
             label = dataset['label']
-
-            #### TODO remove the dataset storage
             
-
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 

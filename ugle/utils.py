@@ -9,7 +9,7 @@ import os
 import pickle
 from ugle.logger import log
 
-neural_algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc', 'igo']
+neural_algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
 
 
 def load_model_config(override_model: str = None, override_cfg: DictConfig = None) -> DictConfig:

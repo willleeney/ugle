@@ -1,8 +1,20 @@
+import os
+from omegaconf import OmegaConf, DictConfig
 import numpy as np
+import networkx as nx
+import zipfile
+import gdown
+from pathlib import Path
+import shutil
+import torch
+import copy
 import random
-from typing import Union, Tuple
-import torch.nn.functional as F
-from ugle.logger import ugle_path, log
+import scipy.sparse as sp
+import plotly.graph_objects as go
+from typing import Union
+from ugle.logger import log, ugle_path
+from typing import Tuple
+from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph
 import torch
 from karateclub.dataset import GraphReader
 from torch_geometric.transforms import ToUndirected
@@ -132,6 +144,11 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
         label = np.load(dataset_path + "_label.npy", allow_pickle=True)
         adjacency = np.load(dataset_path + "_adj.npy", allow_pickle=True)
 
+    elif dataset_name in karate_club_datasets:
+        loader = GraphReader(dataset_name)
+        features = loader.get_features().todense()
+        label = loader.get_target()
+        adjacency = nx.to_numpy_matrix(loader.get_graph())
 
     elif dataset_name in big_datasets:
         dataset_path = ugle_path + f'/data/{dataset_name}'
@@ -154,16 +171,15 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
 
     return features, label, train_adj, test_adj
 
-def split(n, k):
-    d, r = divmod(n, k)
-    return [d + 1] * r + [d] * (k - r)
 
+def compute_datasets_info(dataset_names: list, visualise: bool=False):
+    """
+    computes the information about dataset statistics
+    :param dataset_names: list of datasets to look at
+    """
 
-def max_nodes_in_edge_index(edge_index):
-    if edge_index.nelement() == 0:
-        return -1
-    else:
-        return int(edge_index.max())
+    clustering_x_data = []
+    closeness_y_data = []
 
     for dataset_name in dataset_names:
         features, label, train_adjacency, test_adjacency = load_real_graph_data(dataset_name, test_split=1.)
@@ -179,10 +195,8 @@ def max_nodes_in_edge_index(edge_index):
         cercania = nx.closeness_centrality(nx_g)
         cercania = np.mean(list(cercania.values()))
 
-    row, col = edge_index
-    edge_mask = torch.rand(row.size(0)) >= p
-    keep_edge_index = edge_index[:, edge_mask]
-    drop_edge_index = edge_index[:, torch.ones_like(edge_mask, dtype=bool) ^ edge_mask]
+        clustering_x_data.append(clustering)
+        closeness_y_data.append(cercania)
 
         display_string += str(round(clustering, 3)) + ' & '  # clustering coefficient
         display_string += str(round(cercania, 3)) + ' \\\\'  # closeness centrality
@@ -190,16 +204,47 @@ def max_nodes_in_edge_index(edge_index):
     if visualise:
         _ = display_figure_dataset_stats(clustering_x_data, closeness_y_data, dataset_names)
 
-    return keep_edge_index, drop_edge_index
+    return clustering_x_data, closeness_y_data
 
 
-def add_all_self_loops(edge_index, n_nodes):
-    edge_index, _ = add_remaining_self_loops(edge_index)
-    # if the end nodes have had all the edges removed then you need to manually add the final self loops
-    last_in_adj = max_nodes_in_edge_index(edge_index)
-    n_ids_left = torch.arange(last_in_adj + 1, n_nodes)
-    edge_index = torch.concat((edge_index, torch.stack((n_ids_left, n_ids_left))), dim=1)
-    return edge_index
+def display_figure_dataset_stats(x_data: list, y_data: list, datasets: list):
+    """
+    function to display dataset statistics on a graph
+    :param x_data: clustering coefficient data for x-axis
+    :param y_data: closeness centrality data for y-axis
+    :param datasets: list of datasets metrics were computed over
+    :return fig: figure to be displayed
+    """
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=x_data, y=y_data, text=datasets, textposition="top center",
+        color_discrete_sequence=['red']
+    ))
+
+    # layout options
+    layout = dict(
+                font=dict(
+                    size=18),
+              plot_bgcolor='white',
+              paper_bgcolor='white',
+              margin=dict(t=10, b=10, l=10, r=10, pad=0),
+              xaxis=dict(title='Average Clustering Coefficient',
+                         linecolor='black',
+                         showgrid=False,
+                         showticklabels=False,
+                         mirror=True),
+              yaxis=dict(title='Mean Closeness Centrality',
+                         linecolor='black',
+                         showgrid=False,
+                         showticklabels=False,
+                         mirror=True))
+    fig.update_layout(layout)
+    # save figure
+    if not os.path.exists("images"):
+        os.mkdir("images")
+    fig.write_image("images/dataset_stats.png")
+
+    return fig
 
 
 def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_percent: float = 0.2):
@@ -223,7 +268,7 @@ def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_perce
     return aug_feature
 
 
-def standardize(features):
+def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bool = False):
     """
     augmentation by randomly dropping edges with given probability
     :param input_adj: input adjacency matrix
@@ -249,125 +294,112 @@ def numpy_to_edge_index(adjacency: np.ndarray):
     :param adjacency: input adjacency matrix
     :return adjacency: adjacency matrix update form
     """
-    mean, std = features.mean(), features.std()
-    new_data = (features - mean) / (std + 10e-7)
-    return new_data
+    adj_label = sp.coo_matrix(adjacency)
+    adj_label = adj_label.todok()
 
-def split_dataset(data, num_val, num_test):
+    outwards = [i[0] for i in adj_label.keys()]
+    inwards = [i[1] for i in adj_label.keys()]
+
+    adjacency = np.array([outwards, inwards], dtype=int)
+    return adjacency
+
+
+class Augmentations:
     """
-    splits data by dropping edges meaning no overlapping edges between sets unless 0.0 where all edges are kept
+    A utility for graph data augmentation
     """
-    data.edge_index = remove_self_loops(data.edge_index)
-    if num_test == 0.0 and num_val == 0.0:
-        train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(data.edge_index, data.x.shape[0]))
-        val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(data.edge_index, data.x.shape[0]))
-        test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(data.edge_index, data.x.shape[0]))
-    elif num_val == 0.0:
-        train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test)
-        train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
-        test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(dropped_edges, data.x.shape[0]))
-        val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
-    elif num_test == 0.0:
-        train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_val)
-        train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
-        test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
-        val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(dropped_edges, data.x.shape[0]))
-    else:
-        train_edges, dropped_edges = dropout_edge_undirected(data.edge_index, p=num_test+num_val)
-        train_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(train_edges, data.x.shape[0]))
-        test_edges, val_edges = dropout_edge_undirected(dropped_edges, p=1-(num_test/(num_test+num_val)))
-        test_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(test_edges, data.x.shape[0]))
-        val_data = Data(x=data.x, y=data.y, edge_index=add_all_self_loops(val_edges, data.x.shape[0]))
-        
-    return train_data, val_data, test_data
+
+    def __init__(self, method='gdc'):
+        methods = {"split", "standardize", "katz"}
+        assert method in methods
+        self.method = method
+
+    @staticmethod
+    def _split(features, permute=True):
+        """
+        Data augmentation is build by spliting data along the feature dimension.
+
+        :param data: the data object to be augmented
+        :param permute: Whether to permute along the feature dimension
+
+        """
+        perm = np.random.permutation(features.shape[1]) if permute else np.arange(features.shape[1])
+        features = features[:, perm]
+        size = features.shape[1] // 2
+        x1 = features[:, :size]
+        x2 = features[:, size:]
+
+        return x1, x2
+
+    @staticmethod
+    def _standardize(features):
+        """
+        Applies a zscore node feature data augmentation.
+
+        :param data: The data to be augmented
+        :return: a new augmented instance of the input data
+        """
+        mean, std = features.mean(), features.std()
+        new_data = (features - mean) / (std + 10e-7)
+        return new_data
+
+    @staticmethod
+    def _katz(features, adjacency, beta=0.1, threshold=0.0001):
+        """
+        Applies a Katz-index graph topology augmentation
+
+        :param data: The data to be augmented
+        :return: a new augmented instance of the input data
+        """
+        n_nodes = features.shape[0]
+
+        a_hat = adjacency + sp.eye(n_nodes)
+        d_hat = sp.diags(
+            np.array(1 / np.sqrt(a_hat.sum(axis=1))).reshape(n_nodes))
+        a_hat = d_hat @ a_hat @ d_hat
+        temp = sp.eye(n_nodes) - beta * a_hat
+        h_katz = (sp.linalg.inv(temp.tocsc()) * beta * a_hat).toarray()
+        mask = (h_katz < threshold)
+        h_katz[mask] = 0.
+        edge_index = np.array(h_katz.nonzero())
+        edge_attr = torch.tensor(h_katz[h_katz.nonzero()], dtype=torch.float32)
+
+        return edge_index
+
+    def __call__(self, features, adjacency):
+        """
+        Applies different data augmentation techniques
+        """
+
+        if self.method == "katz":
+            aug_adjacency = self._katz(features, adjacency)
+            aug_adjacency = np.array([aug_adjacency[0], aug_adjacency[1]], dtype=int)
+            adjacency = adjacency.todense()
+            adjacency = numpy_to_edge_index(adjacency)
+            aug_features = features.copy()
+        elif self.method == 'split':
+            features, aug_features = self._split(features)
+            adjacency = adjacency.todense()
+            adjacency = numpy_to_edge_index(adjacency)
+            aug_adjacency = adjacency.copy()
+        elif self.method == "standardize":
+            aug_features = self._standardize(features)
+            adjacency = adjacency.todense()
+            adjacency = numpy_to_edge_index(adjacency)
+            aug_adjacency = adjacency.copy()
+
+        return features, adjacency, aug_features, aug_adjacency
+
+    def __str__(self):
+        return self.method.title()
 
 
-def create_dataset_loader(dataset_name, max_batch_nodes, num_val, num_test):
-    # load dataset
-    dataset_path = ugle_path + f'/data/{dataset_name}'
-    undir_transform = Compose([ToUndirected(merge=True), NormalizeFeatures()])
-    data = None
-    start = time.time()
-    if dataset_name == 'WikiCS':
-        data = WikiCS(root=dataset_path, is_undirected=True, transform=undir_transform)[0]
-    elif dataset_name == 'Reddit':
-        data = Reddit2(root=dataset_path, transform=undir_transform)[0]
-    elif dataset_name in ['Cora', 'CiteSeer', 'PubMed']:
-        data = Planetoid(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name in ['Photo', 'Computers']:
-        data = Amazon(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name in ['CS', 'Physics']:
-        data = Coauthor(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name == 'Flickr':
-        data = Flickr(root=dataset_path, transform=undir_transform)[0]
-    elif dataset_name in ['Facebook', 'PPI', 'Wiki']:
-        data = AttributedGraphDataset(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name in ['Texas', 'Cornell', 'Wisconsin']:
-        data = WebKB(root=dataset_path, name=dataset_name, transform=undir_transform)[0]
-    elif dataset_name == 'GitHub':
-        data = GitHub(root=dataset_path, transform=undir_transform)[0]
-    elif dataset_name == 'NELL':
-        dataset = NELL(root=dataset_path)[0]
-        data = Data(x=F.normalize(dataset.x.to_dense(), dim=0), y=dataset.y, 
-                    edge_index=to_undirected(dataset.edge_index))
-    else:
-        raise NameError(f'{dataset_name} is not a valid dataset_name parameter')
-
-    time_spent = time.time()
-    log.info(f"Time loading {dataset_name}: {round(time_spent - start, 3)}s")
-    log.info(f'Full N Nodes:  {data.x.shape[0]}, N Features: {data.x.shape[1]}')
-
-    # split dataset
-    train_data, val_data, test_data = split_dataset(data, num_val, num_test)
-
-    # create samplers 
-    if data.num_nodes > max_batch_nodes:
-        train_loader = NeighborLoader(
-            train_data,
-            num_neighbors=[10, 10],
-            batch_size=128,
-            directed=False
-        )
-        val_loader = NeighborLoader(
-            val_data,
-            num_neighbors=[10, 10],
-            batch_size=128,
-            directed=False
-        )
-        test_loader = NeighborLoader(
-            test_data,
-            num_neighbors=[10, 10],
-            batch_size=128,
-            directed=False
-        )
-    else: 
-        train_loader = DataLoader([train_data], batch_size=1, shuffle=False, num_workers=6)
-        val_loader = DataLoader([val_data], batch_size=1, shuffle=False, num_workers=6)
-        test_loader = DataLoader([test_data], batch_size=1, shuffle=False, num_workers=6)
-    
-    end_time = time.time() - time_spent
-    log.debug(f"Time splitting: {round(end_time, 3)}s")
-    return train_loader, val_loader, test_loader
-
-def extract_dataset_stats(loader):
-    temp_sampler = iter(loader)
-    temp_stats = {'n_nodes': [], 'labels': [], 'n_edges': 0}
-    for batch in temp_sampler:
-        log.debug(f'Sampled N Nodes:  {batch.x.shape[0]}, N Features: {batch.x.shape[1]}')
-        temp_stats['n_nodes'].append(batch.x.shape[0])
-        temp_stats['n_features'] = batch.x.shape[1]
-        temp_stats['labels'].append(np.unique(batch.y).shape[0])
-        temp_stats['n_edges'] + batch.edge_index.shape[0]
-
-    return {'n_nodes': max(temp_stats['n_nodes']), 
-            'n_features': temp_stats['n_features'],
-            'n_edges': temp_stats['n_edges'],
-            'n_clusters': np.unique(np.array(temp_stats['labels']))[0]}
-    
+def split(n, k):
+    d, r = divmod(n, k)
+    return [d + 1] * r + [d] * (k - r)
 
 
-
-def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, num_val: float, num_test: float, adj_type: str = 'random', feature_type: str = 'random'):
+def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type: str, feature_type: str = 'random'):
     if adj_type == 'disjoint':
         probs = (np.identity(n_clusters)).tolist()
     elif adj_type == 'random':
@@ -376,7 +408,7 @@ def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, num_val:
         probs = np.ones((n_clusters, n_clusters)).tolist()
 
     cluster_sizes = split(n_nodes, n_clusters)
-    adj = stochastic_blockmodel_graph(cluster_sizes, probs)
+    adj = to_dense_adj(stochastic_blockmodel_graph(cluster_sizes, probs)).squeeze(0).numpy()
     
     if feature_type == 'random':
         features = torch.normal(mean=0, std=1, size=(n_nodes, n_features)).numpy()
@@ -402,106 +434,36 @@ def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, num_val:
     labels = []
     for i in range(n_clusters):
         labels.extend([i] * cluster_sizes[i])
-    labels = torch.Tensor(labels)
+    labels = np.array(labels)
 
-    data = Data(x=torch.Tensor(features), y=labels, edge_index=adj)
-    train_data, val_data, test_data = split_dataset(data, num_val, num_test)
-
-    train_loader = DataLoader([train_data], batch_size=1, shuffle=False, num_workers=6)
-    val_loader = DataLoader([val_data], batch_size=1, shuffle=False, num_workers=6)
-    test_loader = DataLoader([test_data], batch_size=1, shuffle=False, num_workers=6)
-
-    return train_loader, val_loader, test_loader
+    return adj, features.astype(float), labels
 
 
-if __name__ == "__main__":
-    datasets = ['Texas', 'Wisconsin', 'Cornell', 'Cora', 'CiteSeer', 'Photo',
-        'Computers', 'CS', 'PubMed', 'Physics', 'Flickr', 'Facebook', 'PPI',
-        'Wiki', 'WikiCS', 'NELL', 'GitHub', 'Reddit']
-    from memory_profiler import memory_usage
-    from line_profiler import LineProfiler
-    from ugle import process 
-    from torch_geometric.nn.conv import GCNConv
-    from torch_geometric.nn import DMoNPooling
-    from ugle.gnn_architecture import GCN
-    import torch.nn as nn
-    import scipy.sparse as sp
+def split_adj(adj, percent, split_scheme):
+    if split_scheme == 'drop_edges':
+        # drops edges from dataset to form new adj 
+        if percent != 1.:
+            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=False)
+        else:
+            train_adjacency = adj
+            validation_adjacency = adj.copy()
+    elif split_scheme == 'split_edges':
+        # splits the adj via the edges so that no edges in both 
+        if percent != 1.:
+            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=True)
+        else:
+            train_adjacency = adj
+            validation_adjacency = adj.copy()
 
-    line_profile = False
-    max_nodes_per_batch = 1000000
-    edges_on_gpu = True
-    use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda:0" if use_cuda else "cpu")
+    elif split_scheme == 'all_edges':
+        # makes the adj fully connected 
+        train_adjacency = np.ones_like(adj)
+        validation_adjacency = np.ones_like(adj)
 
-    if use_cuda:
-        usage = torch.cuda.mem_get_info(device)
-        log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-        log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
-        log.info(f'Memory GPU reserved: {torch.cuda.max_memory_reserved(device)/1024/1024:.2f}MB\n')
-    
-    for dataset_name in datasets:
-        print('\n')
-        # how much memory does it take to load 
-        mem_usage, (dataloader, val_loader, test_loader) = memory_usage((create_dataset_loader, (dataset_name, max_nodes_per_batch, 0.1, 0.2)), retval=True)
-        if use_cuda:
-            torch.cuda.reset_peak_memory_stats(device)
-        log.info(f"Memory CPU usage by {dataset_name}: {max(mem_usage):.2f}MB")
-
-        # how long does it take to load data
-        if line_profile:
-            lp = LineProfiler()
-            lp_wrapper = lp(create_dataset_loader)
-            _, _, _= lp_wrapper(dataset_name, max_nodes_per_batch, 0.1, 0.2)
-            lp.print_stats()
-
-
-        def load_data_on_device(loader, device):
-            smth = []
-            for i, batch in enumerate(iter(loader)):
-                log.info(i)
-                if use_cuda: 
-                    # GPU features and CPU edge index
-                    usage = torch.cuda.mem_get_info(device)
-                    log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
-
-                    if edges_on_gpu: 
-                        smth.append([batch.x.to(device), batch.edge_index.to(device)])
-                    else: 
-                        smth.append([batch.x.to(device), batch.edge_index])
-                
-                    usage = torch.cuda.mem_get_info(device)
-                    log.info(f'Memory GPU free/total: {usage[0]/1024/1024:.2f}MB/{usage[1]/1024/1024:.2f}MB')
-                    log.info(f'Memory GPU allocated: {torch.cuda.max_memory_allocated(device)/1024/1024:.2f}MB')
-                    torch.cuda.reset_peak_memory_stats(device)
-                
-
-        if line_profile:
-            lp = LineProfiler()
-            lp_wrapper = lp(load_data_on_device)
-            lp_wrapper(dataloader, device)
-            lp.print_stats()
-        
-        #load_data_on_device(dataloader, device)
-
-        class Net(torch.nn.Module):
-            def __init__(self, dstats):
-                super().__init__()
-
-                self.layer = GCNConv(dstats['n_features'], 128, add_self_loops=False, normalize=True)
-                self.pooling = DMoNPooling([128, dstats['n_clusters']], dstats['n_clusters'])
-
-            def forward(self, x, edge_index):
-                out = self.layer(x, edge_index).relu()
-                adj = to_dense_adj(edge_index)
-                clus_assn, out, adj, sp1, o1, c1 = self.pooling(out, adj)
-                return torch.argmax(nn.functional.softmax(clus_assn.squeeze(0), dim=1), dim=1), sp1 + o1 + c1
-
-        def forward_pass_pyg_layer(dataloader, device):
-            # extract info
-            dstats = extract_dataset_stats(dataloader)
-            model = Net(dstats)
-            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    elif split_scheme == 'no_edges':
+        # makes the adj completely unconnected 
+        train_adjacency = np.zeros_like(adj)
+        validation_adjacency = np.zeros_like(adj)
     
     return train_adjacency, validation_adjacency
 

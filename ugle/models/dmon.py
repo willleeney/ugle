@@ -1,16 +1,12 @@
 # https://github.com/google-research/google-research/blob/master/graph_embedding/dmon/dmon.py
+import ugle
 import scipy.sparse as sp
 from ugle.trainer import ugleTrainer
-from ugle.process import preds_eval, sparse_mx_to_torch_sparse_tensor, normalize_adj
 import torch.nn as nn
 import torch
 from ugle.gnn_architecture import GCN
 import math
 from collections import OrderedDict
-from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader
-from torch_geometric.utils import to_dense_adj
-
 
 class DMoN(nn.Module):
     def __init__(self,
@@ -42,13 +38,14 @@ class DMoN(nn.Module):
         return
 
 
-    def forward(self, features, graph_normalised, graph, extra_loss=False):
+    def forward(self, graph, graph_normalised, features, extra_loss=False):
 
-        gcn_out = self.gcn(features, graph_normalised)
+        gcn_out = self.gcn(features, graph_normalised, sparse=True, skip=True)
+
         assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
-        n_edges = graph.shape[1]
+        n_edges = graph._nnz()
         degrees = torch.sparse.sum(graph, dim=0)._values().unsqueeze(1)
         graph_pooled = torch.spmm(torch.spmm(graph, assignments).T, assignments)
         normalizer_left = torch.spmm(assignments.T, degrees)
@@ -77,10 +74,11 @@ class DMoN(nn.Module):
 
         return loss
 
-    def embed(self, features, graph_normalised):
-        gcn_out = self.gcn(features, graph_normalised)
+    def embed(self, graph, graph_normalised, features):
+        gcn_out = self.gcn(features, graph_normalised, sparse=True)
         assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
+
         return assignments
 
 
@@ -102,65 +100,27 @@ class dmon_trainer(ugleTrainer):
 
         return graph, graph_normalised, features
 
-class dmon_trainer(ugleTrainer):
-    def preprocess_data(self, loader):
-        dataset = []
-        for batch in loader:
-            adjacency = to_dense_adj(batch.edge_index)
-            #graph = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adjacency.squeeze(0)))
-            adjacency = sparse_mx_to_torch_sparse_tensor(normalize_adj(adjacency.squeeze(0)))
-            features = torch.FloatTensor(batch.x)
-            dataset.append(Data(x=features, y=batch.y, 
-                                **{'graph': batch.edge_index,
-                                   'edge_index_indices': adjacency.coalesce().indices(),
-                                   'edge_index_values': adjacency.coalesce().values()}))
-        
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
-        return dataloader
+    def training_preprocessing(self, args, processed_data):
 
-    def training_preprocessing(self, args, train_loader):
         self.model = DMoN(args).to(self.device)
         optimiser = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
         self.optimizers = [optimiser]
+
         return
 
-    def training_epoch_iter(self, train_loader):
-        for batch in train_loader:
-            # transfer to device
-            batch.x = batch.x.to(self.device, non_blocking=True)
-            graph = torch.sparse_coo_tensor(indices=batch.graph, values=torch.ones(batch.graph.shape[1]))._coalesced_(True)
-            graph = graph.to(self.device, non_blocking=True)
-            edge_index = torch.sparse_coo_tensor(indices=batch.edge_index_indices, values=batch.edge_index_values)._coalesced_(True)
-            edge_index = edge_index.to(self.device, non_blocking=True)
-            # forward and backward pass
-            loss = self.model(batch.x, edge_index, graph)
-            self.optimizers[0].zero_grad()
-            loss.backward()
-            self.optimizers[0].step()
-            # right now this is only appropriate for a single batch
-            break
+    def training_epoch_iter(self, args, processed_data):
+        graph, graph_normalised, features = processed_data
+        loss = self.model(graph, graph_normalised, features)
         
-        return loss
+        return loss, None
 
-    def test(self, test_loader, eval_metrics):
-        multi_batch_metric_info = None
+    def test(self, processed_data):
+        graph, graph_normalised, features = processed_data
         with torch.no_grad():
-            for batch in test_loader:
-                batch.x = batch.x.to(self.device, non_blocking=True)
-                edge_index = torch.sparse_coo_tensor(indices=batch.edge_index_indices, values=batch.edge_index_values)._coalesced_(True)
-                edge_index = edge_index.to(self.device, non_blocking=True)
-                assignments = self.model.embed(batch.x, edge_index).detach().cpu()
-                graph = torch.sparse_coo_tensor(indices=batch.graph, values=torch.ones(batch.graph.shape[1]))._coalesced_(True)
-                results, eval_preds = preds_eval(batch.y, assignments, graph, metrics=eval_metrics, sf=4)
-                # right now this is only appropriate for a single batch
-                break                                          
+            assignments = self.model.embed(graph, graph_normalised, features)
+            preds = assignments.detach().cpu().numpy().argmax(axis=1)
 
-        return results
-
-
-
-
-
+        return preds
 
 
 

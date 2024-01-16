@@ -148,10 +148,9 @@ class GAT(nn.Module):
         return A_pred
 
 class GCN(nn.Module):
-    def __init__(self, in_ft, out_ft, act='prelu', bias=True, skip=False, sparse=True):
+    def __init__(self, in_ft, out_ft, act, bias=True, skip=False):
         super(GCN, self).__init__()
         self.fc = nn.Linear(in_ft, out_ft, bias=False)
-        self.sparse = sparse
 
         if act == 'prelu':
             self.act = nn.PReLU()
@@ -169,10 +168,8 @@ class GCN(nn.Module):
         if skip:
             self.skip = nn.Parameter(torch.FloatTensor(out_ft))
             torch.nn.init.normal_(self.skip, mean=0.0, std=0.1)
-            self.do_skip = True
         else:
             self.register_parameter('skip', None)
-            self.do_skip = False
 
         for m in self.modules():
             self.weights_init(m)
@@ -184,18 +181,18 @@ class GCN(nn.Module):
                 m.bias.data.fill_(0.0)
 
     # Shape of seq: (batch, nodes, features)
-    def forward(self, seq, adj):
+    def forward(self, seq, adj, sparse=False, skip=False):
         seq_fts = self.fc(seq)
 
-        if self.do_skip:
+        if skip:
             skip_out = seq_fts * self.skip
 
-        if self.sparse:
+        if sparse:
             out = torch.unsqueeze(torch.spmm(adj, torch.squeeze(seq_fts, 0)), 0)
         else:
             out = torch.bmm(adj, seq_fts)
 
-        if self.do_skip:
+        if skip:
             out += skip_out
 
         if self.bias is not None:

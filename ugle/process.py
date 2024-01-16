@@ -59,34 +59,13 @@ def conductance(adjacency: np.ndarray, preds: np.ndarray) -> float:
     return intra / (inter + intra)
 
 
-def sparse_modularity(edge_index, assignments):
-    n_edges = edge_index.coalesce().indices().shape[1]
-    degrees = torch.sparse.sum(edge_index, dim=0)._values().unsqueeze(1)
-    graph_pooled = torch.spmm(torch.spmm(edge_index, assignments).T, assignments)
-    normalizer_left = torch.spmm(assignments.T, degrees)
-    normalizer_right = torch.spmm(assignments.T, degrees).T
-    normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
-    return torch.trace(graph_pooled - normalizer) / 2 / n_edges
-
-
-def sparse_conductance(edge_index, preds):
-    edge_index = edge_index.coalesce().indices()
-    inter = 0
-    intra = 0
-    for cluster_id in np.unique(preds):
-        nodes_in_cluster = torch.where(preds == cluster_id)[0]
-        edges_starting_from_cluster = torch.isin(edge_index[0, :], nodes_in_cluster)
-        inter_bool = torch.isin(edge_index[1, edges_starting_from_cluster], nodes_in_cluster)
-        new_inter = int(torch.sum(inter_bool))
-        inter += new_inter
-        intra += len(inter_bool) - new_inter
-    return intra / (inter + intra)
-
-
-def preds_eval(labels, assignments, graph, metrics, sf=4) -> tuple[dict, np.ndarray]:
-
+def preds_eval(labels: np.ndarray, preds: np.ndarray, sf=4, adj: np.ndarray = None, metrics=['nmi', 'f1']) -> tuple[
+    dict, np.ndarray]:
+    """
+    evaluates predictions given metrics
+    """
     # returns the correct predictions to match labels
-    eval_preds, _ = hungarian_algorithm(labels.numpy(), torch.argmax(assignments, dim=1).numpy())
+    eval_preds, _ = hungarian_algorithm(labels, preds)
     results = {}
 
     if 'nmi' in metrics:
@@ -97,13 +76,23 @@ def preds_eval(labels, assignments, graph, metrics, sf=4) -> tuple[dict, np.ndar
         f1 = f1_score(labels, eval_preds, average='macro')
         results['f1'] = float(round(f1, sf))
 
-    if 'modularity' in metrics:
-        assert graph is not None, 'adj not provided'
-        results['modularity'] = round(float(sparse_modularity(graph, assignments)), sf)
+    if 'snmi' in metrics:
+        true_num_clusters = len(np.unique(labels))
+        found_num_clusters = len(np.unique(preds))
 
+        scaling_k = np.exp(-(np.abs(true_num_clusters - found_num_clusters) / true_num_clusters))
+        snmi = scaling_k * nmi
+        results['snmi'] = float(round(snmi, sf))
+
+    if 'modularity' in metrics:
+        assert adj is not None, 'adj not provided'
+        results['modularity'] = float(round(modularity(adj, eval_preds), sf))
     if 'conductance' in metrics:
-        assert graph is not None, 'adj not provided'
-        results['conductance'] = round(sparse_conductance(graph, torch.Tensor(eval_preds)), sf)
+        assert adj is not None, 'adj not provided'
+        results['conductance'] = float(round(conductance(adj, eval_preds), sf))
+
+    if 'n_clusters' in metrics:
+        results['n_clusters'] = len(np.unique(preds))
 
     return results, eval_preds
 

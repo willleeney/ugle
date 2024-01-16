@@ -8,9 +8,12 @@ import numpy as np
 import optuna
 from optuna import Trial, Study
 from optuna.samplers import TPESampler
+from optuna.pruners import HyperbandPruner
 from optuna.trial import TrialState
+import threading
 import time
 from tqdm import trange
+from line_profiler import LineProfiler
 import copy
 import torch
 from typing import Dict, List, Optional, Tuple
@@ -26,6 +29,83 @@ import pickle
 from optuna.exceptions import ExperimentalWarning
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 optuna.logging.set_verbosity(optuna.logging.CRITICAL)
+
+# https://stackoverflow.com/questions/9850995/tracking-maximum-memory-usage-by-a-python-function
+
+
+class StoppableThread(threading.Thread):
+    def __init__(self):
+        super(StoppableThread, self).__init__()
+        self.daemon = True
+        self.__monitor = threading.Event()
+        self.__monitor.set()
+        self.__has_shutdown = False
+
+    def run(self):
+        '''Overloads the threading.Thread.run'''
+        # Call the User's Startup functions
+        self.startup()
+
+        # Loop until the thread is stopped
+        while self.isRunning():
+            self.mainloop()
+
+        # Clean up
+        self.cleanup()
+
+        # Flag to the outside world that the thread has exited
+        # AND that the cleanup is complete
+        self.__has_shutdown = True
+
+    def stop(self):
+        self.__monitor.clear()
+
+    def isRunning(self):
+        return self.__monitor.isSet()
+
+    def isShutdown(self):
+        return self.__has_shutdown
+
+    ###############################
+    ### User Defined Functions ####
+    ###############################
+
+    def mainloop(self):
+        '''
+        Expected to be overwritten in a subclass!!
+        Note that Stoppable while(1) is handled in the built in "run".
+        '''
+        pass
+
+    def startup(self):
+        '''Expected to be overwritten in a subclass!!'''
+        pass
+
+    def cleanup(self):
+        '''Expected to be overwritten in a subclass!!'''
+        pass
+
+
+class MyLibrarySniffingClass(StoppableThread):
+    def __init__(self, target_lib_call):
+        super(MyLibrarySniffingClass, self).__init__()
+        self.target_function = target_lib_call
+        self.results = None
+
+    def startup(self):
+        # Overload the startup function
+        log.info("Starting Memory Calculation")
+
+    def cleanup(self):
+        # Overload the cleanup function
+        log.info("Ending Memory Tracking")
+
+    def mainloop(self):
+        # Start the library Call
+        self.results = self.target_function()
+
+        # Kill the thread when complete
+        self.stop()
 
 
 class StopWhenMaxTrialsHit:
@@ -256,45 +336,63 @@ class ugleTrainer:
         self.patience_wait = 0
         self.best_loss = 1e9
         self.current_epoch = 0
+        self.memory_stats = {"active_memory_fpass": [], "active_memory_fpass_end": [], "active_memory_opt": []}
 
     def load_database(self):
         log.info(f'Loading dataset {self.cfg.dataset}')
         if 'synth' not in self.cfg.dataset:
-            train_loader, val_loader, test_loader = datasets.create_dataset_loader(self.cfg.dataset, 
-                                                                                   self.cfg.trainer.max_nodes_in_dataloader, 
-                                                                                   self.cfg.trainer.train_to_valid_split, 
-                                                                                   self.cfg.trainer.training_to_testing_split)
-
+            # loads and splits the dataset
+            features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
+                self.cfg.dataset,
+                self.cfg.trainer.training_to_testing_split,
+                self.cfg.trainer.split_scheme,
+                self.cfg.trainer.split_addition_percentage)
         else:
             _, adj_type, feature_type, n_clusters = self.cfg.dataset.split("_")
             n_clusters = int(n_clusters)
-            train_loader, val_loader, test_loader = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, 
-                                                                                num_val=self.cfg.trainer.train_to_valid_split,
-                                                                                num_test=self.cfg.trainer.training_to_testing_split,
-                                                                                adj_type=adj_type, feature_type=feature_type)
+            adjacency, features, label = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, 
+                                                                     adj_type=adj_type, feature_type=feature_type)
+            train_adjacency, test_adjacency = datasets.split_adj(adjacency,
+                                                                 self.cfg.trainer.training_to_testing_split,
+                                                                 self.cfg.trainer.split_scheme)
 
         # extract database relevant info
-        dstats = datasets.extract_dataset_stats(train_loader)
-    
         if not self.cfg.args.n_clusters:
-            self.cfg.args.n_clusters = int(dstats['n_clusters'])
-        self.cfg.args.n_nodes = int(dstats['n_nodes'])
-        self.cfg.args.n_features = int(dstats['n_features'])
-        self.cfg.args.n_edges = int(dstats['n_edges'])
+            self.cfg.args.n_clusters = np.unique(label).shape[0]
+        self.cfg.args.n_nodes = features.shape[0]
+        self.cfg.args.n_features = features.shape[1]
 
-        return train_loader, val_loader, test_loader
+        return features, label, train_adjacency, test_adjacency
     
     def eval(self):
+        # memory - start calc
+        #if self.cfg.trainer.calc_memory:
+            #torch.cuda.reset_peak_memory_stats(device=torch.device("cpu"))
+            #self.memory_stats["cpu_memory_start"] = psutil.virtual_memory().available / (1024 ** 3)
+            #torch.cuda.max_memory_allocated(device=torch.device("cpu"))
+
         # loads the database to train on
-        train_loader, val_loader, test_loader = self.load_database()
+        features, label, validation_adjacency, test_adjacency = self.load_database()
+
+        # memory - cpu for dataset
+        #if self.cfg.trainer.calc_memory:
+        #    self.memory_stats["cpu_memory_dataset"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
 
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 
+        log.debug('splitting dataset into train/validation')
+        train_adjacency, validation_adjacency = datasets.split_adj(validation_adjacency, 
+                                                          self.cfg.trainer.train_to_valid_split, 
+                                                          self.cfg.trainer.split_scheme)
+
         # process data for training
-        train_loader = self.preprocess_data(train_loader)
-        val_loader = self.preprocess_data(val_loader)
-        test_loader = self.preprocess_data(test_loader)
+        processed_data = self.preprocess_data(features, train_adjacency)
+        processed_valid_data = self.preprocess_data(features, validation_adjacency)
+
+        # memory - preprocessing requirement
+        #if self.cfg.trainer.calc_memory:
+        #   self.memory_stats["cpu_memory_preprocess"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
 
         # if only testing then no need to optimise hyperparameters
         if not self.cfg.trainer.only_testing:
@@ -310,19 +408,21 @@ class ugleTrainer:
                                             sampler=TPESampler(seed=self.cfg.args.random_seed))
             log.info(f"A new hyperparameter study created: {study.study_name}")
 
-            # add study callbacks for stopping and repeat parameter suggestion pruner
             study_stop_cb = StopWhenMaxTrialsHit(self.cfg.trainer.n_trials_hyperopt, self.cfg.trainer.max_n_pruned)
             prune_params = ParamRepeatPruner(study)
 
-            # add best hyperparameters from other seeds
             if self.cfg.trainer.suggest_hps_from_previous_seed:
                 for hps in self.cfg.trainer.hps_found_so_far:
                     study.enqueue_trial(hps)
 
-            # hpo
-            study.optimize(lambda trial: self.train(trial, train_loader, val_loader,
+            study.optimize(lambda trial: self.train(trial,
+                                                    label,
+                                                    features,
+                                                    processed_data,
+                                                    validation_adjacency,
+                                                    processed_valid_data,
                                                     prune_params=prune_params),
-                                n_trials=self.cfg.trainer.n_trials_hyperopt,
+                                n_trials=2*self.cfg.trainer.n_trials_hyperopt,
                                 callbacks=[study_stop_cb])
 
             # assigns test parameters found in the study
@@ -337,45 +437,51 @@ class ugleTrainer:
             params_to_assign = 'default'
             study = None
 
+        processed_test_data = self.preprocess_data(features, test_adjacency)
 
+        # retrains the model on the validation adj and evaluates test performance
+        # might be weird with the previosu results stuff but that's not done in this paper so meh
         if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
-            # retrain the model w/o hpo or w/ given hps
-            self.model.train()
-            validation_results = self.train(None, train_loader, val_loader)
-            
-            # get test results for all validation metrics 
+
+            validation_results = self.train(None, label, features, processed_data, validation_adjacency,
+                                    processed_valid_data)
             objective_results = []
             for opt_metric in self.cfg.trainer.valid_metrics:
-                # evaluate model on test
                 log.info(f'Evaluating {opt_metric} model on test split')
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                 self.model.to(self.device)
-                self.model.eval()
-                results = self.test(test_loader, self.cfg.trainer.test_metrics)
-
+                results = self.testing_loop(label, features, test_adjacency, processed_test_data,
+                                            self.cfg.trainer.test_metrics)
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                 to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                 log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
 
-                # save results to return
                 objective_results.append({'metrics': opt_metric,
-                                          'results': results,
-                                          'args': params_to_assign})
+                                        'results': results,
+                                        'args': params_to_assign})
+                
                 if self.cfg.trainer.save_validation:
                     objective_results[-1]['validation_results'] = validation_results
 
         else:
-            # extract best hps found for each validation metric
-            best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
-            unique_trials = list(np.unique(np.array(associated_trial)))
-            objective_results = []
+            if not self.cfg.trainer.only_testing:
+                # best hp found for metrics
+                best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
+                unique_trials = list(np.unique(np.array(associated_trial)))
+            else:
+                unique_trials = list(range(len(self.cfg.previous_results)))
 
+            objective_results = []
             for idx, best_trial_id in enumerate(unique_trials):
-                # find the metrics for which trial is best at
-                best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if
-                                    associated_trial[i] == best_trial_id]
-                best_hp_params = [trial for trial in study.best_trials if trial.number == best_trial_id][0].params
+                if not self.cfg.trainer.only_testing:
+                    # find the metrics for which trial is best at
+                    best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if
+                                       associated_trial[i] == best_trial_id]
+                    best_hp_params = [trial for trial in study.best_trials if trial.number == best_trial_id][0].params
+                else:
+                    best_hp_params = self.cfg.previous_results[idx].args
+                    best_at_metrics = self.cfg.previous_results[idx].metrics
 
                 # log the best hyperparameters and metrics at which they are best
                 best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
@@ -387,17 +493,16 @@ class ugleTrainer:
                     for hp_key, hp_val in best_hp_params.items():
                         log.info(f'{hp_key} : {hp_val}')
 
-                # if finetuning or using same init of network then size of network has to be the same
+                # assign hyperparameters for the metric optimised over
                 if self.cfg.trainer.finetuning_new_dataset or self.cfg.trainer.same_init_hpo:
                     args_to_overwrite = list(set(self.cfg.args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
                     saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
                     for k in args_to_overwrite:
                         best_hp_params[k] = saved_args.args[k]
-
-                # assign hyperparameters for the metric optimised over
+                    
                 self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
-                # retrain 
+                # do testing
                 log.debug('Retraining model')
                 validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
@@ -416,19 +521,17 @@ class ugleTrainer:
                     log.debug(f'Evaluating {opt_metric} model on test split')
                     self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                     self.model.to(self.device)
-                    self.model.eval()
-                    results = self.test(test_loader, self.cfg.trainer.test_metrics)
-            
+                    results = self.testing_loop(label, features, test_adjacency, processed_test_data,
+                                                self.cfg.trainer.test_metrics)
                     # log test results
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                     to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                     log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
 
-                    # save the test results
                     objective_results.append({'metrics': opt_metric,
                                             'results': results,
                                             'args': best_hp_params})
-                # if saving validation 
+                
                 if self.cfg.trainer.save_validation:
                     objective_results[-1]['validation_results'] = validation_results
 
@@ -447,7 +550,8 @@ class ugleTrainer:
 
         return objective_results
 
-    def train(self, trial: Trial, train_loader, val_loader, prune_params=None):
+    def train(self, trial: Trial, label: np.ndarray, features: np.ndarray, processed_data: tuple,
+              validation_adjacency: np.ndarray, processed_valid_data: tuple, prune_params=None):
         
         timings = np.zeros(2)
         start = time.time()
@@ -465,8 +569,9 @@ class ugleTrainer:
             self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, self.cfg.args, prune_params)
 
-        # create the model for each trial
-        self.training_preprocessing(self.cfg.args, train_loader)
+        # process model creation
+        processed_data = self.move_to_activedevice(processed_data)
+        self.training_preprocessing(self.cfg.args, processed_data)
         self.model.train()
 
         if self.cfg.trainer.finetuning_new_dataset:
@@ -486,15 +591,12 @@ class ugleTrainer:
 
         # create training loop
         self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:15}{r_bar}{bar:-15b}', file=open(devnull, 'w'))
-        best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics))) - 0.01
+        best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics)))
         best_epochs = np.zeros(len((self.cfg.trainer.valid_metrics)), dtype=int)
-        best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.01
-        best_so_far[self.cfg.trainer.valid_metrics.index('modularity')] = -1.01
+        best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.
         patience_waiting = np.zeros((len(self.cfg.trainer.valid_metrics)), dtype=int)
 
-        # train the model 
         for self.current_epoch in self.progress_bar:
-            # progress bar update
             if self.current_epoch % self.cfg.trainer.log_interval == 0:
                 if self.current_epoch != 0:
                     if not (self.current_epoch - self.cfg.trainer.log_interval == 0 and self.cfg.trainer.calc_memory):
@@ -514,17 +616,20 @@ class ugleTrainer:
             start = time.time()
             # check if validation time
             if self.current_epoch % self.cfg.trainer.validate_every_nepochs == 0:
+                # put in validation mode 
+                processed_data = self.move_to_cpudevice(processed_data)
+
                 # compute training iteration
                 if self.cfg.trainer.calc_memory and self.current_epoch == 0: 
-                    mem_usage, results = memory_usage((self.test, (val_loader, self.cfg.trainer.valid_metrics)), 
-                                                       interval=.005, retval=True) 
+                    mem_usage, results = memory_usage((self.testing_loop, (label, features, validation_adjacency, processed_valid_data, self.cfg.trainer.valid_metrics)), 
+                                                      interval=.005, retval=True) 
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
-                    #lp = LineProfiler()
-                    #lpwrapper = lp(self.test)
-                    #results = lpwrapper(val_loader, self.cfg.trainer.valid_metrics)
-                    #lp.print_stats()
-                    results = self.test(val_loader, self.cfg.trainer.valid_metrics)
+                    results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
+                                                self.cfg.trainer.valid_metrics)
+                
+                # put data back into training mode
+                processed_data = self.move_to_activedevice(processed_data)
 
                 # record best model state over this train/trial for each metric
                 for m, metric in enumerate(self.cfg.trainer.valid_metrics):
@@ -541,16 +646,32 @@ class ugleTrainer:
             else: 
                 patience_waiting += 1
             
-            # add time to val time, reset for train
             timings[1] += time.time() - start
             start = time.time()
-            # do one epoch of training
-            self.model.train()
-            lp = LineProfiler()
-            lpwrapper = lp(self.training_epoch_iter)
-            loss = lpwrapper(train_loader)
-            lp.print_stats()
 
+            if self.cfg.trainer.calc_memory and self.current_epoch == 0:
+                mem_usage, retvals = memory_usage((self.training_epoch_iter, (self.cfg.args, processed_data)), interval=.005, retval=True) 
+                loss, data_returned = retvals
+                log.info(f"Max memory usage by training_epoch_iter(): {max(mem_usage):.2f}MB")
+            else:
+                loss, data_returned = self.training_epoch_iter(self.cfg.args, processed_data)
+            if data_returned:
+                processed_data = data_returned
+
+            # optimise
+            for opt in self.optimizers:
+                opt.zero_grad()
+            if self.cfg.trainer.calc_memory and self.current_epoch == 0: 
+                mem_usage = memory_usage((loss.backward), interval=.005)
+                log.info(f"Max memory usage by loss.backward(): {max(mem_usage):.2f}MB")
+
+            else:
+                loss.backward()
+
+            for opt in self.optimizers:
+                opt.step()
+            if self.scheduler:
+                self.scheduler.step()
             # update progress bar
             self.progress_bar.set_description(f'Training: m-{self.cfg.model}, d-{self.cfg.dataset}, s-{self.cfg.args.random_seed} -- Loss={loss.item():.4f}', refresh=True)
             # if all metrics hit patience then end
@@ -569,30 +690,29 @@ class ugleTrainer:
         # finished training, record time taken
         timings[0] += time.time() - start
         start = time.time()    
+
         # compute final validation 
         return_results = dict(zip(self.cfg.trainer.valid_metrics, best_so_far))
+        processed_data = self.move_to_cpudevice(processed_data)
         # if saving validation results then record the result on the test metrics
         if self.cfg.trainer.save_validation:
             valid_results = {}
-        # save a model for each validation metric
+
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):
             log.info(f'Best model for {metric} at epoch {best_epochs[m]}')
-            # if validating then save the model
             if self.cfg.trainer.save_validation and trial is None:
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
                 self.model.to(self.device)
-                self.model.eval()
-                results = self.test(val_loader, self.cfg.trainer.test_metrics)
+                results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
+                                        self.cfg.trainer.test_metrics)
                 valid_results[metric] = results
 
-        # final validation record the time
         timings[1] += time.time() - start
         start = time.time()
         if self.cfg.trainer.calc_time:
             log.info(f"Time training {round(timings[0], 3)}s")
             log.info(f"Time validating {round(timings[1], 3)}s")
 
-        # return values and log
         if trial is None:
             if not self.cfg.trainer.save_validation:
                 return
@@ -624,19 +744,32 @@ class ugleTrainer:
         self.model.train()
         return results
 
-    def preprocess_data(self, loader):
+    def preprocess_data(self, features: np.ndarray, adjacency: np.ndarray) -> tuple:
         log.error('NO PROCESSING STEP IMPLEMENTED FOR MODEL')
         pass
 
-    def training_preprocessing(self, args, train_loader):
+    def test(self, processed_data: tuple) -> np.ndarray:
+        log.error('NO TESTING STEP IMPLEMENTED')
+        pass
+
+    def training_preprocessing(self, args: DictConfig, processed_data: tuple):
+        """
+        preparation steps of training
+        """
         log.error('NO TRAINING PREPROCESSING PROCEDURE')
         pass
 
-    def training_epoch_iter(self, train_loader):
+    def training_epoch_iter(self, args: DictConfig, processed_data: tuple):
+        """
+        this is what happens inside the iteration of epochs
+        """
         log.error('NO TRAINING ITERATION LOOP')
         pass
 
-    def test(self, test_loader):
-        log.error('NO TESTING STEP IMPLEMENTED')
-        pass
+    def move_to_cpudevice(self, data):
+        return tuple(databite.to(torch.device("cpu"), non_blocking=True) if torch.is_tensor(databite) else databite for databite in data)
+
+    def move_to_activedevice(self, data):
+        return tuple(databite.to(self.device, non_blocking=True)  if torch.is_tensor(databite) else databite for databite in data)
+
 

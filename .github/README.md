@@ -16,11 +16,6 @@ We provide an experiment abstraction to compare different models and visualisati
 Any method can be trained individually via the main script using a specified config and the trainer objects. 
 [Optuna](https://optuna.readthedocs.io/en/stable/tutorial/index.html) is used to optimize hyperparameters, however models can be trained by specifying parameters. 
 
-Framework Pseudocode            |  Framework Results
-:-------------------------:|:-------------------------:
-<img src="https://github.com/willleeney/ugle/blob/main/.github/pseudocode.png" width="400" height="400"> | <img src="https://github.com/willleeney/ugle/assets/46964902/35e1c7c0-d2b7-4766-945d-a94cba9e102f.png" width="400" height="400"> 
-
-
 
 ## Installation
 
@@ -106,31 +101,3 @@ class <NEW_MODEL_NAME>_trainer(ugleTrainer):
         return preds
 
 ```
-
-### what is currently included in the repo
-
-```
-├── ugle
-|   ├── configs/ # directory of all configs
-|   ├── models/ # directory of all models implemented
-|   | 
-|   ├── datasets.py # contains download dataset functions + augmentations
-|   ├── gnn_architecture.py # contains custom gnn implementations
-|   ├── utils.py # utilities for manipulating custom data structures in project
-|   ├── trainer.py # trainer classes for training pipeline structuring
-|   ├── process.py # process data using maths
-|   ├── logger.py # logger definition 
-|   ├── helper.py # helpful functions to manipulate result files and create figures 
-|
-├── main.py # file to run any model once
-├── model_evaluations.py # file to run and compare many models
-├── .gitignore
-├── LICENSE
-├── data/ # data is stored 
-├── results/ # results from experiments
-├── tests/testing_env.py # file to test functions in the repo
-├── install_ugle.sh # installation script to install torch, dgl, torch-geometric
-├── setup.py
-└── requirements.txt 
-```
-

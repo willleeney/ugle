@@ -32,6 +32,11 @@ $ bash install_ugle.sh
 
 ## Quick Tour
 
+
+```python3 model_evaluations.py -ec=ugle/configs/experiments/unsupervised_limit/hpo_new.yaml -da=<dataset>_<model>```
+
+
+
 The ```model_evaluations.py``` executes a HPO investigation. 
 Use ```python model_evaluations.py --exp=ugle/configs/evaluations/hpo_investigation.yaml``` to reproduce the results from the paper.
 
@@ -41,6 +46,19 @@ The ```main.py``` script trains a single model on a single dataset as follows:
 
 ```python main.py --model=daegc_default --dataset=citeseer```
 
+
+## Existing Implementations 
+
+[daegc](https://github.com/Tiger101010/DAEGC)
+[dgi](https://github.com/PetarV-/DGI)
+[dmon](https://github.com/google-research/google-research/blob/master/graph_embedding/dmon/dmon.py)
+[mvgrl](https://github.com/kavehhassani/mvgrl)
+[grace](https://github.com/CRIPAC-DIG/GRACE)
+[selfgnn](https://github.com/zekarias-tilahun/SelfGNN)
+[sublime](https://github.com/GRAND-Lab/SUBLIME)
+[bgrl](https://github.com/Namkyeong/BGRL_Pytorch)
+[vgaer](https://github.com/qcydm/VGAER/tree/main/VGAER_codes)
+[cagc](https://github.com/wangtong627/CAGC/)
 
 ## Adding a new model <MODEL_NAME> 
 

@@ -13,13 +13,16 @@ def neural_run(override_model: str = None,
                override_dataset: str = None,
                override_cfg: DictConfig = None) -> dict:
     """
-    runs a GNN experiment
-    :param override_model: name of model to override default config
-    :param override_dataset: name of the dataset to override default config
-    :param override_cfg: override config options
-    :return results: results from the study
-    """
+    This function runs a GNN experiment and returns the results.
 
+    Args: 
+        override_model (str): name of model to override default config
+        override_dataset (str): name of the dataset to override the default config
+        override_cfg (DictConfig): used by model_evaluations() to override the default config  
+    Returns: 
+        results (dict): results from the study
+
+    """
     # load model config
     cfg = utils.load_model_config(override_model=override_model, override_cfg=override_cfg)
     if override_dataset:
@@ -47,7 +50,7 @@ def neural_run(override_model: str = None,
         cfg.trainer.models_path += f'{cfg.dataset}_{override_model}/'
 
     # create trainer object defined in models and init with config
-    Trainer = getattr(getattr(ugle.models, cfg.model), f"{cfg.model}_trainer")(cfg)
+    Trainer = ugle.trainer(cfg.model, cfg)
 
     # log the max memory usage by the evaluation
     start_time = time.time()

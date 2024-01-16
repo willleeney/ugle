@@ -307,8 +307,19 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
 
 
 class ugleTrainer:
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, model_name: str, cfg: None = DictConfig):
         super(ugleTrainer, self).__init__()
+
+        # get the required functions from the other debugger
+        model_trainer = getattr(getattr(ugle.models, model_name), f"{model_name}_trainer")
+        setattr(self, "preprocess_data", model_trainer.preprocess_data)
+        setattr(self, "training_preprocessing", model_trainer.training_preprocessing)
+        setattr(self, "training_epoch_iter", model_trainer.training_epoch_iter)
+        setattr(self, "test", model_trainer.test)
+
+        # if cfg is none then loads the default
+        if not cfg:
+            cfg = utils.load_model_config()
 
         _device = ugle.utils.set_device(cfg.trainer.gpu)
         if _device == 'cpu':
@@ -336,7 +347,7 @@ class ugleTrainer:
         self.patience_wait = 0
         self.best_loss = 1e9
         self.current_epoch = 0
-        self.memory_stats = {"active_memory_fpass": [], "active_memory_fpass_end": [], "active_memory_opt": []}
+     
 
     def load_database(self):
         log.info(f'Loading dataset {self.cfg.dataset}')
@@ -364,19 +375,23 @@ class ugleTrainer:
 
         return features, label, train_adjacency, test_adjacency
     
-    def eval(self):
-        # memory - start calc
-        #if self.cfg.trainer.calc_memory:
-            #torch.cuda.reset_peak_memory_stats(device=torch.device("cpu"))
-            #self.memory_stats["cpu_memory_start"] = psutil.virtual_memory().available / (1024 ** 3)
-            #torch.cuda.max_memory_allocated(device=torch.device("cpu"))
+    def eval(self, dataset=None):
 
         # loads the database to train on
-        features, label, validation_adjacency, test_adjacency = self.load_database()
+        if not dataset:
+            features, label, validation_adjacency, test_adjacency = self.load_database()
+        else:
+            #### TODO check contains dataset relevant stuff 
+            self.cfg.dataset = 'In_Memory'
+            train_adjacency, test_adjacency = datasets.split_adj(dataset['adjacency'],
+                                                        self.cfg.trainer.training_to_testing_split,
+                                                        self.cfg.trainer.split_scheme)
+            
+            features = dataset['features']
+            label = dataset['label']
 
-        # memory - cpu for dataset
-        #if self.cfg.trainer.calc_memory:
-        #    self.memory_stats["cpu_memory_dataset"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
+            #### TODO remove the dataset storage
+            
 
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
@@ -390,10 +405,7 @@ class ugleTrainer:
         processed_data = self.preprocess_data(features, train_adjacency)
         processed_valid_data = self.preprocess_data(features, validation_adjacency)
 
-        # memory - preprocessing requirement
-        #if self.cfg.trainer.calc_memory:
-        #   self.memory_stats["cpu_memory_preprocess"] = torch.cuda.max_memory_allocated(device=torch.device("cpu"))
-
+ 
         # if only testing then no need to optimise hyperparameters
         if not self.cfg.trainer.only_testing:
             optuna.logging.disable_default_handler()
@@ -506,13 +518,6 @@ class ugleTrainer:
                 log.debug('Retraining model')
                 validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
-
-                #lp = LineProfiler()
-                #lp_wrapper = lp(self.train)
-                #validation_results = lp_wrapper(None, label, features, processed_data, validation_adjacency,
-                #           processed_valid_data)
-                #lp.print_stats()
-
                 
                 # at this point, the self.train() loop should go have saved models for each validation metric 
                 # then go through the best at metrics, and do a test for each of the best models 

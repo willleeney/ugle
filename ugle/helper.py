@@ -1081,7 +1081,7 @@ def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorit
     
     return total_w_order
 
-def unsupervised_prediction_graph(datasets, algorithms, folder, title):
+def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend=False):
     plt.style.use(['science', 'nature'])
     plt.rcParams["font.family"] = "Times New Roman"
     plt.rcParams["figure.dpi"] = 144
@@ -1106,7 +1106,9 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
         print(f"W Order {n}: {w:.2f}")
    
     nrows, ncols = 2, 2
+
     fig, axes = plt.subplots(nrows, ncols, figsize=(7, 4))
+
     for i, ax in enumerate(axes.flat):
         if i == 0:
             x_label = "Modularity"
@@ -1165,7 +1167,13 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
         handles = []
         for opt_in in range(len(markers)): 
             df_axis = df[(df['Dataset'] == datasets[opt_in]) & (df['A_Metric'] == x_label) & (df['B_Metric'] == y_label)]
-            handles.append(mlines.Line2D([], [], label=datasets[opt_in], color="#474747", marker=markers[opt_in], linestyle='None'))
+            if datasets[opt_in] == 'dblp':
+                dname = datasets[opt_in].upper()
+            elif datasets[opt_in] == 'citeseer':
+                dname = 'CiteSeer'
+            else:
+                dname = datasets[opt_in].capitalize()
+            handles.append(mlines.Line2D([], [], label=dname, color="#474747", marker=markers[opt_in], linestyle='None', markersize=7))
 
             for a, col in enumerate(algorithm_colors):
                 if "_" in algorithms[a]:
@@ -1173,14 +1181,24 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
                 else:
                     algo_name = algorithms[a]
                 if opt_in == 5:
-                    handles.append(mlines.Line2D([], [], label=algo_name, color=col, marker="s", linestyle='None'))
+                    handles.append(mlines.Line2D([], [], label=algo_name.upper(), color=col, marker="s", linestyle='None', markersize=7))
 
                 ax.scatter(df_axis[df_axis['Algorithm'] == algorithms[a]]['A_Metric_Value'], df_axis[df_axis['Algorithm'] == algorithms[a]]['B_Metric_Value'], color=col, s=10, marker=markers[opt_in])
 
-        handles.append(mlines.Line2D([], [], color=nature_colours[3], linestyle='dashed', linewidth=2, label='Quadratic Fit'))#, $R^2$' + f': {r_value_quad:.2f}'))
-        handles.append(mlines.Line2D([], [], color=nature_colours[3], linewidth=2, label='Linear Fit'))
+        handles.append(mlines.Line2D([], [], color=nature_colours[3], linestyle='dashed', linewidth=3, label='Quadratic Fit'))#, $R^2$' + f': {r_value_quad:.2f}'))
+        handles.append(mlines.Line2D([], [], color=nature_colours[3], linewidth=3, label='Linear Fit'))
         ax.plot(x_space, y_line, color=nature_colours[3], linewidth=2)#, label=r'Linear Fit', $R^2$' + f': {r_value_line:.2f}')
         ax.plot(x_space, y_line_quad, color=nature_colours[3], linestyle='dashed', linewidth=2)#, label=r'Quadratic Fit')#, $R^2$' + f': {r_value_quad:.2f}', linewidth=2)
+        
+        if x_label == "Conductance":
+            x_label = r"$\mathcal{C}$"
+        if x_label == "Modularity":
+            x_label = r"$\mathcal{M}$"
+        if y_label == "NMI":
+            y_label = r"$NMI$"
+        if y_label == "F1":
+            y_label = r"$F1$"
+        
         if i == 0:
             ax.set_ylabel(y_label, fontsize=11)
         if i == 2:
@@ -1190,7 +1208,7 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
             ax.set_xlabel(x_label, fontsize=11)
         
         ax.set_ylim(0, 1)
-        ax.set_title(f"{x_label[:3]}" + r' $\rightarrow$ '+ y_label, fontsize=13)# + " (l-"+ r"$R^2$" + f": {r_value_line:.2f}, q-" + r"$R^2$"  + f": {r_value_quad:.2f}, " + r"$W$" + f": {W_order:.2f})", fontsize=9)
+        ax.set_title(x_label + r' $\rightarrow$ '+ y_label, fontsize=13)# + " (l-"+ r"$R^2$" + f": {r_value_line:.2f}, q-" + r"$R^2$"  + f": {r_value_quad:.2f}, " + r"$W$" + f": {W_order:.2f})", fontsize=9)
         #if i == 1:
         #    ax.legend(handles=handles, bbox_to_anchor=(1.10, 1.5), fontsize=8, ncols=1)
         ax.tick_params(axis='y', labelsize=7)
@@ -1198,16 +1216,19 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
        
     print_algo_table(datasets, algorithms, folder)
     print_dataset_table(datasets, algorithms, folder)
-
+    plt.tight_layout()
     if "Large" not in title:
         fig.suptitle(title, fontsize=16)
-        plt.subplots_adjust(top=0.85, bottom=0.22, hspace=0.33)
-        #fig.add_subplot(111, frameon=False)
-        #plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
-        #plt.legend(handles=handles, bbox_to_anchor=(0, 0), fontsize=8, ncols=6)
-        blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
-        blank_ax.axis('off')
-        blank_ax.legend(handles=handles, loc='lower center', fontsize=8, ncols=6)
+        #plt.subplots_adjust(top=0.85, bottom=0.09, hspace=0.33)
+        #if pltlegend:
+            #plt.subplots_adjust(top=0.85, bottom=0.3, hspace=0.42)
+            #fig.add_subplot(111, frameon=False)
+            #plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
+            #plt.legend(handles=handles, bbox_to_anchor=(0, 0), fontsize=8, ncols=6)
+            
+            #blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+            #blank_ax.axis('off')
+            #blank_ax.legend(handles=handles, loc='lower center', fontsize=10, ncols=5)
         #plt.tight_layout()
         if "66" in title:
             title_name = '66_data'
@@ -1216,16 +1237,21 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
         else:
             title_name = title.replace(" ", "_")
             title_name = title_name.replace("\'", "")
+        plt.tight_layout()
         plt.savefig(f'./figures/unsupervised_limit/{title_name}.eps', format='eps')
-    return
+    if pltlegend:
+        return handles
 
-def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims, figsize):
+def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims, figsize, plot_legend=False):
     plt.style.use(['science', 'nature'])
     plt.rcParams["font.family"] = "Times New Roman"
     plt.rcParams["figure.dpi"] = 144
     plt.rcParams["hatch.linewidth"] = 0.3
 
     nature_colours = ["#0C5DA5", "#00B945", "#FF9500", "#FF2C00", "#845B97", "#474747", "#9e9e9e"]
+    my_colours2 = ["#FF9500", "gold", "#FF2C00", "#0C5DA5", "#B5DEFF", "#845B97"]
+    my_colours1 = ['tab:red', 'tab:purple', 'tab:pink', 'tab:blue', 'tab:cyan', 'deepskyblue']
+    my_colours = ['tab:red', 'darkorange', '#FDC010', 'tab:blue', 'tab:purple', 'paleturquoise']
 
     nrows, ncols = plot_dims[0], plot_dims[1]
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
@@ -1248,6 +1274,8 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
             dataset_name = dataset_name.replace("random", "Random")
             dataset_name = dataset_name.replace("complete", "Null")
             ax.set_title(dataset_name + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=12)
+        elif dataset == 'citeseer':
+            ax.set_title('CiteSeer' + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=15)
         else:
             ax.set_title(dataset.capitalize() + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=15)
 
@@ -1283,22 +1311,22 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
             con_nmi_std.append(np.std(con_results[:, 2]))
 
 
-        ax.bar(x_axis_points, mod, width=bar_width, linewidth=0, facecolor=nature_colours[0], label=r'Mod')
+        ax.bar(x_axis_points, mod, width=bar_width, linewidth=0, facecolor=my_colours[0])
         ax.errorbar(x_axis_points, mod, mod_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
 
-        ax.bar(x_axis_points + 1/6, mod_f1, width=bar_width, linewidth=0, facecolor=nature_colours[0], alpha=0.9, hatch="/////", label=r'Mod$\rightarrow$F1')
+        ax.bar(x_axis_points + 1/6, mod_f1, width=bar_width, linewidth=0, facecolor=my_colours[1])
         ax.errorbar(x_axis_points + 1/6, mod_f1, mod_f1_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
 
-        ax.bar(x_axis_points + 1/3, mod_nmi, width=bar_width, linewidth=0, facecolor=nature_colours[0], alpha=0.7, hatch="\\\\\\\\\\",label=r'Mod$\rightarrow$NMI')
+        ax.bar(x_axis_points + 1/3, mod_nmi, width=bar_width, linewidth=0, facecolor=my_colours[2])
         ax.errorbar(x_axis_points + 1/3, mod_nmi, mod_nmi_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
 
-        ax.bar(x_axis_points + 1/2, con, width=bar_width, linewidth=0,  facecolor=nature_colours[2], label=r'Con')
+        ax.bar(x_axis_points + 1/2, con, width=bar_width, linewidth=0,  facecolor=my_colours[3])
         ax.errorbar(x_axis_points + 1/2, con, con_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
         
-        ax.bar(x_axis_points + 2/3, con_f1, width=bar_width, linewidth=0, facecolor=nature_colours[2],alpha=0.9, hatch="/////", label=r'Con$\rightarrow$F1')
+        ax.bar(x_axis_points + 2/3, con_f1, width=bar_width, linewidth=0, facecolor=my_colours[4])
         ax.errorbar(x_axis_points + 2/3, con_f1, con_f1_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
         
-        ax.bar(x_axis_points + 5/6, con_nmi, width=bar_width, linewidth=0, facecolor=nature_colours[2], alpha=0.7, hatch="\\\\\\\\\\", label=r'Con$\rightarrow$NMI')
+        ax.bar(x_axis_points + 5/6, con_nmi, width=bar_width, linewidth=0, facecolor=my_colours[5])
         ax.errorbar(x_axis_points + 5/6, con_nmi, con_nmi_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
 
         if "Large" not in title:
@@ -1311,23 +1339,33 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
         ax.set_axisbelow(True)
         ax.set_ylim(0.0, 1.0)
 
-        if "Large" in title and i == 1:
-            ax.legend(loc='best')
-        elif "Synthetic" in title and i == 4: 
-            ax.legend(loc='best')
-        elif "Optimisation" in title and i == 5: 
-            ax.legend(loc='best')
-        elif i == 3 and "Optimisation" not in title:
-            ax.legend(loc='best')
-
     if "Large" not in title:
         fig.suptitle(title, fontsize=20)
     else:
         fig.suptitle(title, fontsize=16) 
+
+    plt.tight_layout()
+    if plot_legend:
+        #if "Synth" in title:
+        #    plt.subplots_adjust(top=0.9, bottom=0.16, hspace=0.55)
+        #else:
+        #    plt.subplots_adjust(top=0.87, bottom=0.22, hspace=0.55)
+        #blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+        #blank_ax.axis('off')
+        handles = []
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[0], label=r'$\mathcal{M}$'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[3], label=r'$\mathcal{C}$'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[1], label=r'$\mathcal{M} \rightarrow F1$', edgecolor='black'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[4], label=r'$\mathcal{C} \rightarrow F1$', edgecolor='black'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[2], label=r'$\mathcal{M} \rightarrow NMI$', edgecolor='black'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[5], label=r'$\mathcal{C} \rightarrow NMI$',  edgecolor='black'))
+        #blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3)
+
     save_name = f'{os.path.basename(os.path.normpath(folder))}'
     save_name = save_name.replace("\'", "")
-    plt.tight_layout()
     plt.savefig(f'./figures/unsupervised_limit/{save_name}.eps', format='eps')
+    if plot_legend:
+        return handles
 
 def calculate_framework_comparison_rank(datasets, algorithms, folder, default_algorithms, dfolder):
     # get results for both
@@ -1366,7 +1404,7 @@ if __name__ == "__main__":
 
     make_unsuper = True
     calc_increases = False
-    calc_synth_increases = True
+    calc_synth_increases = False
 
 
 
@@ -1565,7 +1603,7 @@ if __name__ == "__main__":
 
         #calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder)
 
-        #create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(8, 6))
+        handles = create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(8, 6), plot_legend=True)
         #create_abs_performance_figure(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Performance", plot_dims=[2, 3], figsize=(8, 6))
         #create_abs_performance_figure(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="DMoN Performance Large Datasets with HPO", plot_dims=[1, 2], figsize=(5, 2.5))
         #create_abs_performance_figure(synth_datasets, default_algorithms, q5_folder, title="Default Hyperparameter's Performance on Synthetic Data", plot_dims=[3, 3], figsize=(9, 9))
@@ -1573,8 +1611,30 @@ if __name__ == "__main__":
         #create_abs_performance_figure(datasets, default_algorithms, q5_folder1, title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 3], figsize=(8, 6))
 
         #unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Correlation")
-        #unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation")
+        handles2 = unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation", pltlegend=True)
         #unsupervised_prediction_graph(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="Large Dataset HPO")
         #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
         #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")
+
+
+        def create_handles_image(handles, name):
+            if name == 'corr':
+                fig, axes = plt.subplots(figsize=(9, 0.75))
+            else:
+                fig, axes = plt.subplots(figsize=(5, 0.5))
+            axes.set_xticks([])
+            axes.set_yticks([])
+            axes.set_xticklabels([])
+            axes.set_yticklabels([])
+            axes.axis('off')
+            blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+            blank_ax.axis('off')
+            if name == 'corr':
+                blank_ax.legend(handles=handles, loc='lower center', fontsize=15, ncols=5)
+            else:
+                blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3)
+            
+            plt.savefig(f'./figures/unsupervised_limit/handles_{name}', format='png')
         
+        create_handles_image(handles, name='abs')
+        create_handles_image(handles2, name='corr')

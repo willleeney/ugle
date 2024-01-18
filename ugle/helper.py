@@ -959,25 +959,34 @@ def extract_supervised_results(datasets, algorithms, folder):
 
 def calc_percent_increase(f1_nmi_results, dmod_results, dcon_results):
 
-    diff = np.zeros((f1_nmi_results.shape[0], 4))
-    for i, row in enumerate(f1_nmi_results):
-        # f1 - modf1 
-        diff[i, 0] = (row[0] - dmod_results[i, 1]) / dmod_results[i, 1]
+    # diff = np.zeros((f1_nmi_results.shape[0], 4))
+    # for i, row in enumerate(f1_nmi_results):
+    #     # f1 - modf1 
+    #     diff[i, 0] = (row[0] - dmod_results[i, 1]) / dmod_results[i, 1]
 
-        # f1 - conf1 
-        diff[i, 1] = (row[0] - dcon_results[i, 1]) / dcon_results[i, 1]
+    #     # f1 - conf1 
+    #     diff[i, 1] = (row[0] - dcon_results[i, 1]) / dcon_results[i, 1]
 
-        # nmi - modnmi
-        diff[i, 2] = (row[1] - dmod_results[i, 2]) / dmod_results[i, 2]
+    #     # nmi - modnmi
+    #     diff[i, 2] = (row[1] - dmod_results[i, 2]) / dmod_results[i, 2]
 
-        # nmi - connmi 
-        diff[i, 3] = (row[1] - dcon_results[i, 2]) / dcon_results[i, 2]
+    #     # nmi - connmi 
+    #     diff[i, 3] = (row[1] - dcon_results[i, 2]) / dcon_results[i, 2]
 
-    increases = np.mean(diff, axis=0)
-    print(f'Increase from using Modularity to select for F1 compared to just F1: {increases[0]*100:.2f}%')
-    print(f'Increase from using Conductance to select for F1 compared to just F1: {increases[1]*100:.2f}%')
-    print(f'Increase from using Modularity to select for NMI compared to just NMI: {increases[2]*100:.2f}%')
-    print(f'Increase from using Conductance to select for NMI compared to just NMI: {increases[3]*100:.2f}%')
+    # increases = np.mean(diff, axis=0)
+
+    # if np.isnan(increases).any() or np.isinf(increases).any():
+    #     print('error?')
+
+    mod_f1 = np.mean(dmod_results[:, 1] - f1_nmi_results[:, 0])
+    con_f1 = np.mean(dcon_results[:, 1] - f1_nmi_results[:, 0])
+    mod_nmi = np.mean(dmod_results[:, 2] - f1_nmi_results[:, 1])
+    con_nmi = np.mean(dcon_results[:, 2] -  f1_nmi_results[:, 1])
+
+    print(f'Abs Difference from using Modularity to select for F1 compared to just F1: {mod_f1:.2f}')
+    print(f'Abs Difference from using Conductance to select for F1 compared to just F1: {con_f1:.2f}')
+    print(f'Abs Difference from using Modularity to select for NMI compared to just NMI: {mod_nmi:.2f}')
+    print(f'Abs Difference from using Conductance to select for NMI compared to just NMI: {con_nmi:.2f}')
     return
 
 def print_dataset_table(datasets, algorithms, folder, power_d=2):
@@ -1024,10 +1033,26 @@ def kendall_w(expt_ratings):
     return 1 - (12*S/denom)
 
 def rank_values(scores):
-    argsort_array = scores.argsort().argsort()
-    ranks_array = np.empty_like(argsort_array)
-    ranks_array[argsort_array] = np.arange(len(scores))
-    return ranks_array
+
+    indices = np.argsort(scores)
+
+    # Initialize an array to store the ranks
+    ranks = np.zeros_like(indices, dtype=float)
+
+    # Assign ranks to the sorted indices
+    ranks[indices] = np.arange(len(scores)) + 1
+
+    # Find unique scores and their counts
+    unique_scores, counts = np.unique(scores, return_counts=True)
+
+    # Calculate mean ranks for tied scores
+    for score, count in zip(unique_scores, counts):
+        if count > 1:
+            score_indices = np.where(scores == score)[0]
+            mean_rank = np.mean(ranks[score_indices])
+            ranks[score_indices] = mean_rank
+
+    return ranks
 
 def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, datasets):
     different_comparisons = [mod_results[:, 0], mod_results[:, 1], mod_results[:, 2], con_results[:, 0], con_results[:, 1], con_results[:, 2]]
@@ -1046,11 +1071,11 @@ def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorit
 
         w_order = []
         for test in ranking:
-            w_order.append(kendall_w(test))
+            w_order.append(w_rand_wasserstein(test))
         w_order = np.array(w_order)
         total_w_order.append(w_order)
         # the W order of each metric tests
-        print(f"{testname} W Order: {np.mean(w_order):.3f} +- {np.std(w_order):.3f}")
+        print(f"{testname} W_w Order: {np.mean(w_order):.3f} +- {np.std(w_order):.3f}")
     # the W order over the whole 66% experiment
     total_w_order = np.asarray(total_w_order)
     
@@ -1110,20 +1135,24 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
 
         print(f"\n{x_label} -> {y_label}")
         # compute regression and give correlation 
-        slope, intercept, _, _, _ = linregress(x, y)
-        y_line_predicted = (x * slope) + intercept
-        r_value_line = r2_score(y, y_line_predicted)
-        print(f"Coefficient of Determination (R^2): {r_value_line:.2f}")
         x_space = np.linspace(np.min(x), np.max(x), 200)
-        y_line = (x_space * slope) + intercept
 
-        # Fit a quadratic 
+        # Fit a linear line 
+        coefficients = np.polyfit(x, y, 1)
+        poly = np.poly1d(coefficients)
+        # Calculate predicted values
+        predicted_y = poly(x)
+        r_value_line = np.round(r2_score(y, predicted_y), 3)
+        print(f"Linear (R^2): {r_value_line}")
+        y_line = poly(x_space)
+        
+        # Fit a quadratic line
         coefficients = np.polyfit(x, y, 2)
         poly = np.poly1d(coefficients)
         # Calculate predicted values
         predicted_y = poly(x)
         r_value_quad = np.round(r2_score(y, predicted_y), 3)
-        print(f"Variance Explained by Quadratic: {r_value_quad}")
+        print(f"Quadratic (R^2): {r_value_quad}")
         y_line_quad = poly(x_space)
 
         # spearmans  
@@ -1153,15 +1182,15 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
         ax.plot(x_space, y_line, color=nature_colours[3], linewidth=2)#, label=r'Linear Fit', $R^2$' + f': {r_value_line:.2f}')
         ax.plot(x_space, y_line_quad, color=nature_colours[3], linestyle='dashed', linewidth=2)#, label=r'Quadratic Fit')#, $R^2$' + f': {r_value_quad:.2f}', linewidth=2)
         if i == 0:
-            ax.set_ylabel(y_label, fontsize=12)
+            ax.set_ylabel(y_label, fontsize=11)
         if i == 2:
-            ax.set_ylabel(y_label, fontsize=12) 
-            ax.set_xlabel(x_label, fontsize=12)
+            ax.set_ylabel(y_label, fontsize=11) 
+            ax.set_xlabel(x_label, fontsize=11)
         if i == 3:
-            ax.set_xlabel(x_label, fontsize=12)
+            ax.set_xlabel(x_label, fontsize=11)
         
         ax.set_ylim(0, 1)
-        ax.set_title(f"{x_label[:3]}" + r' $\rightarrow$ '+ y_label + " (l-"+ r"$R^2$" + f": {r_value_line:.2f}, q-" + r"$R^2$"  + f": {r_value_quad:.2f}, " + r"$W$" + f": {W_order:.2f})", fontsize=9)
+        ax.set_title(f"{x_label[:3]}" + r' $\rightarrow$ '+ y_label, fontsize=13)# + " (l-"+ r"$R^2$" + f": {r_value_line:.2f}, q-" + r"$R^2$"  + f": {r_value_quad:.2f}, " + r"$W$" + f": {W_order:.2f})", fontsize=9)
         #if i == 1:
         #    ax.legend(handles=handles, bbox_to_anchor=(1.10, 1.5), fontsize=8, ncols=1)
         ax.tick_params(axis='y', labelsize=7)
@@ -1169,11 +1198,6 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title):
        
     print_algo_table(datasets, algorithms, folder)
     print_dataset_table(datasets, algorithms, folder)
-
-    if "Large" in title:
-        print('TO THE POWER OF ONE')
-        print_algo_table(datasets, algorithms, folder)
-        print_dataset_table(datasets, algorithms, folder)
 
     if "Large" not in title:
         fig.suptitle(title, fontsize=16)
@@ -1333,16 +1357,17 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
     return 
 
 
-
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = True
+    make_ugle = False
     make_big_figure = False
     make_dist_figure = True
     make_presentation_figures = False
 
-    make_unsuper = False
-    calc_increases = True
+    make_unsuper = True
+    calc_increases = False
+    calc_synth_increases = True
+
 
 
     if make_ugle:
@@ -1505,14 +1530,37 @@ if __name__ == "__main__":
                             'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
                             'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
 
-        default_algorithms = ['daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+        default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
         algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
 
+       
+        q1sup_folder = './results/unsupervised_limit/default_sup_select/'
+        q2sup_folder = './results/unsupervised_limit/hpo_q2_sup/'
+        qlargesup_folder = './results/unsupervised_limit/hpo_large_sup/'
+        synthsup_folder = './results/unsupervised_limit/synth_default_q5_sup/'
+        q5sup_33 = './results/unsupervised_limit/default_33_sup/'
+        q5sup_66 = './results/unsupervised_limit/default_66_sup/'
+
+        extract_infos = zip([q1_folder, q2_folder, qlarge_folder, qlarge_folder, q5_folder1, q5_folder2], 
+                            [q1sup_folder, q2sup_folder, qlargesup_folder, qlargesup_folder, q5sup_33, q5sup_66],
+                            [default_algorithms, algorithms, ['dmon'], ['dmon'], default_algorithms, default_algorithms],
+                            [datasets, datasets, ['Photo'], ['Computers'], synth_datasets, datasets, datasets])
+
         if calc_increases:
-            # calculate the percentage drops
-            f1_nmi_results = extract_supervised_results(datasets, default_algorithms, './results/unsupervised_limit/default_sup_select/')
-            dmod_results, dcon_results = extract_results(datasets, default_algorithms, q1_folder)
-            calc_percent_increase(f1_nmi_results, dmod_results, dcon_results)
+            for norm, sup, algos, dset in extract_infos:
+                # calculate the percentage drops
+                print(sup.split("/")[-2])
+                f1_nmi_results = extract_supervised_results(dset, algos, sup)
+                print(norm.split("/")[-2])
+                dmod_results, dcon_results = extract_results(dset, algos, norm)
+                calc_percent_increase(f1_nmi_results, dmod_results, dcon_results)
+
+        if calc_synth_increases:
+            for dset in synth_datasets:
+                print(dset)
+                f1_nmi_results = extract_supervised_results([dset], default_algorithms, synthsup_folder)
+                dmod_results, dcon_results = extract_results([dset], default_algorithms, q5_folder)
+                calc_percent_increase(f1_nmi_results, dmod_results, dcon_results)
 
 
         #calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder)
@@ -1524,8 +1572,8 @@ if __name__ == "__main__":
         #create_abs_performance_figure(datasets, default_algorithms, q5_folder2, title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 3], figsize=(8, 6))
         #create_abs_performance_figure(datasets, default_algorithms, q5_folder1, title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 3], figsize=(8, 6))
 
-        #unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation")
         #unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Correlation")
+        #unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation")
         #unsupervised_prediction_graph(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="Large Dataset HPO")
         #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
         #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")

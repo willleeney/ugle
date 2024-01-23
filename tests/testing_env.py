@@ -21,7 +21,6 @@ def test_neural():
 
 def test_pipeline():
     # test that pipeline fallsback to cpu correctly
-
     run_experiment('ugle/configs/testing/min_cpu_fallback.yaml')
     # test that pipeline works
     run_experiment('ugle/configs/testing/min_working_pipeline_config.yaml')
@@ -30,3 +29,23 @@ def test_pipeline():
 def test_multi_objective():
     run_experiment('ugle/configs/testing/min_multi_objective.yaml')
     run_experiment('ugle/configs/testing/min_multi_hpo_non_neural.yaml')
+
+
+if __name__ == "__main__":
+    import ugle
+    import numpy as np
+    n_nodes = 1000
+    n_features = 200
+    n_clusters = 3
+
+    # demo to evaluate a In Memory dataset 
+    dataset = {'features': np.random.rand(n_nodes, n_features),
+               'adjacency': np.random.rand(n_nodes, n_nodes),
+               'label': np.random.randint(0, n_clusters+1, size=n_nodes)}
+    Trainer = ugle.trainer.ugleTrainer("dmon")
+    results = Trainer.eval(dataset)
+
+    # demo to evaluate one of the benchmarking datasets
+    Trainer = ugle.trainer.ugleTrainer("daegc")
+    Trainer.cfg.dataset = "cora"
+    results = Trainer.eval()

@@ -49,8 +49,7 @@ def create_logger() -> logging.Logger:
         os.mkdir(log_path)
 
     latest_file_index = len(os.listdir(log_path))
-    poke_name = np.random.choice(exp_name)
-    uid = f'{latest_file_index}-{poke_name}'
+    uid = f'{latest_file_index}-{exp_name}'
 
     # Set up the logger
     logger = logging.getLogger(uid)
@@ -60,7 +59,7 @@ def create_logger() -> logging.Logger:
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.INFO)
 
-    file_handler = logging.FileHandler(filename= log_path + uid)
+    file_handler = logging.FileHandler(filename=log_path + uid)
     file_handler.setLevel(logging.DEBUG)
 
     # Set the custom formatters to the handlers

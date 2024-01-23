@@ -26,6 +26,7 @@ trainer:
   training_to_testing_split: 0.2
   train_to_valid_split: 0.2
   save_validation: False
+  split_scheme: 'drop_edges' # one of drop_edges, split_edges, all_edges, no_edges (see ugle.datasets.split_adj() for more info)
 
   # logging options
   calc_time: True

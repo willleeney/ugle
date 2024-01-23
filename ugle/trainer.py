@@ -9,7 +9,6 @@ import numpy as np
 import optuna
 from optuna import Trial
 from optuna.samplers import TPESampler
-import threading
 import time
 from tqdm import trange
 import copy
@@ -20,6 +19,8 @@ import warnings
 from os import makedirs, devnull, get_terminal_size
 from memory_profiler import memory_usage
 import pickle
+from torch_geometric.utils import to_undirected
+import types
 
 from optuna.exceptions import ExperimentalWarning
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
@@ -87,15 +88,15 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
 
 
 class ugleTrainer:
-    def __init__(self, model_name: str, cfg: None = DictConfig):
+    def __init__(self, model_name: str, cfg=None):
         super(ugleTrainer, self).__init__()
 
         # get the required functions from the other debugger
         model_trainer = getattr(getattr(ugle.models, model_name), f"{model_name}_trainer")
-        setattr(self, "preprocess_data", model_trainer.preprocess_data)
-        setattr(self, "training_preprocessing", model_trainer.training_preprocessing)
-        setattr(self, "training_epoch_iter", model_trainer.training_epoch_iter)
-        setattr(self, "test", model_trainer.test)
+        self.preprocess_data = types.MethodType(model_trainer.preprocess_data, self)
+        self.training_preprocessing = types.MethodType(model_trainer.training_preprocessing, self)
+        self.training_epoch_iter = types.MethodType(model_trainer.training_epoch_iter, self)
+        self.test = types.MethodType(model_trainer.test, self)
 
         # if cfg is none then loads the default
         if not cfg:
@@ -129,23 +130,49 @@ class ugleTrainer:
         self.current_epoch = 0
      
 
-    def load_database(self):
+    def load_database(self, dataset: dict=None):
+        if dataset:
+            self.cfg.dataset = 'In_Memory'
         log.info(f'Loading dataset {self.cfg.dataset}')
-        if 'synth' not in self.cfg.dataset:
-            # loads and splits the dataset
-            features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
-                self.cfg.dataset,
-                self.cfg.trainer.training_to_testing_split,
-                self.cfg.trainer.split_scheme,
-                self.cfg.trainer.split_addition_percentage)
+        
+        # if no dataset has been passed to trainer
+        if not dataset:
+            if 'synth' not in self.cfg.dataset:
+                # loads and splits the dataset
+                features, label, train_adjacency, test_adjacency = datasets.load_real_graph_data(
+                    self.cfg.dataset,
+                    self.cfg.trainer.training_to_testing_split,
+                    self.cfg.trainer.split_scheme)
+            else:
+                _, adj_type, feature_type, n_clusters = self.cfg.dataset.split("_")
+                n_clusters = int(n_clusters)
+                adjacency, features, label = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, 
+                                                                        adj_type=adj_type, feature_type=feature_type)
+                train_adjacency, test_adjacency = datasets.split_adj(adjacency,
+                                                                     self.cfg.trainer.training_to_testing_split,
+                                                                     self.cfg.trainer.split_scheme)
+                
+        # if an in-memory dataset has been passed
         else:
-            _, adj_type, feature_type, n_clusters = self.cfg.dataset.split("_")
-            n_clusters = int(n_clusters)
-            adjacency, features, label = datasets.create_synth_graph(n_nodes=1000, n_features=500, n_clusters=n_clusters, 
-                                                                     adj_type=adj_type, feature_type=feature_type)
-            train_adjacency, test_adjacency = datasets.split_adj(adjacency,
-                                                                 self.cfg.trainer.training_to_testing_split,
-                                                                 self.cfg.trainer.split_scheme)
+            assert 'adjacency' in dataset, "dataset did not contain adjacency info"
+            assert 'features' in dataset, "dataset did not contain features info"
+            assert 'adjacency' in dataset, "dataset did not contain label info"
+            assert np.shape(dataset['features'])[0] == np.shape(dataset['adjacency'])[0], "feature and adjacency node dimension mismatch"
+            assert np.shape(dataset['features'])[0] == np.shape(dataset['adjacency'])[0], "feature and adjacency node dimension mismatch"
+            assert np.shape(dataset['features'])[0] == np.shape(dataset['label'])[0], "label node dimension mismatch with input data"
+
+            log.info('Converting adjacency matrix connections to 1 (unweighted)')
+            dataset['adjacency'] = np.where(dataset['adjacency'] != 0, 1, dataset['adjacency'])
+
+            log.info('Converting adjacency to undirected')
+            dataset['adjacency'] = datasets.to_dense_adj(to_undirected(datasets.to_edge_index(dataset['adjacency']))).numpy().squeeze(0)
+
+            train_adjacency, test_adjacency = datasets.split_adj(dataset['adjacency'],
+                                                        self.cfg.trainer.training_to_testing_split,
+                                                        self.cfg.trainer.split_scheme)
+            
+            features = dataset['features']
+            label = dataset['label']
 
         # extract database relevant info
         if not self.cfg.args.n_clusters:
@@ -155,28 +182,18 @@ class ugleTrainer:
 
         return features, label, train_adjacency, test_adjacency
     
-    def eval(self, dataset=None):
+    def eval(self, dataset:dict=None):
 
         # loads the database to train on
-        if not dataset:
-            features, label, validation_adjacency, test_adjacency = self.load_database()
-        else:
-            #### TODO check contains dataset relevant stuff 
-            self.cfg.dataset = 'In_Memory'
-            train_adjacency, test_adjacency = datasets.split_adj(dataset['adjacency'],
-                                                        self.cfg.trainer.training_to_testing_split,
-                                                        self.cfg.trainer.split_scheme)
-            
-            features = dataset['features']
-            label = dataset['label']
+        features, label, validation_adjacency, test_adjacency = self.load_database(dataset)
             
         # creates store for range of hyperparameters optimised over
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 
         log.debug('splitting dataset into train/validation')
         train_adjacency, validation_adjacency = datasets.split_adj(validation_adjacency, 
-                                                          self.cfg.trainer.train_to_valid_split, 
-                                                          self.cfg.trainer.split_scheme)
+                                                                   self.cfg.trainer.train_to_valid_split, 
+                                                                   self.cfg.trainer.split_scheme)
 
         # process data for training
         processed_data = self.preprocess_data(features, train_adjacency)
@@ -340,36 +357,14 @@ class ugleTrainer:
         # configuration of args if hyperparameter optimisation phase
         if trial is not None:
             log.info(f'Launching Trial {trial.number}')
-            # if finetuning or reusing init procedure then just use default architecture sizes
-            if self.cfg.trainer.finetuning_new_dataset or self.cfg.trainer.same_init_hpo:
-                args_to_overwrite = list(set(args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
-                saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
-                for k in args_to_overwrite:
-                    self.cfg.args[k] = saved_args.args[k]
-                    args = saved_args.args[k]
-            # this will prune the trial if the args have appeared 
             self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
+            # this will prune the trial if the args have appeared 
             self.cfg.args = ugle.utils.sample_hyperparameters(trial, self.cfg.args, prune_params)
 
         # process model creation
         processed_data = self.move_to_activedevice(processed_data)
         self.training_preprocessing(self.cfg.args, processed_data)
         self.model.train()
-
-        if self.cfg.trainer.finetuning_new_dataset:
-            log.info('Loading pretrained model')
-            self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}.pt")['model'])
-            self.model.to(self.device)
-
-        if trial is not None:
-            if self.cfg.trainer.same_init_hpo and trial.number == 0:
-                log.info("Saving initilisation of parameters")
-                torch.save(self.model.state_dict(), f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_init.pt")
-
-            if self.cfg.trainer.same_init_hpo: 
-                log.info("Loading same initilisation of parameters")
-                self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_init.pt"))
-                self.model.to(self.device)
 
         # create training loop
         self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:15}{r_bar}{bar:-15b}', file=open(devnull, 'w'))

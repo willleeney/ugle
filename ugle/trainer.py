@@ -29,11 +29,14 @@ optuna.logging.set_verbosity(optuna.logging.CRITICAL)
 
 def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_objective_study: bool):
     """
-    logs the results for a trial
-    :param trial: trial object
-    :param results: result dictionary for trial
-    :param valid_metrics: validation metrics used
-    :param multi_objective_study: boolean whether under multi-objective study or not
+        Logs the results for a trial.
+
+        Args:
+            trial (Trial): trial object.
+            results (dict): result dictionary for the trial.
+            valid_metrics (list): Validation metrics used.
+            multi_objective_study (boolean): indicating whether under multi-objective study or not.
+
     """
     if not multi_objective_study:
         # log validation results
@@ -133,6 +136,18 @@ class ugleTrainer:
      
 
     def load_database(self, dataset: dict=None):
+        """
+        Function to load the dataset and set the attributes of the dataset to cfg
+
+        Args:
+            dataset (dict): contains an in memory dataset
+
+        Returns: 
+            features (np.ndarray): feature matrix 
+            label (np.ndarray): labels for each node
+            train_adjacency (np.ndarray): train/validation split of the adjacency matrix
+            test_adjacency (np.ndarray): test split of the adjacency matrix
+        """
         if dataset:
             self.cfg.dataset = 'In_Memory'
         log.info(f'Loading dataset {self.cfg.dataset}')
@@ -184,7 +199,7 @@ class ugleTrainer:
 
         return features, label, train_adjacency, test_adjacency
     
-    def eval(self, dataset:dict=None):
+    def eval(self, dataset: dict=None):
 
         # loads the database to train on
         features, label, validation_adjacency, test_adjacency = self.load_database(dataset)
@@ -201,7 +216,6 @@ class ugleTrainer:
         processed_data = self.preprocess_data(features, train_adjacency)
         processed_valid_data = self.preprocess_data(features, validation_adjacency)
 
- 
         # if only testing then no need to optimise hyperparameters
         if not self.cfg.trainer.only_testing:
             optuna.logging.disable_default_handler()
@@ -225,7 +239,6 @@ class ugleTrainer:
             # perform the hpo
             study.optimize(lambda trial: self.train(trial,
                                                     label,
-                                                    features,
                                                     processed_data,
                                                     validation_adjacency,
                                                     processed_valid_data,
@@ -251,8 +264,7 @@ class ugleTrainer:
         # one retraining of the model is necessary
         if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
             # retrains the model on the validation adj and evaluates test performance
-            validation_results = self.train(None, label, features, processed_data, validation_adjacency,
-                                    processed_valid_data)
+            validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
             objective_results = []
             for opt_metric in self.cfg.trainer.valid_metrics:
                 log.info(f'Evaluating {opt_metric} model on test split')
@@ -300,8 +312,7 @@ class ugleTrainer:
 
                 # retrains the model on the validation adj and evaluates test performance
                 log.debug('Retraining model')
-                validation_results = self.train(None, label, features, processed_data, validation_adjacency,
-                           processed_valid_data)
+                validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
                 
                 # at this point, the self.train() loop should go have saved models for each validation metric 
                 # then go through the best at metrics, and do a test for each of the best models 
@@ -316,9 +327,7 @@ class ugleTrainer:
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                     to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                     log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
-                    objective_results.append({'metrics': opt_metric,
-                                            'results': results,
-                                            'args': best_hp_params})
+                    objective_results.append({'metrics': opt_metric, 'results': results, 'args': best_hp_params})
                 
                 if self.cfg.trainer.save_validation:
                     objective_results[-1]['validation_results'] = validation_results
@@ -338,9 +347,26 @@ class ugleTrainer:
 
         return objective_results
 
-    def train(self, trial: Trial, label: np.ndarray, features: np.ndarray, processed_data: tuple,
-              validation_adjacency: np.ndarray, processed_valid_data: tuple, prune_params=None):
-        
+    def train(self, trial: Trial, label: np.ndarray, processed_data: tuple, validation_adjacency: np.ndarray, processed_valid_data: tuple, prune_params=None):
+        """
+        Training function for training a GNN under hpo suggested or specified parameters. Contains functions 
+        for switching to active devices, progress bar tracking and validation selection. 
+
+        Args:
+            trial (Trial): the trial object from the optuna hpo (can be None) 
+            label (np.ndarray): the ground-truth for the dataset
+            processed_data (tuple): the processed data necessary for the algorithm specified
+            validation_adjacency (np.ndarray): the validation adjacency matrix
+            processed_valid_data (tuple): tthe processed validation data necessary for the algorithm specified
+            prune_params (object): the object for pruning parameters when suggested twice
+
+        Returns: 
+            if trial is not None: returns validation results if self.cfg.trainer.save_validation or
+                                  returns nothing 
+            else: returns validation performance results for the trial in hpo
+        """
+
+
         timings = np.zeros(2)
         start = time.time()
         # configuration of args if hyperparameter optimisation phase
@@ -494,18 +520,21 @@ class ugleTrainer:
             
     def testing_loop(self, label: np.ndarray, adjacency: np.ndarray, processed_data: tuple, eval_metrics: ListConfig):
         """
-        Process the testing data, run through the model to get predictions evaluate those predictions
+        Process the testing data through the model to get predictions then evaluates those predictions
 
         Args:
-
+            label (np.ndarray): the ground-truth for the dataset
+            adjacency (np.ndarray): the testing adjacency matrix - necessary for conductance and modularity
+            processed_data (tuple): the processed test data ready for the mdoel 
+            eval_metrics (ListConfig): a list of metrics to evaluate
         Returns: 
-
+            results (dict): performance results for each of the metrics
         """
         self.model.eval()
         processed_data = self.move_to_activedevice(processed_data)
         preds = self.test(processed_data)
         processed_data = self.move_to_cpudevice(processed_data)
-        results, eval_preds = ugle.process.preds_eval(label, preds, sf=4, adj=adjacency, metrics=eval_metrics)
+        results, _ = ugle.process.preds_eval(label, preds, sf=4, adj=adjacency, metrics=eval_metrics)
         self.model.train()
         return results
 
@@ -525,10 +554,10 @@ class ugleTrainer:
         log.error('NO TRAINING ITERATION LOOP')
         pass
 
-    def move_to_cpudevice(self, data):
+    def move_to_cpudevice(self, data: torch.Tensor):
         return tuple(databite.to(torch.device("cpu"), non_blocking=True) if torch.is_tensor(databite) else databite for databite in data)
 
-    def move_to_activedevice(self, data):
+    def move_to_activedevice(self, data: torch.Tensor):
         return tuple(databite.to(self.device, non_blocking=True)  if torch.is_tensor(databite) else databite for databite in data)
 
 

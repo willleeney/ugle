@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import logging
+from names_generator import generate_name
 
 real_path = os.path.dirname(os.path.realpath(__file__))
 ugle_path, _ = os.path.split(real_path)
@@ -38,15 +39,14 @@ def create_logger():
     """
     
     # Create a file handler (logs will be stored in "my_log_file.log")
-    pokemon_names = np.load(open(ugle_path + '/data/pokemon_names.npy', 'rb'), allow_pickle=True)
-    pokemon_names = [element for element in pokemon_names if all(char.isalpha() for char in element.lower())]
+    exp_name = generate_name()
     log_path = f'{ugle_path}/logs/'
 
     if not os.path.exists(log_path):
         os.mkdir(log_path)
 
     latest_file_index = len(os.listdir(log_path))
-    poke_name = np.random.choice(pokemon_names)
+    poke_name = np.random.choice(exp_name)
     uid = f'{latest_file_index}-{poke_name}'
 
     # Set up the logger

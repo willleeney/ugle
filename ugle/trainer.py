@@ -383,9 +383,9 @@ class ugleTrainer:
 
         # create training loop
         self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:15}{r_bar}{bar:-15b}', file=open(devnull, 'w'))
-        best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics)))
+        best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics))) - 0.01
         best_epochs = np.zeros(len((self.cfg.trainer.valid_metrics)), dtype=int)
-        best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.
+        best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.01
         patience_waiting = np.zeros((len(self.cfg.trainer.valid_metrics)), dtype=int)
 
         for self.current_epoch in self.progress_bar:
@@ -428,8 +428,7 @@ class ugleTrainer:
                         best_so_far[m] = results[metric]
                         best_epochs[m] = self.current_epoch
                         # save model for this metric
-                        torch.save({"model": self.model.state_dict(),
-                                    "args": self.cfg.args},
+                        torch.save({"model": self.model.state_dict(), "args": self.cfg.args},
                                     f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")
                         patience_waiting[m] = 0
                     else:
@@ -490,12 +489,11 @@ class ugleTrainer:
             valid_results = {}
         # print best performance per validation set
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):
-            log.info(f'Best model for {metric} at epoch {best_epochs[m]}')
+            log.info(f'Best model by validation {metric}({best_so_far[m]}) at epoch {best_epochs[m]}')
             if self.cfg.trainer.save_validation and trial is None:
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
                 self.model.to(self.device)
-                results = self.testing_loop(label, validation_adjacency, processed_valid_data,
-                                        self.cfg.trainer.test_metrics)
+                results = self.testing_loop(label, validation_adjacency, processed_valid_data, self.cfg.trainer.test_metrics)
                 valid_results[metric] = results
 
         timings[1] += time.time() - start

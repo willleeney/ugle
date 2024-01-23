@@ -9,3 +9,4 @@ line_profiler
 matplotlib
 fast-pytorch-kmeans
 names_generator
+networkx

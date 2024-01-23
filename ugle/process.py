@@ -58,9 +58,7 @@ def conductance(adjacency: np.ndarray, preds: np.ndarray) -> float:
     return intra / (inter + intra)
 
 
-def preds_eval(labels: np.ndarray, preds: np.ndarray, 
-               sf=4, adj: np.ndarray = None, metrics=['nmi', 'f1']) -> tuple[
-    dict, np.ndarray]:
+def preds_eval(labels: np.ndarray, preds: np.ndarray, sf=4, adj: np.ndarray = None, metrics=['nmi', 'f1']) -> tuple[dict, np.ndarray]:
     """
     evaluates predictions given metrics
     """

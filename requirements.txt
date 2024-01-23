@@ -8,3 +8,4 @@ memory_profiler
 line_profiler
 matplotlib
 fast-pytorch-kmeans
+names_generator

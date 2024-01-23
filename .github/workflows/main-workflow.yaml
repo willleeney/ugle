@@ -33,7 +33,9 @@ jobs:
             conda activate ugle
       - name: Install dependencies
         run: |
-          bash install_ugle.sh
+          bash install_pyg.sh
+          pip install -r requirements.txt
+          pip install -e .
       - name: Install plugin
         run: pip install pytest-github-actions-annotate-failures
       - name: Test with pytest

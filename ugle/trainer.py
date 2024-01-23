@@ -215,14 +215,14 @@ class ugleTrainer:
                                             direction=self.cfg.trainer.optimisation_directions[0],
                                             sampler=TPESampler(seed=self.cfg.args.random_seed))
             log.info(f"A new hyperparameter study created: {study.study_name}")
-
+            # create the trial pruners that remove repeat suggested parameters
             study_stop_cb = StopWhenMaxTrialsHit(self.cfg.trainer.n_trials_hyperopt, self.cfg.trainer.max_n_pruned)
             prune_params = ParamRepeatPruner(study)
-
+            # adds the best hps from previous seeds to speed up optimisation
             if self.cfg.trainer.suggest_hps_from_previous_seed:
                 for hps in self.cfg.trainer.hps_found_so_far:
                     study.enqueue_trial(hps)
-
+            # perform the hpo
             study.optimize(lambda trial: self.train(trial,
                                                     label,
                                                     features,
@@ -247,10 +247,10 @@ class ugleTrainer:
 
         processed_test_data = self.preprocess_data(features, test_adjacency)
 
-        # retrains the model on the validation adj and evaluates test performance
-        # might be weird with the previosu results stuff but that's not done in this paper so meh
+        # if you aren't optimising for more than one metric or are only evaluating hps then only 
+        # one retraining of the model is necessary
         if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
-
+            # retrains the model on the validation adj and evaluates test performance
             validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                                     processed_valid_data)
             objective_results = []
@@ -258,7 +258,7 @@ class ugleTrainer:
                 log.info(f'Evaluating {opt_metric} model on test split')
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                 self.model.to(self.device)
-                results = self.testing_loop(label, features, test_adjacency, processed_test_data,
+                results = self.testing_loop(label, test_adjacency, processed_test_data,
                                             self.cfg.trainer.test_metrics)
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
@@ -271,25 +271,19 @@ class ugleTrainer:
                 
                 if self.cfg.trainer.save_validation:
                     objective_results[-1]['validation_results'] = validation_results
-
+        
+        # if you have optimised for more than one metric then there are potentially more than one 
+        # metrics that need to be optimised for 
         else:
-            if not self.cfg.trainer.only_testing:
-                # best hp found for metrics
-                best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
-                unique_trials = list(np.unique(np.array(associated_trial)))
-            else:
-                unique_trials = list(range(len(self.cfg.previous_results)))
-
+            # extract best hps found for each metrics
+            best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
+            unique_trials = list(np.unique(np.array(associated_trial)))
             objective_results = []
+
             for idx, best_trial_id in enumerate(unique_trials):
-                if not self.cfg.trainer.only_testing:
-                    # find the metrics for which trial is best at
-                    best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if
-                                       associated_trial[i] == best_trial_id]
-                    best_hp_params = [trial for trial in study.best_trials if trial.number == best_trial_id][0].params
-                else:
-                    best_hp_params = self.cfg.previous_results[idx].args
-                    best_at_metrics = self.cfg.previous_results[idx].metrics
+                # find the metrics for which trial is best at
+                best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if associated_trial[i] == best_trial_id]
+                best_hp_params = [trial for trial in study.best_trials if trial.number == best_trial_id][0].params
 
                 # log the best hyperparameters and metrics at which they are best
                 best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
@@ -304,7 +298,7 @@ class ugleTrainer:
                 # assign best hyperparameters to config
                 self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
-                # do testing
+                # retrains the model on the validation adj and evaluates test performance
                 log.debug('Retraining model')
                 validation_results = self.train(None, label, features, processed_data, validation_adjacency,
                            processed_valid_data)
@@ -316,13 +310,12 @@ class ugleTrainer:
                     log.debug(f'Evaluating {opt_metric} model on test split')
                     self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                     self.model.to(self.device)
-                    results = self.testing_loop(label, features, test_adjacency, processed_test_data,
-                                                self.cfg.trainer.test_metrics)
+                    results = self.testing_loop(label, test_adjacency, processed_test_data, self.cfg.trainer.test_metrics)
+                    
                     # log test results
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                     to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                     log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
-
                     objective_results.append({'metrics': opt_metric,
                                             'results': results,
                                             'args': best_hp_params})
@@ -333,7 +326,7 @@ class ugleTrainer:
                 # re init the args object for assign_test params
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
 
-                # this isnt the best code
+                # this isnt the best code but we move
                 if self.cfg.trainer.save_model and self.cfg.trainer.model_resolution_metric in best_at_metrics:
                     log.info(f'Saving best version of model for {best_at_metrics}')
                     torch.save({"model": self.model.state_dict(),
@@ -394,12 +387,11 @@ class ugleTrainer:
 
                 # compute training iteration
                 if self.cfg.trainer.calc_memory and self.current_epoch == 0: 
-                    mem_usage, results = memory_usage((self.testing_loop, (label, features, validation_adjacency, processed_valid_data, self.cfg.trainer.valid_metrics)), 
+                    mem_usage, results = memory_usage((self.testing_loop, (label, validation_adjacency, processed_valid_data, self.cfg.trainer.valid_metrics)), 
                                                       interval=.005, retval=True) 
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
-                    results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
-                                                self.cfg.trainer.valid_metrics)
+                    results = self.testing_loop(label, validation_adjacency, processed_valid_data, self.cfg.trainer.valid_metrics)
                 
                 # put data back into training mode
                 processed_data = self.move_to_activedevice(processed_data)
@@ -434,10 +426,10 @@ class ugleTrainer:
             # optimise
             for opt in self.optimizers:
                 opt.zero_grad()
+
             if self.cfg.trainer.calc_memory and self.current_epoch == 0: 
                 mem_usage = memory_usage((loss.backward), interval=.005)
                 log.info(f"Max memory usage by loss.backward(): {max(mem_usage):.2f}MB")
-
             else:
                 loss.backward()
 
@@ -445,6 +437,7 @@ class ugleTrainer:
                 opt.step()
             if self.scheduler:
                 self.scheduler.step()
+
             # update progress bar
             self.progress_bar.set_description(f'Training: m-{self.cfg.model}, d-{self.cfg.dataset}, s-{self.cfg.args.random_seed} -- Loss={loss.item():.4f}', refresh=True)
             # if all metrics hit patience then end
@@ -463,20 +456,19 @@ class ugleTrainer:
         # finished training, record time taken
         timings[0] += time.time() - start
         start = time.time()    
-
         # compute final validation 
         return_results = dict(zip(self.cfg.trainer.valid_metrics, best_so_far))
         processed_data = self.move_to_cpudevice(processed_data)
         # if saving validation results then record the result on the test metrics
         if self.cfg.trainer.save_validation:
             valid_results = {}
-
+        # print best performance per validation set
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):
             log.info(f'Best model for {metric} at epoch {best_epochs[m]}')
             if self.cfg.trainer.save_validation and trial is None:
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
                 self.model.to(self.device)
-                results = self.testing_loop(label, features, validation_adjacency, processed_valid_data,
+                results = self.testing_loop(label, validation_adjacency, processed_valid_data,
                                         self.cfg.trainer.test_metrics)
                 valid_results[metric] = results
 
@@ -486,6 +478,7 @@ class ugleTrainer:
             log.info(f"Time training {round(timings[0], 3)}s")
             log.info(f"Time validating {round(timings[1], 3)}s")
 
+        # log trial result in context of the hpo + return info for optimisation
         if trial is None:
             if not self.cfg.trainer.save_validation:
                 return
@@ -493,27 +486,26 @@ class ugleTrainer:
                 return valid_results
         else:
             log_trial_result(trial, return_results, self.cfg.trainer.valid_metrics, self.cfg.trainer.multi_objective_study)
-
             if not self.cfg.trainer.multi_objective_study:
                 return return_results[self.cfg.trainer.valid_metrics[0]]
             else:
                 right_order_results = [return_results[k] for k in self.cfg.trainer.valid_metrics]
                 return tuple(right_order_results)
             
-    def testing_loop(self, label: np.ndarray, features: np.ndarray, adjacency: np.ndarray, processed_data: tuple, eval_metrics: ListConfig):
+    def testing_loop(self, label: np.ndarray, adjacency: np.ndarray, processed_data: tuple, eval_metrics: ListConfig):
         """
-        testing loop which processes the testing data, run through the model to get predictions
-        evaluate those predictions
+        Process the testing data, run through the model to get predictions evaluate those predictions
+
+        Args:
+
+        Returns: 
+
         """
         self.model.eval()
         processed_data = self.move_to_activedevice(processed_data)
         preds = self.test(processed_data)
         processed_data = self.move_to_cpudevice(processed_data)
-        results, eval_preds = ugle.process.preds_eval(label,
-                                                        preds,
-                                                        sf=4,
-                                                        adj=adjacency,
-                                                        metrics=eval_metrics)
+        results, eval_preds = ugle.process.preds_eval(label, preds, sf=4, adj=adjacency, metrics=eval_metrics)
         self.model.train()
         return results
 

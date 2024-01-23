@@ -1,8 +1,5 @@
 #!/bin/bash
 
-python3 -m pip install --upgrade pip setuptools wheel
-python3 -m pip cache purge
-
 python3 -m pip install torch==1.12.0
 
 TORCH=$(python -c "import torch; print(torch.__version__)")

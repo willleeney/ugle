@@ -33,12 +33,15 @@ class CustomFormatter(logging.Formatter):
         return colored_message
 
 
-def create_logger():
+def create_logger() -> logging.Logger:
     """
-    :return log: the loging object
+    Creates the logging object with logger with custom colour properties
+
+    Returns:
+        log: custom logger
     """
     
-    # Create a file handler (logs will be stored in "my_log_file.log")
+    # Create a file handler (logs will be stored in "logs/{exp_name}.log")
     exp_name = generate_name()
     log_path = f'{ugle_path}/logs/'
 

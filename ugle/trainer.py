@@ -489,7 +489,7 @@ class ugleTrainer:
             valid_results = {}
         # print best performance per validation set
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):
-            log.info(f'Best model by validation {metric}({best_so_far[m]}) at epoch {best_epochs[m]}')
+            log.info(f'Best model by validation {metric} ({best_so_far[m]}) at epoch {best_epochs[m]}')
             if self.cfg.trainer.save_validation and trial is None:
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
                 self.model.to(self.device)

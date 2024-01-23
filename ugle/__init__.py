@@ -8,10 +8,8 @@ __author__ = 'William Leeney'
 
 from pkgutil import walk_packages
 from importlib import import_module
-from types import ModuleType
 
-
-def import_submodules(package: str, recursive: bool=True) -> dict[str, ModuleType]:
+def import_submodules(package: str, recursive: bool=True):
     """ Import all submodules of a module, recursively, including subpackages
 
     Args:

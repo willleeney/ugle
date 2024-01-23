@@ -3,16 +3,8 @@ omegaconf
 torch
 numpy<1.23.0
 gdown
-python-decouple
 optuna
-wurlitzer
-leidenalg
-numba
 memory_profiler
 line_profiler
-plotly
-kaleido
-nbformat
 matplotlib
 fast-pytorch-kmeans
-ranky

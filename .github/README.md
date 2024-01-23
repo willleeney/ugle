@@ -2,7 +2,6 @@
 
 
 [![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/willleeney.svg?style=social&label=Follow%20%40willleeney)](https://twitter.com/willleeney)
-
 ![GitHub Repo stars](https://img.shields.io/github/stars/willleeney/ugle?style=social)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/willleeney/ugle/main-workflow.yaml)
 
@@ -19,16 +18,9 @@ Any method can be trained individually via the main script using a specified con
 
 ## Installation
 
-```
-$ conda create -n ugle python=3.9.12
-$ conda activate ugle
+To use this repository, first install `pytorch_geometric` using the `$bash install_pyg.sh` script or if you are using an M* Series Mac/Windows then refer to the official [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html) installation guide (if proceeding this way then install `torch==1.12.0`` first). 
 
-$ git clone https://github.com/willleeney/ugle.git
-$ cd ugle
-
-$ bash install_ugle.sh
-```
-
+Then, simply run `$pip install ugle` to get started. We highly recommend using a virtual environment or conda to manage the installation.
 
 ## Quick Tour
 
@@ -93,12 +85,6 @@ results = Trainer.eval()
 - texas
 - wisc
 - cornell
-- facebook 
-- twitch
-- wikipedia
-- github
-- lastfm
-- deezer
 - Physics
 - CS
 - Photo

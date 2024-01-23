@@ -1,4 +1,3 @@
-import numpy as np
 import os
 import logging
 from names_generator import generate_name
@@ -38,7 +37,7 @@ def create_logger() -> logging.Logger:
     Creates the logging object with logger with custom colour properties
 
     Returns:
-        log: custom logger
+        log (logging.Logger): custom logger
     """
     
     # Create a file handler (logs will be stored in "logs/{exp_name}.log")

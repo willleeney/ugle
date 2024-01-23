@@ -6,6 +6,7 @@ from sklearn.metrics import f1_score, normalized_mutual_info_score
 from scipy.optimize import linear_sum_assignment
 import math
 from line_profiler import LineProfiler
+from typing import Union
 
 SMOOTH_K_TOLERANCE = 1e-5
 MIN_K_DIST_SCALE = 1e-3
@@ -58,7 +59,7 @@ def conductance(adjacency: np.ndarray, preds: np.ndarray) -> float:
     return intra / (inter + intra)
 
 
-def preds_eval(labels: np.ndarray, preds: np.ndarray, sf=4, adj: np.ndarray = None, metrics=['nmi', 'f1']) -> tuple[dict, np.ndarray]:
+def preds_eval(labels: np.ndarray, preds: np.ndarray, sf=4, adj: np.ndarray = None, metrics=['nmi', 'f1']) -> Union[dict, np.ndarray]:
     """
     evaluates predictions given metrics
     """

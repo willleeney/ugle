@@ -13,3 +13,6 @@ args:
   alpha: 0.2
   kmeans_init: 20
   kl_loss_const: 10
+
+trainer:
+  only_testing: True

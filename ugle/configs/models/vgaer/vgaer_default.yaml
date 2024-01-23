@@ -7,3 +7,6 @@ args:
   hidden1: 32
   hidden2: 16
   dropout: 0.
+
+trainer:
+  only_testing: True

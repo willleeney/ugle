@@ -8,3 +8,6 @@ args:
   orthogonality_regularization: 1.0
   dropout_rate: 0.5
 
+trainer:
+  only_testing: True
+

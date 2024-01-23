@@ -18,9 +18,9 @@ Any method can be trained individually via the main script using a specified con
 
 ## Installation
 
-To use this repository, first install `pytorch_geometric` using the `$bash install_pyg.sh` script or if you are using an M* Series Mac/Windows then refer to the official [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html) installation guide (if proceeding this way then install `torch==1.12.0`` first). 
+To use this repository, first install `pytorch_geometric` using the `$ bash install_pyg.sh` script or if you are using an M* Series Mac/Windows then refer to the official [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html) installation guide (if proceeding this way then install `torch==1.12.0`` first). 
 
-Then, simply run `$pip install ugle` to get started. We highly recommend using a virtual environment or conda to manage the installation.
+Then, simply run `$ pip install ugle` to get started. We highly recommend using a virtual environment or conda to manage the installation.
 
 ## Quick Tour
 
@@ -48,10 +48,10 @@ import numpy as np
 dataset = {'features': np.ndarry[n_nodes, n_features],
            'adjacency': np.ndarray[n_nodes, n_nodes],
            'label': np.ndarray[n_nodes]}
-Trainer = ugle.trainer("dmon")
+Trainer = ugle.trainer("dmon_default")
 results = Trainer.eval(dataset)
 
-Trainer = ugle.trainer("daegc")
+Trainer = ugle.trainer("dmon")
 Trainer.cfg.dataset = "cora"
 results = Trainer.eval()
 ```

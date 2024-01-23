@@ -15,3 +15,6 @@ args:
   pred_hidden: 256
   cache_step: 10
   dropout: 0.2
+
+trainer:
+  only_testing: True

@@ -17,3 +17,6 @@ args:
   head1: 8
   head2: 1
   dropout: 0.2
+
+trainer:
+  only_testing: True

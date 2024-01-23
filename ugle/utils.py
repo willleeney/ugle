@@ -4,10 +4,10 @@ from typing import Tuple
 import random
 import torch
 import numpy as np
+from ugle.logger import log, ugle_path
+import subprocess
 import optuna
-import os
-import pickle
-from ugle.logger import log
+from sys import stdout
 
 neural_algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
 
@@ -20,21 +20,22 @@ def load_model_config(override_model: str = None, override_cfg: DictConfig = Non
     :param override_cfg: config to override options on loaded config
     :return config: config for running experiments
     """
-    config = OmegaConf.load('ugle/configs/config.yaml')
+
+    config = OmegaConf.load(f"{ugle_path}/ugle/configs/config.yaml")
 
     if override_model:
         config.model = override_model
 
     config_name = config.model
     model_name = config.model
-
+    
     # model_path structure edit if testing
     if config_name.__contains__('_'):
         model_name, name_ext = config_name.split("_")
         config.model = model_name
-        model_path = f'ugle/configs/models/{model_name}/{config_name}.yaml'
+        model_path = f"{ugle_path}/ugle/configs/models/{model_name}/{config_name}.yaml"
     else:
-        model_path = f'ugle/configs/models/{model_name}/{model_name}.yaml'
+        model_path = f"{ugle_path}/ugle/configs/models/{model_name}/{model_name}.yaml"
 
     config = merge_yaml(config, model_path)
 
@@ -125,7 +126,14 @@ def set_device(gpu: int):
 
 
 def remove_last_line():
-    print(f"\033[2F\033[", end='\n')
+    #print(f"\033[2F\033[", end='\n')
+
+    #print(subprocess.call(["echo", "\033[2F\033["]))
+    #s = subprocess.call(["echo", "Hello World!"])
+    #print(s)
+    #print("\033[2F\033[", file=stdout)
+    #stdout.write("\033[2F\033[")
+    print("\033[2F\033[", flush=True)
     return
 
 

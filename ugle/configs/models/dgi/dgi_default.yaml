@@ -8,3 +8,6 @@ args:
   hid_units: 256
   sparse: True
   nonlinearity: 'prelu'
+
+trainer:
+  only_testing: True

@@ -42,10 +42,17 @@ if __name__ == "__main__":
     dataset = {'features': np.random.rand(n_nodes, n_features),
                'adjacency': np.random.rand(n_nodes, n_nodes),
                'label': np.random.randint(0, n_clusters+1, size=n_nodes)}
-    Trainer = ugle.trainer.ugleTrainer("dmon")
+    # evalute dmon with hpo
+    #Trainer = ugle.trainer.ugleTrainer("dmon")
+    #results = Trainer.eval(dataset)
+    #print(results)
+
+    # load the dmon default hyperparameters
+    cfg = ugle.utils.load_model_config(override_model="dmon_default")
+    Trainer = ugle.trainer.ugleTrainer("dmon", cfg)
     results = Trainer.eval(dataset)
 
     # demo to evaluate one of the benchmarking datasets
-    Trainer = ugle.trainer.ugleTrainer("daegc")
-    Trainer.cfg.dataset = "cora"
-    results = Trainer.eval()
+    #Trainer = ugle.trainer.ugleTrainer("daegc")
+    #Trainer.cfg.dataset = "cora"
+    #results = Trainer.eval()

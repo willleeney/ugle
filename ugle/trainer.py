@@ -100,8 +100,9 @@ class ugleTrainer:
 
         # if cfg is none then loads the default
         if not cfg:
-            cfg = utils.load_model_config()
+            cfg = utils.load_model_config(override_model=model_name)
 
+        # set the correct device for gpu:id / cpu 
         _device = ugle.utils.set_device(cfg.trainer.gpu)
         if _device == 'cpu':
             self.device_name = _device
@@ -109,12 +110,13 @@ class ugleTrainer:
             self.device_name = cfg.trainer.gpu
         self.device = torch.device(_device)
 
+        # set the random seed
         utils.set_random(cfg.args.random_seed)
         if cfg.trainer.show_config:
             log.info(OmegaConf.to_yaml(cfg.args))
 
+        # parses the config options for hpo study
         cfg = ugle.utils.process_study_cfg_parameters(cfg)
-
         self.cfg = cfg
 
         makedirs(cfg.trainer.models_path, exist_ok=True)
@@ -298,14 +300,8 @@ class ugleTrainer:
                 if not self.cfg.trainer.only_testing:
                     for hp_key, hp_val in best_hp_params.items():
                         log.info(f'{hp_key} : {hp_val}')
-
-                # assign hyperparameters for the metric optimised over
-                if self.cfg.trainer.finetuning_new_dataset or self.cfg.trainer.same_init_hpo:
-                    args_to_overwrite = list(set(self.cfg.args.keys()).intersection(self.cfg.trainer.args_cant_finetune))
-                    saved_args = OmegaConf.load(f'ugle/configs/models/{self.cfg.model}/{self.cfg.model}_default.yaml')
-                    for k in args_to_overwrite:
-                        best_hp_params[k] = saved_args.args[k]
-                    
+                
+                # assign best hyperparameters to config
                 self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
                 # do testing

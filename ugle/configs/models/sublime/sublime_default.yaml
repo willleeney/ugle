@@ -30,5 +30,5 @@ args:
   gamma: 0.9
   activation_learner: 'relu'
 
-
-  
+trainer:
+  only_testing: True

@@ -12,3 +12,6 @@ args:
   loss_knbrs: 1.0
   loss_coef: 1.0
   rec_loss: 0.1
+  
+trainer:
+  only_testing: True

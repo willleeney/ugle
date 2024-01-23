@@ -32,3 +32,4 @@ q3_train_06_default/*
 *.lprof
 mprofile*
 .vscode
+tests/models/*

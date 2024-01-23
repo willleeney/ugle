@@ -9,3 +9,7 @@ args:
   sample_size: 2000
   batch_size: 4
   activation: 'prelu'
+
+
+trainer:
+  only_testing: True

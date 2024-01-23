@@ -27,7 +27,6 @@ def search_results(folder, filename):
             return os.path.join(root, filename)
     return None
 
-
 def get_all_results_from_storage(datasets: list, algorithms: list, folder: str, empty: str = 'minus_ten',
                                  collect_all: bool = False):
     if empty == 'minus_ten':
@@ -111,7 +110,6 @@ def get_values_from_results_holder(result_holder, dataset_name, metric_name, ret
         return metric_values, std_values
     else:
         return metric_values
-
 
 def make_test_performance_object(datasets, algorithms, metrics, seeds, folder):
     # get results object
@@ -753,13 +751,6 @@ def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, defau
     create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
     # print('done fats%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%o')
     return
-
-# creates a tikz figure to show someone
-#fig, ax = plt.subplots(1, 1, figsize=(15, 15))
-#ax = create_rand_dist_fig(ax, r'Framework Rank Distinction Coefficient $\Omega(\mathcal{\hat{T}}_{(hpo)}) : $', datasets, algorithms, metrics, seeds, folder, calc_ave_first=True, set_legend=True)
-#fig.tight_layout()
-#fig.savefig(f'{ugle_path}/figures/tkiz_fig.png', bbox_inches='tight')
-
 
 
 def reshape_ranking_to_test_object(ranking_object):
@@ -1603,7 +1594,7 @@ if __name__ == "__main__":
 
         #calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder)
 
-        handles = create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(8, 6), plot_legend=True)
+        #handles = create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(8, 6), plot_legend=True)
         #create_abs_performance_figure(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Performance", plot_dims=[2, 3], figsize=(8, 6))
         #create_abs_performance_figure(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="DMoN Performance Large Datasets with HPO", plot_dims=[1, 2], figsize=(5, 2.5))
         #create_abs_performance_figure(synth_datasets, default_algorithms, q5_folder, title="Default Hyperparameter's Performance on Synthetic Data", plot_dims=[3, 3], figsize=(9, 9))
@@ -1611,10 +1602,10 @@ if __name__ == "__main__":
         #create_abs_performance_figure(datasets, default_algorithms, q5_folder1, title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 3], figsize=(8, 6))
 
         #unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Correlation")
-        handles2 = unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation", pltlegend=True)
+        #handles2 = unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation", pltlegend=True)
         #unsupervised_prediction_graph(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="Large Dataset HPO")
-        #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
-        #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")
+        unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
+        unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")
 
 
         def create_handles_image(handles, name):

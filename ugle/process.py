@@ -5,7 +5,6 @@ from scipy.linalg import fractional_matrix_power, inv
 from sklearn.metrics import f1_score, normalized_mutual_info_score
 from scipy.optimize import linear_sum_assignment
 import math
-import warnings
 from line_profiler import LineProfiler
 
 SMOOTH_K_TOLERANCE = 1e-5
@@ -59,7 +58,8 @@ def conductance(adjacency: np.ndarray, preds: np.ndarray) -> float:
     return intra / (inter + intra)
 
 
-def preds_eval(labels: np.ndarray, preds: np.ndarray, sf=4, adj: np.ndarray = None, metrics=['nmi', 'f1']) -> tuple[
+def preds_eval(labels: np.ndarray, preds: np.ndarray, 
+               sf=4, adj: np.ndarray = None, metrics=['nmi', 'f1']) -> tuple[
     dict, np.ndarray]:
     """
     evaluates predictions given metrics
@@ -190,7 +190,6 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx):
 
 
 def euclidean_distance(point1: np.ndarray, point2: np.ndarray):
-    # calculate the Euclidean distance
     point_iterable = zip(point1, point2)
     distance = math.sqrt(sum([(y - x) ** 2 for x, y in point_iterable]))
     return distance

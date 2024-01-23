@@ -10,22 +10,19 @@ import torch
 import copy
 import random
 import scipy.sparse as sp
-import plotly.graph_objects as go
 from typing import Union
 from ugle.logger import log, ugle_path
 from typing import Tuple
 from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph
 import torch
-from karateclub.dataset import GraphReader
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.datasets import Coauthor
 from torch_geometric.datasets.amazon import Amazon
 
 google_store_datasets = ['acm', 'amac', 'amap', 'bat', 'citeseer', 'cora', 'cocs', 'dblp', 'eat', 'uat', 'pubmed',
                           'texas', 'wisc', 'cornell']
-karate_club_datasets = ['facebook', 'twitch', 'wikipedia', 'github', 'lastfm', 'deezer']
 big_datasets = ['Physics', 'CS', 'Photo', 'Computers']
-all_datasets = (google_store_datasets + karate_club_datasets + big_datasets)
+all_datasets = (google_store_datasets + big_datasets)
 
 
 def check_data_presence(dataset_name: str) -> bool:
@@ -143,12 +140,6 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
         features = np.load(dataset_path + "_feat.npy", allow_pickle=True)
         label = np.load(dataset_path + "_label.npy", allow_pickle=True)
         adjacency = np.load(dataset_path + "_adj.npy", allow_pickle=True)
-
-    elif dataset_name in karate_club_datasets:
-        loader = GraphReader(dataset_name)
-        features = loader.get_features().todense()
-        label = loader.get_target()
-        adjacency = nx.to_numpy_matrix(loader.get_graph())
 
     elif dataset_name in big_datasets:
         dataset_path = ugle_path + f'/data/{dataset_name}'

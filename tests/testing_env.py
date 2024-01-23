@@ -1,5 +1,4 @@
 import ugle
-
 from model_evaluations import run_experiment
 from main import neural_run
 
@@ -17,6 +16,7 @@ def test_neural():
     neural_run(override_model='selfgnn_default')
     neural_run(override_model='sublime_default')
     neural_run(override_model='vgaer_default')
+    neural_run(override_model='dgi_default')
 
 
 def test_pipeline():

@@ -480,14 +480,14 @@ def split_adj(adj: np.ndarray, percent: float, split_scheme: str):
     if split_scheme == 'drop_edges':
         # drops edges from dataset to form new adj 
         if percent != 1.:
-            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=False)
+            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent)
         else:
             train_adjacency = adj
             validation_adjacency = adj.copy()
     elif split_scheme == 'split_edges':
         # splits the adj via the edges so that no edges in both 
         if percent != 1.:
-            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent, split_adj=True)
+            train_adjacency, validation_adjacency = aug_drop_adj(adj, drop_percent=1 - percent)
         else:
             train_adjacency = adj
             validation_adjacency = adj.copy()

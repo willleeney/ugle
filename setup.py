@@ -1,5 +1,41 @@
 from setuptools import setup, find_packages
 
+PREREQS = [ "torch==1.12.0" ]
+
+from setuptools.command.install import install
+from setuptools.command.develop import develop
+from setuptools.command.egg_info import egg_info
+
+def requires( packages ): 
+    from os import system
+    from sys import executable as PYTHON_PATH
+    from pkg_resources import require
+    require( "pip" )
+    CMD_TMPLT = '"' + PYTHON_PATH + '" -m pip install %s'
+    for pkg in packages: system( CMD_TMPLT % (pkg,) )       
+
+class OrderedInstall( install ):
+    def run( self ):
+        requires( PREREQS )
+        install.run( self )        
+
+class OrderedDevelop( develop ):
+    def run( self ):
+        requires( PREREQS )
+        develop.run( self )        
+
+class OrderedEggInfo( egg_info ):
+    def run( self ):
+        requires( PREREQS )
+        egg_info.run( self )        
+
+CMD_CLASSES = { 
+     "install" : OrderedInstall
+   , "develop" : OrderedDevelop
+   , "egg_info": OrderedEggInfo 
+}        
+
+
 setup(name='ugle', 
       description='This is a repository for investigating implementations of GNNs for \
                    unsupervised clustering.',
@@ -11,13 +47,14 @@ setup(name='ugle',
       packages=find_packages(),
       install_requires=['pytest',
                         'omegaconf',
-                        'torch',
+                        'torch==1.12.0',
                         'torch_geometric',
                         'torch_scatter',
                         'torch_sparse',
                         'torch_cluster',
                         'torch_spline_conv',
                         'numpy<=1.23.0',
+                        'networkx'
                         'gdown',
                         'optuna',
                         'memory_profiler',
@@ -25,6 +62,7 @@ setup(name='ugle',
                         'matplotlib',
                         'fast-pytorch-kmeans',
                         'names_generator'],
+      cmdclass = CMD_CLASSES,
       python_requires=">=3.9.12",
       classifiers=[
         'Development Status :: 4 - Beta',
@@ -36,4 +74,3 @@ setup(name='ugle',
     ],
 
 )
-

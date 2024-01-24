@@ -1,6 +1,7 @@
 import ugle
 from model_evaluations import run_experiment
 from main import neural_run
+import numpy as np
 
 def test_loading_real_data():
     features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('cora', 0.5, False)
@@ -30,10 +31,7 @@ def test_multi_objective():
     run_experiment('ugle/configs/testing/min_multi_objective.yaml')
     run_experiment('ugle/configs/testing/min_multi_hpo_non_neural.yaml')
 
-
-if __name__ == "__main__":
-    import ugle
-    import numpy as np
+def test_pipeline():
     n_nodes = 1000
     n_features = 200
     n_clusters = 3
@@ -42,17 +40,15 @@ if __name__ == "__main__":
     dataset = {'features': np.random.rand(n_nodes, n_features),
                'adjacency': np.random.rand(n_nodes, n_nodes),
                'label': np.random.randint(0, n_clusters+1, size=n_nodes)}
-    # evalute dmon with hpo
-    #Trainer = ugle.trainer.ugleTrainer("dmon")
-    #results = Trainer.eval(dataset)
-    #print(results)
 
     # load the dmon default hyperparameters
     cfg = ugle.utils.load_model_config(override_model="dmon_default")
     Trainer = ugle.trainer.ugleTrainer("dmon", cfg)
     results = Trainer.eval(dataset)
 
-    # demo to evaluate one of the benchmarking datasets
-    #Trainer = ugle.trainer.ugleTrainer("daegc")
-    #Trainer.cfg.dataset = "cora"
-    #results = Trainer.eval()
+    # evalute dmon with hpo
+    Trainer = ugle.trainer.ugleTrainer("dmon")
+    Trainer.cfg.dataset = "cora"
+    Trainer.cfg.trainer.n_trials_hyperopt = 2 # this is how you change the config
+    Trainer.cfg.args.max_epoch = 250
+    results = Trainer.eval(dataset)

@@ -1,10 +1,10 @@
 import ugle
 import sys
-sys.path.append('D:/projects/base/app/modules')  
 
 from pathlib import Path
 main_directory = Path(__file__).parent.parent
 sys.path.append(main_directory)   
+sys.path.append('/home/runner/work/ugle')
 
 from model_evaluations import run_experiment
 from main import neural_run

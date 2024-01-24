@@ -7,7 +7,6 @@
 [![PyPI Status](https://badge.fury.io/py/ugle.svg)](https://badge.fury.io/py/ugle)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/ugle)](https://pepy.tech/project/ugle)
 
-
 ## Introduction
 
 ugle is a library build on pytorch to compare implementations of GNNs for unsupervised clustering.
@@ -37,7 +36,7 @@ n_nodes = 1000
 n_features = 200
 n_clusters = 3
 
-# demo to evaluate a In Memory dataset 
+# demo to evaluate a in Memory dataset 
 dataset = {'features': np.random.rand(n_nodes, n_features),
             'adjacency': np.random.rand(n_nodes, n_nodes),
             'label': np.random.randint(0, n_clusters+1, size=n_nodes)}

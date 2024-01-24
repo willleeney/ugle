@@ -29,3 +29,4 @@ q3_train_06_default/*
 mprofile*
 .vscode
 tests/models/*
+build/*

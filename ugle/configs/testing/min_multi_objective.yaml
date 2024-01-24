@@ -1,9 +1,11 @@
 seeds: [42]
 datasets: ['cora']
-algorithms: ['daegc', 'dgi']
+algorithms: ['dmon', 'dgi']
 
 study_override_cfg:
   trainer:
     gpu: "0"
     n_trials_hyperopt: 5
     valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+  args:
+    max_epoch: 100

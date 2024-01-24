@@ -94,38 +94,36 @@ args:
   # this is also where the specific model args are loaded into 
 ```
 
+If you want to do the same on the command line then you can parse use some of these arguments when running `python main.py`. 
+
+```python
+--model=<NAME-OF-MODEL> 
+--dataset=<NAME-OF-DATASET> 
+--seed=<SEED-ID> 
+--max_epoch=<MAX-EPOCHS-FOR-TRAINING> 
+--gpu=<GPU-INDEX>
+--load_existing_test # if you specify a model as "dmon_custom" and write some custom args in the appropriate file that you want to test on then use this argument to load these
+```
+
 ## Running Experiment on Multiple (seeds/datasets/algorithms)
 
+If you want to run a study over multiple seeds/dataset/algorithms then use the `model_evaluations.py` script alongside the `experiments` config files. See the `ugle/configs/testing/` directory for examples on different scripts. If you have the `null` option in both `datasets` and `algorithms` in your config file then you can run the config over a single dataset and algorithm combination by using the `-da` argument which puts this combination into the `dataset_algo_combinations` option. This can also be used to define a list of combinations to choose to evaluate.
 
-
-```python3 model_evaluations.py -ec=ugle/configs/experiments/unsupervised_limit/hpo_new.yaml -da=<dataset>_<model>```
-
-
-Multiple datasets and models
-
-
-The ```model_evaluations.py``` executes a HPO investigation. 
-Use ```python model_evaluations.py --exp=ugle/configs/evaluations/hpo_investigation.yaml``` to reproduce the results from the paper.
-
-The ```main.py``` script trains a single model on a single dataset as follows:
-```python main.py --model=daegc --dataset=cora```
-```python main.py --model=daegc_default --dataset=citeseer```
-where the name of the model is as such 
-
+```python3 model_evaluations.py -ec=<PATH-TO-EXP-CONFIG> -da=<DATASET>_<MODEL>```
 
 
 ## Existing GNN Implementations 
 
-[daegc](https://github.com/Tiger101010/DAEGC)
-[dgi](https://github.com/PetarV-/DGI)
-[dmon](https://github.com/google-research/google-research/blob/master/graph_embedding/dmon/dmon.py)
-[mvgrl](https://github.com/kavehhassani/mvgrl)
-[grace](https://github.com/CRIPAC-DIG/GRACE)
-[selfgnn](https://github.com/zekarias-tilahun/SelfGNN)
-[sublime](https://github.com/GRAND-Lab/SUBLIME)
-[bgrl](https://github.com/Namkyeong/BGRL_Pytorch)
-[vgaer](https://github.com/qcydm/VGAER/tree/main/VGAER_codes)
-[cagc](https://github.com/wangtong627/CAGC/)
+- [daegc](https://github.com/Tiger101010/DAEGC)
+- [dgi](https://github.com/PetarV-/DGI)
+- [dmon](https://github.com/google-research/google-research/blob/master/graph_embedding/dmon/dmon.py)
+- [mvgrl](https://github.com/kavehhassani/mvgrl)
+- [grace](https://github.com/CRIPAC-DIG/GRACE)
+- [selfgnn](https://github.com/zekarias-tilahun/SelfGNN)
+- [sublime](https://github.com/GRAND-Lab/SUBLIME)
+- [bgrl](https://github.com/Namkyeong/BGRL_Pytorch)
+- [vgaer](https://github.com/qcydm/VGAER/tree/main/VGAER_codes)
+- [cagc](https://github.com/wangtong627/CAGC/)
 
 ## Existing Datasets
 
@@ -149,27 +147,21 @@ where the name of the model is as such
 - Computers
 
 
-## Adding a new model <MODEL_NAME> 
+### how to add a new model <: MODEL-NAME>
 
-
-To create your own specification of hyperparameters to with which to optimise a model (<MODEL_NAME>).
-* create a new .yaml file:  ```ugle/configs/models/<MODEL_NAME>/<MODEL_NAME>_myparameters.yaml``` 
-* run an experiments or a single model run using the name reference as: ```"<MODEL_NAME>_myparameters"```
-
-### how to add a new model
-
-To create a model with the name <NEW_MODEL_NAME>, you need to create minimum two files:
-* create a file for the model: ```ugle/models/<NEW_MODEL_NAME>.py```
-* create a file to hold the hyperparameters: ```ugle/configs/models/<NEW_MODEL_NAME>/<NEW_MODEL_NAME>.yaml```
-* optional* create file to hold default hyperparameters : ```ugle/configs/models/<NEW_MODEL_NAME>/<NEW_MODEL_NAME>_default.yaml```
-* optional* create a new .yaml file to hold other variations:  ```ugle/configs/models/<MODEL_NAME>/<MODEL_NAME>_myparameters.yaml``` 
+To create a model with the name <MODEL-NAME>, you need to create minimum two files:
+* create a file for the model: ```ugle/models/<MODEL-NAME>.py```
+* create a file to hold the hyperparameters: ```ugle/configs/models/<MODEL-NAME>/<MODEL-NAME>.yaml```
+* optional* create file to hold default hyperparameters : ```ugle/configs/models/<MODEL-NAME>/<MODEL-NAME>_default.yaml```
+* optional* create a new .yaml file to hold other variations: ```ugle/configs/models/<MODEL_NAME>/<MODEL_NAME>_myparameters.yaml``` 
 * run an experiments or a single model run using the name reference as : ```"<MODEL_NAME>_myparameters"```
 
-Inside ```ugle/models/<NEW_MODEL_NAME>.py```, define four hooks to process the whole model
-```
+Inside ```ugle/models/<MODEL-NAME>.py```, define four hooks to process the whole model
+
+```python
 from ugle.trainer import ugleTrainer # this is the base class for training any model in this framework
 
-class <NEW_MODEL_NAME>_trainer(ugleTrainer):
+class <MODEL-NAME>_trainer(ugleTrainer):
 
     def preprocess_data(self, features, adjacency):
         # here we process the data into a required format 

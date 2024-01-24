@@ -82,7 +82,6 @@ trainer:
 
   training_to_testing_split: 0.2 # percentage of testing data compared to total of training+validation 
   train_to_valid_split: 0.2 # percentage of validation data as proportion of the whole dataset
-  save_validation: False # whether to save validation performance in the results object
   split_scheme: 'drop_edges' # one of drop_edges, split_edges, all_edges, no_edges (see ugle.datasets.split_adj() for more info)
 
   # logging options

@@ -287,11 +287,9 @@ class ugleTrainer:
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                 to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                 log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
-                objective_results.append({'metrics': opt_metric, 'results': results, 'args': params_to_assign})
-                if self.cfg.trainer.save_validation:
-                    objective_results[-1]['validation_results'] =  validation_results
+                objective_results.append({'metrics': opt_metric, 'results': results, 
+                                          'args': params_to_assign, "validation_results": validation_results})
 
-        
         # if you have optimised for more than one metric then there are potentially more than one 
         # metrics that need to be optimised for 
         else:
@@ -331,11 +329,9 @@ class ugleTrainer:
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                     to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                     log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
-                    objective_results.append({'metrics': opt_metric, 'results': results, 'args': best_hp_params})
-                
-                if self.cfg.trainer.save_validation:
-                    objective_results[-1]['validation_results'] =  study.trials[best_trial_id].validation_results
-
+                    objective_results.append({'metrics': opt_metric, 'results': results, 
+                                              'args': best_hp_params, "validation_results": study.trials[best_trial_id].user_attrs['validation_results']})
+                                            
                 # re init the args object for assign_test params
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
 
@@ -365,8 +361,8 @@ class ugleTrainer:
             prune_params (object): the object for pruning parameters when suggested twice
 
         Returns: 
-            if trial is not None: returns validation results if self.cfg.trainer.save_validation or returns nothing
-            else: returns validation performance results for the trial in hpo
+            if trial is None: returns validation results
+            else: returns validation performance results as tuple for the trial in hpo
         """
 
 
@@ -487,13 +483,12 @@ class ugleTrainer:
         # compute final validation 
         return_results = dict(zip(self.cfg.trainer.valid_metrics, best_so_far))
         processed_data = self.move_to_cpudevice(processed_data)
-        # if saving validation results then record the result on the test metrics
-        if self.cfg.trainer.save_validation:
-            valid_results = {}
+        #  then record the result on the validation metrics
+        valid_results = {}
         # print best performance per validation set
         for m, metric in enumerate(self.cfg.trainer.valid_metrics):
             log.info(f'Best model by validation {metric} ({best_so_far[m]}) at epoch {best_epochs[m]}')
-            if self.cfg.trainer.save_validation and trial is None:
+            if trial is None:
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{metric}.pt")['model'])
                 self.model.to(self.device)
                 results = self.testing_loop(label, validation_adjacency, processed_valid_data, self.cfg.trainer.test_metrics)

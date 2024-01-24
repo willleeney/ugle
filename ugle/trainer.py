@@ -32,10 +32,10 @@ def log_trial_result(trial: Trial, results: dict, valid_metrics: list, multi_obj
         Logs the results for a trial.
 
         Args:
-            trial (Trial): trial object.
-            results (dict): result dictionary for the trial.
-            valid_metrics (list): Validation metrics used.
-            multi_objective_study (boolean): indicating whether under multi-objective study or not.
+            trial (Trial): trial object
+            results (dict): result dictionary for the trial
+            valid_metrics (list): Validation metrics used
+            multi_objective_study (boolean): indicating whether under multi-objective study or not
 
     """
     if not multi_objective_study:
@@ -137,7 +137,7 @@ class ugleTrainer:
 
     def load_database(self, dataset: dict=None):
         """
-        Function to load the dataset and set the attributes of the dataset to cfg
+        Function to load the dataset and set the attributes of the dataset to cfg.
 
         Args:
             dataset (dict): contains an in memory dataset
@@ -178,7 +178,7 @@ class ugleTrainer:
             assert np.shape(dataset['features'])[0] == np.shape(dataset['adjacency'])[0], "feature and adjacency node dimension mismatch"
             assert np.shape(dataset['features'])[0] == np.shape(dataset['label'])[0], "label node dimension mismatch with input data"
 
-            log.info('Converting adjacency matrix connections to 1 (unweighted)')
+            log.info('Converting adjacency matrix connections to unweighted')
             dataset['adjacency'] = np.where(dataset['adjacency'] != 0, 1, dataset['adjacency'])
 
             log.info('Converting adjacency to undirected')
@@ -200,6 +200,19 @@ class ugleTrainer:
         return features, label, train_adjacency, test_adjacency
     
     def eval(self, dataset: dict=None):
+        """
+        Function to load database, split adjacency, preprocess dataset correctly for the method
+        run a HPO if required, find the best model based on the validation data and then test 
+        the best model. 
+
+        Args: 
+            dataset (dict): optional dataset dictionary that contains an In-memory dataset
+
+        Returns:
+            objective_results (dict): performance dictionary that contains results 
+                along with associated best args and the metrics that they were best at
+
+        """
 
         # loads the database to train on
         features, label, validation_adjacency, test_adjacency = self.load_database(dataset)
@@ -243,7 +256,7 @@ class ugleTrainer:
                                                     validation_adjacency,
                                                     processed_valid_data,
                                                     prune_params=prune_params),
-                                n_trials=2*self.cfg.trainer.n_trials_hyperopt,
+                                n_trials=self.cfg.trainer.n_trials_hyperopt,
                                 callbacks=[study_stop_cb])
 
             # assigns test parameters found in the study
@@ -259,30 +272,25 @@ class ugleTrainer:
             study = None
 
         processed_test_data = self.preprocess_data(features, test_adjacency)
-
-        # if you aren't optimising for more than one metric or are only evaluating hps then only 
-        # one retraining of the model is necessary
-        if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:
-            # retrains the model on the validation adj and evaluates test performance
+        if self.cfg.trainer.only_testing:
             validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
+        # if you aren't optimising for more than one metric or are only evaluating hps 
+        if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:                         
             objective_results = []
             for opt_metric in self.cfg.trainer.valid_metrics:
                 log.info(f'Evaluating {opt_metric} model on test split')
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                 self.model.to(self.device)
                 results = self.testing_loop(label, test_adjacency, processed_test_data,
-                                            self.cfg.trainer.test_metrics)
+                                             self.cfg.trainer.test_metrics)
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                 to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                 log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
-
-                objective_results.append({'metrics': opt_metric,
-                                        'results': results,
-                                        'args': params_to_assign})
-                
+                objective_results.append({'metrics': opt_metric, 'results': results, 'args': params_to_assign})
                 if self.cfg.trainer.save_validation:
-                    objective_results[-1]['validation_results'] = validation_results
+                    objective_results[-1]['validation_results'] =  validation_results
+
         
         # if you have optimised for more than one metric then there are potentially more than one 
         # metrics that need to be optimised for 
@@ -310,10 +318,6 @@ class ugleTrainer:
                 # assign best hyperparameters to config
                 self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
 
-                # retrains the model on the validation adj and evaluates test performance
-                log.debug('Retraining model')
-                validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
-                
                 # at this point, the self.train() loop should go have saved models for each validation metric 
                 # then go through the best at metrics, and do a test for each of the best models 
                 for opt_metric in best_at_metrics:
@@ -330,7 +334,7 @@ class ugleTrainer:
                     objective_results.append({'metrics': opt_metric, 'results': results, 'args': best_hp_params})
                 
                 if self.cfg.trainer.save_validation:
-                    objective_results[-1]['validation_results'] = validation_results
+                    objective_results[-1]['validation_results'] =  study.trials[best_trial_id].validation_results
 
                 # re init the args object for assign_test params
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
@@ -361,8 +365,7 @@ class ugleTrainer:
             prune_params (object): the object for pruning parameters when suggested twice
 
         Returns: 
-            if trial is not None: returns validation results if self.cfg.trainer.save_validation or
-                                  returns nothing 
+            if trial is not None: returns validation results if self.cfg.trainer.save_validation or returns nothing
             else: returns validation performance results for the trial in hpo
         """
 
@@ -495,6 +498,7 @@ class ugleTrainer:
                 self.model.to(self.device)
                 results = self.testing_loop(label, validation_adjacency, processed_valid_data, self.cfg.trainer.test_metrics)
                 valid_results[metric] = results
+            
 
         timings[1] += time.time() - start
         start = time.time()
@@ -504,11 +508,9 @@ class ugleTrainer:
 
         # log trial result in context of the hpo + return info for optimisation
         if trial is None:
-            if not self.cfg.trainer.save_validation:
-                return
-            else:
-                return valid_results
+            return valid_results
         else:
+            trial.set_user_attr("validation_results", valid_results)
             log_trial_result(trial, return_results, self.cfg.trainer.valid_metrics, self.cfg.trainer.multi_objective_study)
             if not self.cfg.trainer.multi_objective_study:
                 return return_results[self.cfg.trainer.valid_metrics[0]]
@@ -518,13 +520,14 @@ class ugleTrainer:
             
     def testing_loop(self, label: np.ndarray, adjacency: np.ndarray, processed_data: tuple, eval_metrics: ListConfig):
         """
-        Process the testing data through the model to get predictions then evaluates those predictions
+        Process the testing data through the model to get predictions then evaluates those predictions.
 
         Args:
             label (np.ndarray): the ground-truth for the dataset
             adjacency (np.ndarray): the testing adjacency matrix - necessary for conductance and modularity
-            processed_data (tuple): the processed test data ready for the mdoel 
-            eval_metrics (ListConfig): a list of metrics to evaluate
+            processed_data (tuple): the processed test data ready for the model
+            eval_metrics (ListConfig): a list of metrics to evaluate.
+
         Returns: 
             results (dict): performance results for each of the metrics
         """

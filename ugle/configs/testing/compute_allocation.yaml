@@ -8,3 +8,7 @@ study_override_cfg:
     calc_memory: True
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: [ 'f1', 'nmi', 'modularity', 'conductance']
+
+
+  args:
+    max_epoch: 50

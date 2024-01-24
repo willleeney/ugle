@@ -10,6 +10,7 @@ study_override_cfg: # override default config args
     max_epoch: 5000
 
   trainer:
+    results_path: './results/'
     suggest_hps_from_previous_seed: False
     hps_found_so_far: []
     use_hps_on_all_seeds: False

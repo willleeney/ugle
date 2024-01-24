@@ -6,7 +6,6 @@
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/willleeney/ugle/main-workflow.yaml)
 
 
-
 ## Introduction
 
 ugle is a library build on pytorch to compare implementations of GNNs for unsupervised clustering.
@@ -18,9 +17,12 @@ Any method can be trained individually via the main script using a specified con
 
 ## Installation
 
-To use this repository, first install `pytorch_geometric` using the `$ bash install_pyg.sh` script or if you are using an M* Series Mac/Windows then refer to the official [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html) installation guide (if proceeding this way then install `torch==1.12.0`` first). 
+To use this repository, you need to install `pytorch_geometric` so adjust the variables for the appropriate `TORCH` version and `CUDA` option. Please refer to the [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html) installation guide if the following doesn't work for you as pytorch-geometric can be tricky with an M* Series Mac or Windows. Please use a virtual environment manager to install. 
 
-Then, simply run `$ pip install ugle` to get started. We highly recommend using a virtual environment or conda to manage the installation.
+-`TORCH=1.12.0` or greater
+-`CUDA=cpu | cu102 | cu113 | cu116`
+-`pip install --extra-index-url https://data.pyg.org/whl/torch-{TORCH}+{CUDA}.html ugle`
+
 
 ## Quick Tour
 

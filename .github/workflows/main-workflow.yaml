@@ -32,7 +32,10 @@ jobs:
             conda init bash
             conda activate ugle
       - name: Install Repo
-        run: pip install --extra-index-url https://data.pyg.org/whl/torch-1.12.0+cpu.html git+https://github.com/willleeney/ugle.git
+        run: |
+            python3 -m pip install --upgrade pip setuptools wheel
+            python3 -m pip cache purge
+            pip install --extra-index-url https://data.pyg.org/whl/torch-1.12.0+cpu.html git+https://github.com/willleeney/ugle.git
       - name: Install plugin
         run: pip install pytest-github-actions-annotate-failures
       - name: Test with pytest

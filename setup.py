@@ -36,7 +36,8 @@ CMD_CLASSES = {
 }        
 
 from pathlib import Path
-long_description = f"{Path(__file__).parent}/.github/README.md".read_text()
+this_directory = Path(__file__).parent
+long_description = (this_directory /  ".github/README.md").read_text()
 
 setup(name='ugle', 
       description='This is a repository for investigating implementations of GNNs for \

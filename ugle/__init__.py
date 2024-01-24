@@ -3,7 +3,7 @@ ugle.
 
 This is a repository for investigating implementations of GNNs for unsupervised clustering.
 """
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __author__ = 'William Leeney'
 
 from pkgutil import walk_packages

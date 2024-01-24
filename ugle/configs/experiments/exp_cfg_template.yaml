@@ -3,9 +3,6 @@ datasets: null # the datasets to train on
 algorithms: null # the algorithms to train on
 run_cpu_fallback: False
 dataset_algo_combinations: null
-special_training: 
-  split_addition_percentage: False
-  retrain_on_each_dataset: False
 
 study_override_cfg: # override default config args
   args:
@@ -18,7 +15,6 @@ study_override_cfg: # override default config args
     gpu: '1' # which gpu to be trained on (-1: cpu)
     n_trials_hyperopt: 1 # n trials to perform hyperparameter optimisation over
     load_existing_test: False # whether to check for existing hyperparameters
-    split_addition_percentage: False
     load_hps_path: './found_hps/'
     only_testing: False
     save_hpo_study: False

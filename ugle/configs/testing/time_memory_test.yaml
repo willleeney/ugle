@@ -3,9 +3,6 @@ datasets: ['pubmed', 'cornell'] #['cora', 'amac',  'wisc', 'texas', 'citeseer', 
 algorithms: ['dmon_default', 'dgi_default','daegc_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 dataset_algo_combinations: null
 run_cpu_fallback: False
-special_training: 
-  split_addition_percentage: False
-  retrain_on_each_dataset: False
 
 study_override_cfg:
   trainer:

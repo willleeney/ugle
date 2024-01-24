@@ -5,21 +5,25 @@ import random
 import torch
 import numpy as np
 from ugle.logger import log, ugle_path
-import subprocess
 import optuna
-from sys import stdout
+from optuna.trial import Trial
+import os 
+import pickle
 
 neural_algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
 
 
 def load_model_config(override_model: str = None, override_cfg: DictConfig = None) -> DictConfig:
     """
-    loads the base model config, model specific config, then override_cfg, then the umap processing
-    investigation config options if relevant
-    :param override_model: name of the model to load config for
-    :param override_cfg: config to override options on loaded config
-    :return config: config for running experiments
-    """
+    Loads the base model config, model-specific config, followed by override_cfg.
+
+    Args:
+        override_model (str): name of the model to load config for
+        override_cfg (DictConfig): Config to override options on the loaded config
+
+    Returns:
+        config (DictConfig): Config for running experiments
+    """ 
 
     config = OmegaConf.load(f"{ugle_path}/ugle/configs/config.yaml")
 
@@ -49,9 +53,13 @@ def load_model_config(override_model: str = None, override_cfg: DictConfig = Non
 
 def process_study_cfg_parameters(config: DictConfig) -> DictConfig:
     """
-    creates optimisation directions for study
-    :param config: config object
-    :return config: process config
+    Creates optimization directions for study.
+
+    Args:
+        config (DictConfig): Config object
+
+    Returns:
+        config (DictConfig): Processed config
     """
     opt_directions = []
     if len(config.trainer.valid_metrics) > 1:
@@ -71,11 +79,15 @@ def process_study_cfg_parameters(config: DictConfig) -> DictConfig:
 
 def extract_best_trials_info(study: Study, valid_metrics: list) -> Tuple[list, list]:
     """
-    extracts the best trial from a study for each given metric and associated trial
-    :param study: the study object
-    :param valid_metrics: the validation metrics 
-    :return best_values: the best values for each metric
-    :return associated_trail: the associated trial with each best value
+    Extracts the best trial from a study for each given metric and associated trial.
+
+    Args:
+        study (Study): The study object
+        valid_metrics (list): The validation metrics 
+
+    Returns:
+        best_values (list): The best values for each metric
+        associated_trial (list): The associated trial with each best value
     """
     best_values = study.best_trials[0].values
     associated_trial = [study.best_trials[0].number] * len(valid_metrics)
@@ -92,10 +104,14 @@ def extract_best_trials_info(study: Study, valid_metrics: list) -> Tuple[list, l
 
 def merge_yaml(config: DictConfig, yaml_str: str) -> DictConfig:
     """
-    merges config object with config specified in yaml path str
-    :param config: config object to be merged
-    :param yaml_str: path location of .yaml string to be merged
-    :return config: merged config
+    Merges config object with config specified in YAML path string.
+
+    Args:
+        config (DictConfig): Config object to be merged
+        yaml_str (str): Path location of .yaml string to be merged
+
+    Returns:
+        config (DictConfig): Merged config
     """
     yaml_dict = OmegaConf.load(yaml_str)
     with open_dict(config):
@@ -105,7 +121,10 @@ def merge_yaml(config: DictConfig, yaml_str: str) -> DictConfig:
 
 def set_random(random_seed: int):
     """
-    sets the random seed
+    Sets the random seed.
+    
+    Args:
+        random_seed (int): Random seed to be set
     """
     random.seed(random_seed)
     np.random.seed(random_seed)
@@ -116,7 +135,10 @@ def set_random(random_seed: int):
 
 def set_device(gpu: int):
     """
-    returns the correct device
+    Returns the correct device.
+
+    Args:
+        gpu (int): GPU index to specify the device
     """
     if gpu != -1 and torch.cuda.is_available():
         device = f'cuda:{gpu}'
@@ -126,24 +148,27 @@ def set_device(gpu: int):
 
 
 def remove_last_line():
-    #print(f"\033[2F\033[", end='\n')
+    """
+    Removes the last line in the terminal.
 
-    #print(subprocess.call(["echo", "\033[2F\033["]))
-    #s = subprocess.call(["echo", "Hello World!"])
-    #print(s)
-    #print("\033[2F\033[", file=stdout)
-    #stdout.write("\033[2F\033[")
+    Note: This function prints ANSI escape sequences to move the cursor to the beginning of the last line.
+    """
     print("\033[2F\033[", flush=True)
     return
 
 
 def sample_hyperparameters(trial: optuna.trial.Trial, args: DictConfig, prune_params=None) -> DictConfig:
     """
-    iterates through the args configuration, if an item is a list then suggests a value based on
-    the optuna trial instance
-    :param trial: instance of trial for suggestion parameters
-    :param args: config dictionary where list
-    :return: new config with values replaced where list is given
+    Iterates through the args configuration. If an item is a list, suggests a value based on
+    the optuna trial instance.
+
+    Args:
+        trial (optuna.trial.Trial): Instance of trial for suggesting parameters
+        args (DictConfig): Config dictionary where list
+        prune_params: (optional) Parameters to prune from the sampled configuration
+
+    Returns:
+        DictConfig: New config with values replaced where list is given
     """
     vars_to_set = []
     vals_to_set = []
@@ -165,10 +190,14 @@ def sample_hyperparameters(trial: optuna.trial.Trial, args: DictConfig, prune_pa
 
 def assign_test_params(config: DictConfig, best_params: dict) -> DictConfig:
     """
-    assigns the best params from the hyperparameter selection and assigns test config settings
-    :param config: original config for training
-    :param best_params: the best hyperparameters from training
-    :return: config for training then testing
+    Assigns the best parameters from the hyperparameter selection and assigns test config settings.
+
+    Args:
+        config (DictConfig): Original config for training
+        best_params (dict): The best hyperparameters from training
+
+    Returns:
+        DictConfig: Config for training and then testing
     """
     cfg = config.copy()
     # assigns the best parameters from hp to config
@@ -188,9 +217,13 @@ def assign_test_params(config: DictConfig, best_params: dict) -> DictConfig:
 
 def is_neural(model_name: str) -> bool:
     """
-    checks if an algorithm is neural or non_neural
-    :param model_name: the model name string
-    :return True if neural, False if not
+    Checks if an algorithm is neural or non-neural.
+
+    Args:
+        model_name (str): The model name string
+
+    Returns:
+        bool: True if neural, False if not
     """
     if model_name.__contains__('_'):
         adjusted_model_name, _ = model_name.split("_")
@@ -205,11 +238,15 @@ def is_neural(model_name: str) -> bool:
 
 def collate_study_results(average_results: dict, results: dict, val_idx: int) -> dict:
     """
-    converts study results from results
-    :param average_results: dict of metrics with numpy arrays of results across training runs
-    :param results: dictionary of results
-    :param val_idx: no. training run
-    :return:
+    Converts study results from results.
+
+    Args:
+        average_results (dict): Dictionary of metrics with numpy arrays of results across training runs
+        results (dict): Dictionary of results
+        val_idx (int): Number of the training run
+
+    Returns:
+        average_results (dict): Dictionary of metrics with numpy arrays of results across training runs
     """
     for trial in results:
         for metric, value in trial["results"].items():
@@ -220,10 +257,14 @@ def collate_study_results(average_results: dict, results: dict, val_idx: int) ->
 
 def create_study_tracker(k_splits: int, metrics: list) -> dict:
     """
-    creates a study tracker for multiple seeds
-    :param k_splits: the number of seeds
-    :param metrics: the metrics to create a tracker for
-    :return results: the results tracker
+    Creates a study tracker for multiple seeds.
+
+    Args:
+        k_splits (int): The number of seeds
+        metrics (list): The metrics to create a tracker for
+
+    Returns:
+        results (object): The results tracker
     """
     results = {}
     for metric in metrics:
@@ -233,9 +274,13 @@ def create_study_tracker(k_splits: int, metrics: list) -> dict:
 
 def create_experiment_tracker(exp_cfg: DictConfig) -> list:
     """
-    creates the experiment tracker to track results
-    :param exp_cfg: experiment config
-    :experiment_tracker: list of results objects that store results from individual experiment
+    Creates the experiment tracker to track results.
+
+    Args:
+        exp_cfg (DictConfig): Experiment config
+
+    Returns:
+        experiment_tracker (list): List of results objects that store results from individual experiments
     """
     experiment_tracker = []
     if exp_cfg.dataset_algo_combinations:
@@ -261,71 +306,17 @@ def create_experiment_tracker(exp_cfg: DictConfig) -> list:
     return experiment_tracker
 
 
-def display_saved_results(results_path: str = "./results"):
-    """
-    displays results saved in memory under given directory in latex form
-    :param results_path: path where results are located
-    """
-    for subdir, dirs, files in os.walk(results_path):
-        for file in files:
-            log.info(f"{file}")
-            exp_result_path = os.path.join(subdir, file)
-            exp_result = pickle.load(open(exp_result_path, "rb"))
-            for experiment in exp_result:
-                if hasattr(experiment, 'algorithm'):
-                    log.info(f"{experiment.dataset}")
-                    try:
-                        display_latex_results(experiment.algorithm_identifier, experiment.results)
-                    except:
-                        print(experiment.results)
-
-    return
-
-
-def display_evaluation_results(experiment_tracker: list):
-    """
-    displays the evaluation results in table latex form
-    :param experiment_tracker: list of results from experiment
-    """
-    for experiment in experiment_tracker:
-        try: 
-            display_latex_results(experiment.algorithm, experiment.results, experiment.dataset)
-        except:
-            pass
-
-    return
-
-
-def display_latex_results(method: str, exp_result: dict, dataset):
-    """
-    prints out latex results of experiment
-    :param method: method string
-    :param exp_result: dictionary of results
-    """
-    display_str = f'{method} {dataset}'
-
-    if not is_neural(method):
-        n_clusters = int(exp_result['n_clusters_mean'])
-        display_str += f' ({n_clusters}) '
-
-    if 'memory_max' in exp_result.keys():
-        memory = float(exp_result['memory_max'])
-        display_str += f' ({memory}) '
-
-    metric_string = extract_result_values(exp_result)
-    display_str += metric_string
-    print(display_str)
-
-    return
-
 
 def extract_result_values(exp_result, metrics=['f1', 'nmi', 'modularity', 'conductance']) -> str:
     """
-    extracts the results into a strjing ready to print for latex display
-    if std values exist then they are also used
-    :param exp_result: dictionary of results
-    :param metrics: list of metrics in results
-    :return metric_string: string to print given results
+    Extracts the results into a string ready to print for LaTeX display. If std values exist, then they are also used.
+
+    Args:
+        exp_result (dict): Dictionary of results
+        metrics (list): List of metrics in results (default: ['f1', 'nmi', 'modularity', 'conductance'])
+
+    Returns:
+        metric_string (str): String to print given results
     """
     metric_string = ''
     for metric in metrics:
@@ -345,9 +336,11 @@ def extract_result_values(exp_result, metrics=['f1', 'nmi', 'modularity', 'condu
 
 def save_experiment_tracker(result_tracker: list, results_path: str):
     """
-    pickle saves result tracker to results path
-    :param result_tracker: list of experiment results
-    :param results_path: the path to save results in
+    Pickle saves result tracker to results path.
+
+    Args:
+        result_tracker: List of experiment results
+        results_path: The path to save results in
     """
     if not os.path.exists(results_path):
         os.makedirs(results_path)
@@ -360,9 +353,13 @@ def save_experiment_tracker(result_tracker: list, results_path: str):
 
 def calc_average_results(results_tracker: dict) -> dict:
     """
-    calculates the average of the performance statistic to an appropriate s.f.
-    :param results_tracker: contains results of over seeds
-    :return average_results: the average of results over all seeds
+    Calculates the average of the performance statistic to an appropriate significant figure.
+
+    Args:
+        results_tracker (dict): Contains results over seeds
+
+    Returns:
+        average_results (dict): The average of results over all seeds
     """
     average_results = {}
     for stat, values in results_tracker.items():
@@ -385,7 +382,18 @@ def calc_average_results(results_tracker: dict) -> dict:
 
 
 
-def get_best_args(results, model_resolution_metric):
+def get_best_args(results: dict, model_resolution_metric: str) -> Tuple[dict, int]:
+    """
+    Finds the best set of arguments based on the specified model resolution metric.
+
+    Args:
+        results (dict): List containing results over different seeds and studies
+        model_resolution_metric (str): The metric used for determining the best set of arguments
+
+    Returns:
+        args (dict): Best set of arguments 
+        best_seed (int): The seed associated with the best result
+    """
     best = -1.
     for seed_res in results: 
         for metric_res in seed_res['study_output']:

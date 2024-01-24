@@ -1,7 +1,5 @@
 model: 'daegc'
 dataset: 'cora'
-special_training: 
-  split_addition_percentage: False
 
 trainer:
   gpu: "0"

@@ -3,9 +3,6 @@ datasets: []
 algorithms: []
 dataset_algo_combinations: ["dblp_dgi"]
 run_cpu_fallback: False
-special_training: 
-  split_addition_percentage: False
-  retrain_on_each_dataset: False
 
 study_override_cfg:
   trainer:

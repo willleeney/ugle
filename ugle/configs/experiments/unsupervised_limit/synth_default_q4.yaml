@@ -4,9 +4,6 @@ datasets: ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoi
            'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
 algorithms: ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 run_cpu_fallback: False
-special_training: 
-  split_addition_percentage: False
-  retrain_on_each_dataset: False
 
 study_override_cfg:
   trainer:

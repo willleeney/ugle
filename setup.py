@@ -35,10 +35,14 @@ CMD_CLASSES = {
    , "egg_info": OrderedEggInfo 
 }        
 
+from pathlib import Path
+long_description = f"{Path(__file__).parent}/.github/README.md".read_text()
 
 setup(name='ugle', 
       description='This is a repository for investigating implementations of GNNs for \
                    unsupervised clustering.',
+      long_description=long_description,
+      long_description_content_type="text/markdown",
       url='https://github.com/willleeney/ugle',
       author='William Leeney',
       author_email='will.leeney@outlook.com',
@@ -67,8 +71,7 @@ setup(name='ugle',
       classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
-       ' Intended Audience :: Information Technology',
-        'License :: OSI Approved :: MIT License',  
+       ' Intended Audience :: Information Technology', 
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 3.9',
     ],

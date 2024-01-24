@@ -1,6 +1,6 @@
 seeds: [42]
 datasets: ['cora']
-algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default', 'sublime_default', 'bgrl_default', 'vgaer_default', 'cgac_default']
+algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default', 'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
 
 study_override_cfg:
   trainer:
@@ -11,4 +11,4 @@ study_override_cfg:
 
 
   args:
-    max_epoch: 50
+    max_epoch: 10

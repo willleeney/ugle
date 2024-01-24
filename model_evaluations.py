@@ -146,6 +146,6 @@ if __name__ == "__main__":
     parser.add_argument('-ec', '--experiment_config', type=str, required=True,
                         help='the location of the experiment config')
     parser.add_argument('-da', '--dataset_algorithm_override', type=str, default=None,
-                        help='dataset_algorithm')
+                        help='dataset_algorithm override setting')
     parsed = parser.parse_args()
     run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override)

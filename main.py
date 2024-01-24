@@ -37,10 +37,12 @@ def neural_run(override_model: str = None,
             cfg.previous_results = previously_found.results
         # if this doesn't exist then just use the default parameters
         else: 
-            log.info(f'loading default args')
+            log.info(f'loading default args as hpo path was not found')
             found_args = OmegaConf.load(f'ugle/configs/models/{cfg.model}/{cfg.model}_default.yaml')
             with open_dict(cfg):
                 cfg.args = OmegaConf.merge(cfg.args, found_args)
+        cfg.trainer.only_testing = True
+    if 'default' in override_model:
         cfg.trainer.only_testing = True
 
     # make model save path

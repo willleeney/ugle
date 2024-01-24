@@ -24,6 +24,79 @@ Then, simply run `$ pip install ugle` to get started. We highly recommend using 
 
 ## Quick Tour
 
+Here is an example of how you can use the python APIs from this repo.
+
+```python 
+import ugle
+import numpy as np
+n_nodes = 1000
+n_features = 200
+n_clusters = 3
+
+# demo to evaluate a In Memory dataset 
+dataset = {'features': np.random.rand(n_nodes, n_features),
+            'adjacency': np.random.rand(n_nodes, n_nodes),
+            'label': np.random.randint(0, n_clusters+1, size=n_nodes)}
+
+# load the dmon default hyperparameters and evaluate on in memory dataset
+cfg = ugle.utils.load_model_config(override_model="dmon_default")
+Trainer = ugle.trainer.ugleTrainer("dmon", cfg)
+results = Trainer.eval(dataset)
+
+# evalute dmon with hpo
+Trainer = ugle.trainer.ugleTrainer("dmon")
+Trainer.cfg.dataset = "cora"
+Trainer.cfg.trainer.n_trials_hyperopt = 2 # this is how you change the config
+Trainer.cfg.args.max_epoch = 250
+results = Trainer.eval(dataset)
+```
+
+Changing the cfg property in the Trainer object will change the training and optimisation procedure as demonstrated above. Detailed below are all the options that can be changed. 
+
+ ```ugle/configs/config.yaml```
+```yaml
+trainer:
+  gpu: "0" # GPU index (-1 = CPU)
+  show_config: False # prints the working config to cmd line
+  
+  results_path: './results/' # where to save results to
+  data_path: './data/' # where to look for data
+  models_path: './models/' # where to save models 
+
+  # if load_exising_test = True then trainer will look in {load_hps_path}{cfg.dataset}_{cfg.model}.pkl"
+  # for previous found hyperparameters
+  load_existing_test: False
+  load_hps_path: './found_hps/'
+  
+  save_hpo_study: False # whether to save the hpo investigation 
+  save_model: False # whether to save the best model
+
+  # hyperparameter options
+  test_metrics: ['f1', 'nmi', 'modularity', 'conductance'] # metrics to evaluate test data 
+  valid_metrics: ['f1', 'nmi', 'modularity', 'conductance'] # metrics used for hpo and model selection
+  validate_every_nepochs: 5 # how many training epochs per validation 
+  n_trials_hyperopt: 5 # how many hpo trials
+  max_n_pruned: 20 # patience for repeated hpo trials
+
+  training_to_testing_split: 0.2 # percentage of testing data compared to total of training+validation 
+  train_to_valid_split: 0.2 # percentage of validation data as proportion of the whole dataset
+  save_validation: False # whether to save validation performance in the results object
+  split_scheme: 'drop_edges' # one of drop_edges, split_edges, all_edges, no_edges (see ugle.datasets.split_adj() for more info)
+
+  # logging options
+  calc_time: True # whether to calculate the time taken for evaluation
+  calc_memory: False # whether to calculate the memory used by evaluation 
+  log_interval: 5 # how often to refresh the progress bar
+
+args: 
+  random_seed: 42 # the random seed to set
+  max_epoch: 5000 # the number of epochs to train for 
+  # this is also where the specific model args are loaded into 
+```
+
+## Running Experiment on Multiple (seeds/datasets/algorithms)
+
+
 
 ```python3 model_evaluations.py -ec=ugle/configs/experiments/unsupervised_limit/hpo_new.yaml -da=<dataset>_<model>```
 
@@ -40,21 +113,6 @@ The ```main.py``` script trains a single model on a single dataset as follows:
 where the name of the model is as such 
 
 
-if you want to use this as an api then do
-```python 
-import ugle
-import numpy as np
-
-dataset = {'features': np.ndarry[n_nodes, n_features],
-           'adjacency': np.ndarray[n_nodes, n_nodes],
-           'label': np.ndarray[n_nodes]}
-Trainer = ugle.trainer("dmon_default")
-results = Trainer.eval(dataset)
-
-Trainer = ugle.trainer("dmon")
-Trainer.cfg.dataset = "cora"
-results = Trainer.eval()
-```
 
 ## Existing GNN Implementations 
 

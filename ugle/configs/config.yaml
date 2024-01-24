@@ -9,7 +9,6 @@ trainer:
   data_path: './data/'
   models_path: './models/'
   load_existing_test: False
-  only_testing: False
   save_hpo_study: False
   save_model: False
 
@@ -30,13 +29,6 @@ trainer:
   calc_time: True
   calc_memory: False
   log_interval: 5
-
-  # online wandb logger 
-  logger:
-    log_wandb: False
-    project: 'project-code'
-    entity: 'entity-code'
-    log_cmd: 50
 
 args:
   n_clusters: null

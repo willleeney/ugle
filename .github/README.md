@@ -4,6 +4,8 @@
 [![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/willleeney.svg?style=social&label=Follow%20%40willleeney)](https://twitter.com/willleeney)
 ![GitHub Repo stars](https://img.shields.io/github/stars/willleeney/ugle?style=social)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/willleeney/ugle/main-workflow.yaml)
+[![PyPI Status](https://badge.fury.io/py/ugle.svg)](https://badge.fury.io/py/ugle)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/ugle)](https://pepy.tech/project/ugle)
 
 
 ## Introduction

@@ -340,7 +340,7 @@ class ugleTrainer:
                 self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
 
                 # this isnt the best code but we move
-                if self.cfg.trainer.save_model and self.cfg.trainer.model_resolution_metric in best_at_metrics:
+                if self.cfg.trainer.save_model:
                     log.info(f'Saving best version of model for {best_at_metrics}')
                     torch.save({"model": self.model.state_dict(),
                                 "args": best_hp_params},

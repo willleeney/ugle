@@ -1,4 +1,4 @@
-seeds: [42, 24]
+seeds: [42]
 datasets: ['cora']
 algorithms: ['daegc', 'dgi']
 

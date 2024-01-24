@@ -3,23 +3,14 @@ datasets: ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoi
            'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
            'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
 algorithms: ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
-run_cpu_fallback: False
 
 study_override_cfg:
   trainer:
-    n_trials_hyperopt: 1
-    results_path: './results/synth_default_sup/'
-
-    show_config: False
-    load_existing_test: False
-    calc_time: False
-    only_testing: True
-
+    results_path: './results/ul/synth/'
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
-    gpu: '1'
+    gpu: '0'
     split_scheme: 'drop_edges'
     train_to_valid_split: 1.0
     training_to_testing_split: 1.0
-  args:
-    max_epoch: 5000
+    log_interval: 1000

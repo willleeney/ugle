@@ -1,22 +1,20 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['Computers']
-algorithms: ['dmon']
+datasets: null
+algorithms: null
 dataset_algo_combinations: null
 run_cpu_fallback: False
 
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 250
-    results_path: './results/hpo_large_sup/'
+    results_path: './results/ul/hpo_sup/'
     save_hpo_study: True
-
-    show_config: False
-    load_existing_test: False
-    calc_time: False
-
+    suggest_hps_from_previous_seed: True
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     gpu: '0'
     split_scheme: 'drop_edges'
-    train_to_valid_split: 0.0
-    training_to_testing_split: 0.0
+    train_to_valid_split: 1.0
+    training_to_testing_split: 1.0
+
+    log_interval: 1000

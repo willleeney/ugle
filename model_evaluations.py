@@ -52,6 +52,10 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
             for res in results:
                 study_cfg.trainer.hps_found_so_far.append(res['args'])
 
+        elif study_cfg.trainer.use_hps_on_all_seeds:
+            study_cfg.trainer.only_testing = True
+            study_cfg.trainer.load_existing_test: True
+
     # average results stores the average calculation of statistics
     average_results = ugle.utils.calc_average_results(average_results)
     study_results.average_results = average_results

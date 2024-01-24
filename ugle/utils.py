@@ -379,26 +379,3 @@ def calc_average_results(results_tracker: dict) -> dict:
                                                                               unique=False,
                                                                               fractional=False))
     return average_results
-
-
-
-def get_best_args(results: dict, model_resolution_metric: str) -> Tuple[dict, int]:
-    """
-    Finds the best set of arguments based on the specified model resolution metric.
-
-    Args:
-        results (dict): List containing results over different seeds and studies
-        model_resolution_metric (str): The metric used for determining the best set of arguments
-
-    Returns:
-        args (dict): Best set of arguments 
-        best_seed (int): The seed associated with the best result
-    """
-    best = -1.
-    for seed_res in results: 
-        for metric_res in seed_res['study_output']:
-            if model_resolution_metric in metric_res['metrics'] and best < metric_res['results'][model_resolution_metric]: 
-                best = metric_res['results'][model_resolution_metric]
-                best_seed = seed_res['seed']
-                args = metric_res['args']
-    return args, best_seed

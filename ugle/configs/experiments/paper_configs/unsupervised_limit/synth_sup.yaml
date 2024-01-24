@@ -2,21 +2,15 @@ seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
            'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
            'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
-algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
-run_cpu_fallback: False
+algorithms: ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 
 study_override_cfg:
   trainer:
-    n_trials_hyperopt: 250
-    results_path: './ynth/'
-
-    show_config: False
-    load_existing_test: False
-    calc_time: False
-
+    results_path: './results/ul/synth_sup/'
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['modularity', 'conductance']
     gpu: '0'
     split_scheme: 'drop_edges'
-    train_to_valid_split: 0.0
-    training_to_testing_split: 0.0
+    train_to_valid_split: 1.0
+    training_to_testing_split: 1.0
+    log_interval: 1000

@@ -1,0 +1,11 @@
+seeds: [785, 42]
+datasets: ["cora"]
+algorithms: ["dmon"]
+
+study_override_cfg:
+  trainer:
+    n_trials_hyperopt: 2
+    suggest_hps_from_previous_seed: True
+
+  args:
+    max_epoch: 10

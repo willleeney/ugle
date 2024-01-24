@@ -1,0 +1,10 @@
+seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
+datasets: ['bat', 'citeseer', 'cora', 'dblp', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
+algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default', 'sublime_default', 'bgrl_default', 'vgaer_default', 'cgac_default']
+
+study_override_cfg:
+  trainer:
+    n_trials_hyperopt: 300
+    training_to_testing_split: 0.2
+    train_to_valid_split: 0.16
+    use_hps_on_all_seeds: True

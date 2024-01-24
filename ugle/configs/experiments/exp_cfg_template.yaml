@@ -7,33 +7,13 @@ dataset_algo_combinations: null
 study_override_cfg: # override default config args
   args:
     random_seed: null
+    max_epoch: 5000
 
   trainer:
-    results_path: './results/' # results path for saved results
-    valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
-    test_metrics: ['f1', 'nmi', 'modularity', 'conductance'] # metrics to report
-    gpu: '1' # which gpu to be trained on (-1: cpu)
-    n_trials_hyperopt: 1 # n trials to perform hyperparameter optimisation over
-    load_existing_test: False # whether to check for existing hyperparameters
-    load_hps_path: './found_hps/'
-    only_testing: False
-    save_hpo_study: False
-
-
-    retrain_on_each_dataset: False
-    models_path: './models/'
-    model_resolution_metric: 'f1'
-    finetuning_new_dataset: False 
-    save_model: False
-    args_cant_finetune: ['embedding_size', 'hidden_size', 'encoder_hidden',
-     'pred_hidden', 'layer1', 'layer2', 'num_hidden', 'num_layers', 'hid_units', 
-     'architecture', 'num_proj_hidden', 'base_model', 'batch_size', 'gnn_type',
-      'hidden_dim', 'rep_dim', 'proj_dim', 'hidden1', 'hidden2']
-
-    same_init_hpo: False # use the same initilisation of the network across random seeds
     suggest_hps_from_previous_seed: False
     hps_found_so_far: []
+    use_hps_on_all_seeds: False
 
-    calc_time: False
-    calc_memory: False
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    valid_metrics: ['f1']
 

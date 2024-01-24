@@ -1,0 +1,10 @@
+dataset_algo_combinations: ['cora_dmon', 'cora_dmon_default']
+
+study_override_cfg:
+  trainer:
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    valid_metrics: ['f1', 'nmi']
+    n_trials_hyperopt: 2
+    
+  args:
+    max_epoch: 100

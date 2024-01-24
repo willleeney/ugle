@@ -5,4 +5,7 @@ algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'selfgnn', 'sublime', 'bgrl', 'vga
 study_override_cfg:
   trainer:
     n_trials_hyperopt: 300
-    results_path: './updated_results/'
+    training_to_testing_split: 0.2
+    train_to_valid_split: 0.16
+
+    use_hps_on_all_seeds: True

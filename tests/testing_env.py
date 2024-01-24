@@ -1,4 +1,11 @@
 import ugle
+import sys
+sys.path.append('D:/projects/base/app/modules')  
+
+from pathlib import Path
+main_directory = Path(__file__).parent.parent
+sys.path.append(main_directory)   
+
 from model_evaluations import run_experiment
 from main import neural_run
 import numpy as np
@@ -8,7 +15,7 @@ def test_loading_real_data():
     features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('citeseer', 0.5, 'split_edges')
     features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('citeseer', 0.5, 'all_edges')
     features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('citeseer', 0.5, 'no_edges')
-    return
+
 
 def test_neural():
     neural_run(override_model='grace_default')
@@ -24,12 +31,13 @@ def test_neural():
 
 
 def test_exp_configs():
-    #run_experiment('ugle/configs/testing/min_working_pipeline.yaml')
-    #run_experiment('ugle/configs/testing/compute_allocation.yaml')
+    run_experiment('ugle/configs/testing/min_working_pipeline.yaml')
+    run_experiment('ugle/configs/testing/compute_allocation.yaml')
     run_experiment('ugle/configs/testing/min_hpo_resuggest.yaml')
     run_experiment('ugle/configs/testing/min_hpo_reuse.yaml')
     run_experiment('ugle/configs/testing/min_multi_objective.yaml')
-    #run_experiment('ugle/configs/testing/synth_test.yaml')
+    run_experiment('ugle/configs/testing/synth_test.yaml')
+
 
 def test_pipeline():
     n_nodes = 1000

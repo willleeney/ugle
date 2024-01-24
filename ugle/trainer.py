@@ -275,6 +275,8 @@ class ugleTrainer:
         processed_test_data = self.preprocess_data(features, test_adjacency)
         if self.cfg.trainer.only_testing:
             validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
+        elif not self.cfg.trainer.multi_objective_study:
+            validation_results = study.best_trial.user_attrs['validation_results']
         # if you aren't optimising for more than one metric or are only evaluating hps 
         if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:                         
             objective_results = []
@@ -282,8 +284,7 @@ class ugleTrainer:
                 log.info(f'Evaluating {opt_metric} model on test split')
                 self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                 self.model.to(self.device)
-                results = self.testing_loop(label, test_adjacency, processed_test_data,
-                                             self.cfg.trainer.test_metrics)
+                results = self.testing_loop(label, test_adjacency, processed_test_data, self.cfg.trainer.test_metrics)
                 # log test results
                 right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                 to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))

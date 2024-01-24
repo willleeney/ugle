@@ -33,19 +33,22 @@ class StopWhenMaxTrialsHit:
 class ParamRepeatPruner:
     """Prunes repeated trials, which means trials with the same parameters won't waste time/resources."""
 
-    def __init__(
-        self,
-        study: optuna.study.Study,
-        repeats_max: int = 0,
-        should_compare_states: List[TrialState] = [TrialState.COMPLETE],
-        compare_unfinished: bool = True,
+    def __init__(self, study: optuna.study.Study, repeats_max: int = 0, 
+                       should_compare_states: List[TrialState] = [TrialState.COMPLETE],
+                       compare_unfinished: bool = True,
     ):
         """
         Args:
             study (optuna.study.Study): Study of the trials.
-            repeats_max (int, optional): Instead of prunning all of them (not repeating trials at all, repeats_max=0) you can choose to repeat them up to a certain number of times, useful if your optimization function is not deterministic and gives slightly different results for the same params. Defaults to 0.
-            should_compare_states (List[TrialState], optional): By default it only skips the trial if the paremeters are equal to existing COMPLETE trials, so it repeats possible existing FAILed and PRUNED trials. If you also want to skip these trials then use [TrialState.COMPLETE,TrialState.FAIL,TrialState.PRUNED] for example. Defaults to [TrialState.COMPLETE].
-            compare_unfinished (bool, optional): Unfinished trials (e.g. `RUNNING`) are treated like COMPLETE ones, if you don't want this behavior change this to False. Defaults to True.
+            repeats_max (int, optional): Instead of prunning all of them (not repeating trials at all, repeats_max=0)
+                 you can choose to repeat them up to a certain number of times, useful if your optimization function 
+                 is not deterministic and gives slightly different results for the same params. Defaults to 0.
+            should_compare_states (List[TrialState], optional): By default it only skips the trial if the paremeters are 
+                equal to existing COMPLETE trials, so it repeats possible existing FAILed and PRUNED trials. If you also want to 
+                skip these trials then use [TrialState.COMPLETE,TrialState.FAIL,TrialState.PRUNED] for example. Defaults to 
+                [TrialState.COMPLETE].
+            compare_unfinished (bool, optional): Unfinished trials (e.g. `RUNNING`) are treated like COMPLETE ones, 
+                if you don't want this behavior change this to False. Defaults to True.
         """
         self.should_compare_states = should_compare_states
         self.repeats_max = repeats_max
@@ -89,12 +92,8 @@ class ParamRepeatPruner:
         for f in finished:
             del self.unfinished_repeats[f]
 
-    def check_params(
-        self,
-        trial: Optional[optuna.trial.BaseTrial] = None,
-        prune_existing=True,
-        ignore_last_trial: Optional[int] = None,
-    ):
+    def check_params(self, trial: Optional[optuna.trial.BaseTrial] = None, prune_existing=True,
+                           ignore_last_trial: Optional[int] = None):
         if self.study is None:
             return
         trials = self.study.trials
@@ -128,9 +127,7 @@ class ParamRepeatPruner:
 
         return self.repeated_number
 
-    def get_value_of_repeats(
-        self, repeated_number: int, func=lambda value_list: np.mean(value_list)
-    ):
+    def get_value_of_repeats(self, repeated_number: int, func=lambda value_list: np.mean(value_list)):
         if self.study is None:
             raise ValueError("No study registered.")
         trials = self.study.trials

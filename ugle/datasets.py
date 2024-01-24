@@ -10,9 +10,8 @@ import torch
 import copy
 import random
 import scipy.sparse as sp
-from typing import Union
+from typing import Union, Tuple
 from ugle.logger import log, ugle_path
-from typing import Tuple
 from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph
 import torch
 from torch_geometric.transforms import ToUndirected
@@ -27,8 +26,13 @@ all_datasets = (google_store_datasets + big_datasets)
 
 def check_data_presence(dataset_name: str) -> bool:
     """
-    checks for dataset presence in local memory
-    :param dataset_name: dataset name to check
+    Checks for dataset presence in local memory.
+
+    Args:
+        dataset_name (str): Dataset name to check
+
+    Returns:
+        bool: True if dataset is present, False otherwise
     """
     dataset_path = ugle_path + f'/data/{dataset_name}'
     if not os.path.exists(dataset_path):
@@ -45,9 +49,13 @@ def check_data_presence(dataset_name: str) -> bool:
 
 def download_graph_data(dataset_name: str) -> bool:
     """
-    downloads a graph dataset
-    :param dataset_name: name of the dataset to download
-    :return True if successful
+    Downloads a graph dataset.
+
+    Args:
+        dataset_name (str): Name of the dataset to download
+
+    Returns:
+        bool: True if successful, False otherwise
     """
     log.info(f'Downloading {dataset_name}')
     download_link_path = ugle_path + '/data/download_links.yaml'
@@ -87,11 +95,15 @@ def download_graph_data(dataset_name: str) -> bool:
 
 
 
-def to_edge_index(adjacency: np.ndarray):
+def to_edge_index(adjacency: np.ndarray) -> torch.Tensor:
     """
-    converts adjacency in numpy array form to an array of active edges
-    :param adjacency: input adjacency matrix
-    :return adjacency: adjacency matrix update form
+    Converts adjacency in numpy array form to an array of active edges.
+
+    Args:
+        adjacency (np.ndarray): Input adjacency matrix
+
+    Returns:
+        torch.Tensor: Edge index tensor
     """
     adj_label = sp.coo_matrix(adjacency)
     adj_label = adj_label.todok()
@@ -104,6 +116,17 @@ def to_edge_index(adjacency: np.ndarray):
 
 
 def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Applies dropout to undirected edges in the edge index.
+
+    Args:
+        edge_index (torch.Tensor): Edge index tensor
+        p (float): Dropout probability (default: 0.5)
+
+    Returns:
+        keep_edge_index (torch.Tensor): Tensor for kept edges
+        drop_edge_index (torch.Tensor): Tensor for dropped edges
+    """
     if p <= 0. or p >= 1.:
         raise ValueError(f'Dropout probability has to be between 0 and 1 -- (got {p})')
     
@@ -120,13 +143,23 @@ def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[t
     return keep_edge_index, drop_edge_index
 
 
-def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_scheme: str = 'drop_edges',
-                         split_addition=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def load_real_graph_data(dataset_name: str, test_split: float = 0.5, 
+                         split_scheme: str = 'drop_edges') -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    loads the graph dataset and splits the adjacency matrix into two
-    :param dataset_name: name of the dataset
-    :param test_split: percentage of edges to keep
-    :return features, label, train_adj, adjacency: loaded graph data
+    Loads the graph dataset and splits the adjacency matrix into two.
+
+    Args:
+        dataset_name (str): Name of the dataset
+        test_split (float): Percentage of edges to keep for testing (default: 0.5)
+        split_scheme (str): Splitting scheme for the adjacency matrix (default: 'drop_edges')
+    
+    Returns:
+        features (np.ndarray): Feature matrix of the graph
+        label (np.ndarray): Labelled ground-truth of the graph
+        train_adj (np.ndarray): Training adjacency matrix
+        test_adj (np.ndarray): Testing adjacency matrix
+    
+    
     """
     assert dataset_name in all_datasets, f"{dataset_name} not a real dataset"
 
@@ -153,22 +186,25 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5, split_schem
         label = data.y.numpy()
         adjacency = to_dense_adj(data.edge_index).numpy().squeeze(0)
 
-
-    if split_addition:
-        adjacency, _ = aug_drop_adj(adjacency, drop_percent=1-split_addition, split_adj=False)
-
     log.debug('Splitting dataset into training/testing')
     train_adj, test_adj = split_adj(adjacency, test_split, split_scheme)
 
     return features, label, train_adj, test_adj
 
 
-def compute_datasets_info(dataset_names: list, visualise: bool=False):
+def compute_datasets_info(dataset_names: list, 
+                          compute_stats: bool=False) -> Union[float, float]:
     """
-    computes the information about dataset statistics
-    :param dataset_names: list of datasets to look at
-    """
+    Computes the information about dataset statistics.
 
+    Args:
+        dataset_names (list): List of datasets to analyze
+        compute_stats (bool): Whether to compute additional statistics (default: False)
+
+    Returns:
+        clustering_x_data (float): Clustering Coefficient
+        closeness_y_data (float): Closeness Centralilty 
+    """
     clustering_x_data = []
     closeness_y_data = []
 
@@ -179,71 +215,33 @@ def compute_datasets_info(dataset_names: list, visualise: bool=False):
         display_string += str(features.shape[1]) + ' & '  # n_features
         display_string += str(int(np.nonzero(train_adjacency)[0].shape[0])) + ' & '  # n_edges
         display_string += str(len(np.unique(label))) + ' & '  # n_classes
+        if compute_stats: 
+            nx_g = nx.Graph(train_adjacency)
+            clustering = nx.average_clustering(nx_g)
+            cercania = nx.closeness_centrality(nx_g)
+            cercania = np.mean(list(cercania.values()))
+
+            clustering_x_data.append(clustering)
+            closeness_y_data.append(cercania)
+
+            display_string += str(round(clustering, 3)) + ' & '  # clustering coefficient
+            display_string += str(round(cercania, 3)) + ' \\\\'  # closeness centrality
         print(display_string)
-        continue
-        nx_g = nx.Graph(train_adjacency)
-        clustering = nx.average_clustering(nx_g)
-        cercania = nx.closeness_centrality(nx_g)
-        cercania = np.mean(list(cercania.values()))
-
-        clustering_x_data.append(clustering)
-        closeness_y_data.append(cercania)
-
-        display_string += str(round(clustering, 3)) + ' & '  # clustering coefficient
-        display_string += str(round(cercania, 3)) + ' \\\\'  # closeness centrality
-        print(display_string)
-    if visualise:
-        _ = display_figure_dataset_stats(clustering_x_data, closeness_y_data, dataset_names)
-
+   
     return clustering_x_data, closeness_y_data
 
 
-def display_figure_dataset_stats(x_data: list, y_data: list, datasets: list):
+def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], 
+                      drop_percent: float = 0.2) -> Union[np.ndarray, torch.Tensor]:
     """
-    function to display dataset statistics on a graph
-    :param x_data: clustering coefficient data for x-axis
-    :param y_data: closeness centrality data for y-axis
-    :param datasets: list of datasets metrics were computed over
-    :return fig: figure to be displayed
-    """
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=x_data, y=y_data, text=datasets, textposition="top center",
-        color_discrete_sequence=['red']
-    ))
+    Augmentation by randomly masking features for every node.
 
-    # layout options
-    layout = dict(
-                font=dict(
-                    size=18),
-              plot_bgcolor='white',
-              paper_bgcolor='white',
-              margin=dict(t=10, b=10, l=10, r=10, pad=0),
-              xaxis=dict(title='Average Clustering Coefficient',
-                         linecolor='black',
-                         showgrid=False,
-                         showticklabels=False,
-                         mirror=True),
-              yaxis=dict(title='Mean Closeness Centrality',
-                         linecolor='black',
-                         showgrid=False,
-                         showticklabels=False,
-                         mirror=True))
-    fig.update_layout(layout)
-    # save figure
-    if not os.path.exists("images"):
-        os.mkdir("images")
-    fig.write_image("images/dataset_stats.png")
+    Args:
+        input_feature (Union[np.ndarray, torch.Tensor]): Feature matrix
+        drop_percent (float): Percent that any feature is dropped (default: 0.2)
 
-    return fig
-
-
-def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_percent: float = 0.2):
-    """
-    augmentation by randomly masking features for every node
-    :param input_feature: feature matrix
-    :param drop_percent: percent that any feature is dropped
-    :return aug_feature: augmented feature matrix
+    Returns:
+        aug_feature (Union[np.ndarray, torch.Tensor]): Augmented feature matrix
     """
     node_num = input_feature.shape[1]
     mask_num = int(node_num * drop_percent)
@@ -259,12 +257,17 @@ def aug_drop_features(input_feature: Union[np.ndarray, torch.Tensor], drop_perce
     return aug_feature
 
 
-def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bool = False):
+def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2) -> Tuple[np.ndarray, np.ndarray]:
     """
-    augmentation by randomly dropping edges with given probability
-    :param input_adj: input adjacency matrix
-    :param drop_percent: percent that any edge is dropped
-    :return aug_adj: augmented adjacency matrix
+    Augmentation by randomly dropping edges with given probability from a dense matrix.
+
+    Args:
+        input_adj (np.ndarray): Input adjacency matrix
+        drop_percent (float): Percent that any edge is dropped (default: 0.2)
+
+    Returns:
+        aug_adj (np.ndarray): Augmented adjacency matrix
+        input_adj (np.ndarray): Original adjacency matrix
     """
 
     edge_index = to_edge_index(input_adj)
@@ -279,11 +282,15 @@ def aug_drop_adj(input_adj: np.ndarray, drop_percent: float = 0.2, split_adj: bo
     return aug_adj, input_adj
 
 
-def numpy_to_edge_index(adjacency: np.ndarray):
+def numpy_to_edge_index(adjacency: np.ndarray) -> np.ndarray:
     """
-    converts adjacency in numpy array form to an array of active edges
-    :param adjacency: input adjacency matrix
-    :return adjacency: adjacency matrix update form
+    Converts adjacency in numpy array form to an array of active edges.
+
+    Args:
+        adjacency (np.ndarray): Input adjacency matrix
+
+    Returns:
+        np.ndarray: Edge index array
     """
     adj_label = sp.coo_matrix(adjacency)
     adj_label = adj_label.todok()
@@ -385,12 +392,39 @@ class Augmentations:
         return self.method.title()
 
 
-def split(n, k):
+def split(n: int, k: int) -> list:
+    """
+    From a number of nodes and number of clusters, splits the nodes so that each cluster has an interger
+    number of nodes.
+
+    Args: 
+        n (int): number of nodes
+        k (int): number of clusters
+
+    Returns: 
+        list: cluster sizes for each cluster
+    """
     d, r = divmod(n, k)
     return [d + 1] * r + [d] * (k - r)
 
 
-def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type: str, feature_type: str = 'random'):
+def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type: str, 
+                       feature_type: str = 'random') -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Creates a synthetic graph with specified properties.
+
+    Args:
+        n_nodes (int): Number of nodes in the graph
+        n_features (int): Number of features for each node
+        n_clusters (int): Number of clusters in the graph
+        adj_type (str): Type of adjacency matrix ('disjoint', 'random', 'complete')
+        feature_type (str): Type of node features ('random', 'complete', 'disjoint') (default: 'random')
+
+    Returns:
+        adj (np.ndarray): generated adjacency matrix
+        features (np.ndarray): node features
+        labels (np.ndarray): ground-truth
+    """
     if adj_type == 'disjoint':
         probs = (np.identity(n_clusters)).tolist()
     elif adj_type == 'random':
@@ -430,7 +464,19 @@ def create_synth_graph(n_nodes: int, n_features: int , n_clusters: int, adj_type
     return adj, features.astype(float), labels
 
 
-def split_adj(adj, percent, split_scheme):
+def split_adj(adj: np.ndarray, percent: float, split_scheme: str):
+    """
+    Splits the adjacency matrix based on the specified split scheme and percentage.
+
+    Args:
+        adj (np.ndarray): Input adjacency matrix
+        percent (float): Percentage of edges to keep
+        split_scheme (str): Splitting scheme ('drop_edges', 'split_edges', 'all_edges', 'no_edges')
+
+    Returns:
+        train_adjacency (np.ndarray): Training adjacency matrix
+        validation_adjacency (np.ndarray): Validation adjacency matrix
+    """
     if split_scheme == 'drop_edges':
         # drops edges from dataset to form new adj 
         if percent != 1.:
@@ -457,64 +503,3 @@ def split_adj(adj, percent, split_scheme):
         validation_adjacency = np.zeros_like(adj)
     
     return train_adjacency, validation_adjacency
-
-
-if __name__ == '__main__':
-
-
-    from torch_geometric.utils import add_remaining_self_loops, to_undirected, to_dense_adj
-    import ugle.process as process
-
-    def sparse_modularity(edge_index, preds, n_edges):
-        degrees = torch.sparse.sum(edge_index, dim=0)._values().unsqueeze(1)
-        graph_pooled = torch.spmm(torch.spmm(edge_index, preds).T, preds)
-        normalizer_left = torch.spmm(preds.T, degrees)
-        normalizer_right = torch.spmm(preds.T, degrees).T
-        normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
-        return torch.trace(graph_pooled - normalizer) / 2 / n_edges
-
-
-    def sparse_conductance(edge_index, preds):
-        edge_index = edge_index.coalesce().indices()
-        inter = 0
-        intra = 0
-        for cluster_id in np.unique(preds):
-            nodes_in_cluster = torch.where(preds == cluster_id)[0]
-            edges_starting_from_cluster = torch.isin(edge_index[0, :], nodes_in_cluster)
-            inter_bool = torch.isin(edge_index[1, edges_starting_from_cluster], nodes_in_cluster)
-            new_inter = int(torch.sum(inter_bool))
-            inter += new_inter
-            intra += len(inter_bool) - new_inter
-        return intra / (inter + intra)
-    
-    def max_nodes_in_edge_index(edge_index):
-        if edge_index.nelement() == 0:
-            return -1
-        else:
-            return int(edge_index.max())
-    
-    def add_all_self_loops(edge_index, n_nodes):
-        edge_index, _ = add_remaining_self_loops(edge_index)
-        # if the end nodes have had all the edges removed then you need to manually add the final self loops
-        last_in_adj = max_nodes_in_edge_index(edge_index)
-        n_ids_left = torch.arange(last_in_adj + 1, n_nodes)
-        edge_index = torch.concat((edge_index, torch.stack((n_ids_left, n_ids_left))), dim=1)
-        return edge_index
-    
-    #dataset_path = ugle_path + f'/data/Computers'
-    #data = Amazon(root=dataset_path, name='Computers', transform=ToUndirected(merge=True))[0]
-    #edge_index = add_all_self_loops(data.edge_index, data.x.shape[0])
-    #adj = to_dense_adj(edge_index).squeeze(0).numpy()
-    
-    for dataset in ['pubmed', 'CS', 'Physics']:
-        features, label, train_adj, test_adj,  = load_real_graph_data(dataset, test_split=1.)
-        edge_index = numpy_to_edge_index(train_adj)
-        n_clusters = len(np.unique(label))
-        n_nodes = features.shape[0]
-        n_edges = edge_index.shape[1]
-        n_features = features.shape[1]
-        print(f'{dataset}: n_nodes:{n_nodes}, n_edges:{n_edges}, n_clusters:{n_clusters}, n_features:{n_features}')
-
-    #assignments = torch.softmax(torch.rand((n_nodes, n_clusters)), dim=1)
-    #graph = process.sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(adj))
-    #preds = torch.argmax(assignments, dim=1)

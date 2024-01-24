@@ -3,9 +3,6 @@ datasets: ['cornell', 'wisc', 'texas', 'dblp', 'citeseer', 'cora']
 algorithms: ['dgi_default']
 dataset_algo_combinations: null
 run_cpu_fallback: False
-special_training: 
-  split_addition_percentage: False
-  retrain_on_each_dataset: False
 
 study_override_cfg:
   trainer:

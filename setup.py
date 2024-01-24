@@ -54,7 +54,7 @@ setup(name='ugle',
                         'torch_cluster',
                         'torch_spline_conv',
                         'numpy<=1.23.0',
-                        'networkx'
+                        'networkx',
                         'gdown',
                         'optuna',
                         'memory_profiler',

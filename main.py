@@ -52,7 +52,7 @@ def neural_run(override_model: str = None,
         cfg.trainer.models_path += f'{cfg.dataset}_{override_model}/'
 
     # create trainer object defined in models and init with config
-    Trainer = ugle.trainer(cfg.model, cfg)
+    Trainer = ugle.trainer.ugleTrainer(cfg.model, cfg)
 
     # log the max memory usage by the evaluation
     start_time = time.time()

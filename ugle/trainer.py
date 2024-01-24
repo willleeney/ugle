@@ -104,6 +104,7 @@ class ugleTrainer:
         # if cfg is none then loads the default
         if not cfg:
             cfg = utils.load_model_config(override_model=model_name)
+            cfg.trainer.only_testing = False
 
         # set the correct device for gpu:id / cpu 
         _device = ugle.utils.set_device(cfg.trainer.gpu)
@@ -384,7 +385,8 @@ class ugleTrainer:
         self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:15}{r_bar}{bar:-15b}', file=open(devnull, 'w'))
         best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics))) - 0.01
         best_epochs = np.zeros(len((self.cfg.trainer.valid_metrics)), dtype=int)
-        best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.01
+        if 'conductance' in self.cfg.trainer.valid_metrics:
+            best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.01
         patience_waiting = np.zeros((len(self.cfg.trainer.valid_metrics)), dtype=int)
 
         for self.current_epoch in self.progress_bar:

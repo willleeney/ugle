@@ -8,6 +8,7 @@ import copy
 from fast_pytorch_kmeans import KMeans
 from ugle.trainer import ugleTrainer
 EOS = 1e-10
+import types
 
 class GCNConv_dense(nn.Module):
     def __init__(self, input_size, output_size):
@@ -185,7 +186,6 @@ def normalize(adj, mode, sparse=False):
         exit("wrong norm mode")
 
 
-
 def split_batch(init_list, batch_size):
     groups = zip(*(iter(init_list),) * batch_size)
     end_list = [list(i) for i in groups]
@@ -202,34 +202,14 @@ def get_feat_mask(features, mask_rate):
     return mask, samples
 
 
-class sublime_trainer(ugleTrainer):
-    def knn_fast(self, X, k, b):
-        X = F.normalize(X, dim=1, p=2)
-        index = 0
-        values = torch.zeros(X.shape[0] * (k + 1)).to(self.device)
-        rows = torch.zeros(X.shape[0] * (k + 1)).to(self.device)
-        cols = torch.zeros(X.shape[0] * (k + 1)).to(self.device)
-        norm_row = torch.zeros(X.shape[0]).to(self.device)
-        norm_col = torch.zeros(X.shape[0]).to(self.device)
-        while index < X.shape[0]:
-            if (index + b) > (X.shape[0]):
-                end = X.shape[0]
-            else:
-                end = index + b
-            sub_tensor = X[index:index + b]
-            similarities = torch.mm(sub_tensor, X.t())
-            vals, inds = similarities.topk(k=k + 1, dim=-1)
-            values[index * (k + 1):(end) * (k + 1)] = vals.view(-1)
-            cols[index * (k + 1):(end) * (k + 1)] = inds.view(-1)
-            rows[index * (k + 1):(end) * (k + 1)] = torch.arange(index, end).view(-1, 1).repeat(1, k + 1).view(-1)
-            norm_row[index: end] = torch.sum(vals, dim=1)
-            norm_col.index_add_(-1, inds.view(-1), vals.view(-1))
-            index += b
-        norm = norm_row + norm_col
-        rows = rows.long()
-        cols = cols.long()
-        values *= (torch.pow(norm[rows], -0.5) * torch.pow(norm[cols], -0.5))
-        return rows, cols, values
+class gclloss_obj:
+    def __init__(self, maskfeat_rate_anchor, maskfeat_rate_learner, contrast_batch_size, device, n_nodes):
+        super(gclloss_obj, self).__init__()
+        self.maskfeat_rate_anchor = maskfeat_rate_anchor
+        self.maskfeat_rate_learner = maskfeat_rate_learner
+        self.contrast_batch_size = contrast_batch_size
+        self.device = device
+        self.n_nodes = n_nodes
 
     def top_k(self, raw_graph, K):
         values, indices = raw_graph.topk(k=int(K), dim=-1)
@@ -241,19 +221,19 @@ class sublime_trainer(ugleTrainer):
         sparse_graph = raw_graph * mask
         return sparse_graph
 
-    def graph_learner_forward(self, features):
-        embeddings = self.graph_learner.internal_forward(features)
+    def graph_learner_forward(self, graph_learner, features):
+        embeddings = graph_learner.internal_forward(features)
         embeddings = F.normalize(embeddings, dim=1, p=2)
         similarities = cal_similarity_graph(embeddings)
-        similarities = self.top_k(similarities, self.graph_learner.k + 1)
-        similarities = apply_non_linearity(similarities, self.graph_learner.non_linearity, self.graph_learner.i)
+        similarities = self.top_k(similarities, graph_learner.k + 1)
+        similarities = apply_non_linearity(similarities, graph_learner.non_linearity, graph_learner.i)
         return similarities
 
-    def loss_gcl(self, model, features, anchor_adj):
+    def loss_gcl(self, model, graph_learner, features, anchor_adj):
 
         # view 1: anchor graph
-        if self.cfg.args.maskfeat_rate_anchor:
-            mask_v1, _ = get_feat_mask(features, self.cfg.args.maskfeat_rate_anchor)
+        if self.maskfeat_rate_anchor:
+            mask_v1, _ = get_feat_mask(features, self.maskfeat_rate_anchor)
             mask_v1 = mask_v1.to(self.device)
             features_v1 = features * (1 - mask_v1)
         else:
@@ -263,14 +243,14 @@ class sublime_trainer(ugleTrainer):
         z1, _ = model(features_v1, anchor_adj, 'anchor')
 
         # view 2: learned graph
-        if self.cfg.args.maskfeat_rate_learner:
-            mask, _ = get_feat_mask(features, self.cfg.args.maskfeat_rate_learner)
+        if self.maskfeat_rate_learner:
+            mask, _ = get_feat_mask(features, self.maskfeat_rate_learner)
             mask = mask.to(self.device)
             features_v2 = features * (1 - mask)
         else:
             features_v2 = features.copy()
 
-        learned_adj = self.graph_learner_forward(features)
+        learned_adj = self.graph_learner_forward(graph_learner, features)
 
 
         learned_adj = symmetrize(learned_adj)
@@ -279,25 +259,27 @@ class sublime_trainer(ugleTrainer):
         z2, _ = model(features_v2, learned_adj, 'learner')
 
         # compute loss
-        if self.cfg.args.contrast_batch_size:
-            node_idxs = list(range(self.cfg.agrs.n_nodes))
+        if self.contrast_batch_size:
+            node_idxs = list(range(self.n_nodes))
             # random.shuffle(node_idxs)
-            batches = split_batch(node_idxs, self.cfg.args.contrast_batch_size)
+            batches = split_batch(node_idxs, self.contrast_batch_size)
             loss = 0
             for batch in batches:
-                weight = len(batch) / self.cfg.agrs.n_nodes
+                weight = len(batch) / self.n_nodes
                 loss += model.calc_loss(z1[batch], z2[batch]) * weight
         else:
             loss = model.calc_loss(z1, z2)
 
         return loss, learned_adj
 
+
+    
+
+class sublime_trainer(ugleTrainer):
     def preprocess_data(self, features, adjacency):
 
         anchor_adj_raw = torch.from_numpy(adjacency)
-
         anchor_adj = normalize(anchor_adj_raw, 'sym')
-
         features = torch.FloatTensor(features)
         anchor_adj = anchor_adj.float()
 
@@ -315,13 +297,18 @@ class sublime_trainer(ugleTrainer):
         optimizer_cl = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
         optimizer_learner = torch.optim.Adam(self.graph_learner.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
         self.optimizers = [optimizer_cl, optimizer_learner]
+        self.gcl_obj = gclloss_obj(self.cfg.args.maskfeat_rate_anchor, 
+                                   self.cfg.args.maskfeat_rate_learner, 
+                                   self.cfg.args.contrast_batch_size,
+                                   self.device,
+                                   self.cfg.args.n_nodes)
 
         return
 
     def training_epoch_iter(self, args, processed_data):
         features, anchor_adj = processed_data
 
-        loss, Adj = self.loss_gcl(self.model, features, anchor_adj)
+        loss, Adj = self.gcl_obj.loss_gcl(self.model, self.graph_learner, features, anchor_adj)
 
         # Structure Bootstrapping
         if (1 - args.tau) and (args.c == 0 or self.current_epoch % args.c == 0):
@@ -337,7 +324,7 @@ class sublime_trainer(ugleTrainer):
         self.model.eval()
         self.graph_learner.eval()
         with torch.no_grad():
-            _, Adj = self.loss_gcl(self.model, features, anchor_adj)
+            _, Adj = self.gcl_obj.loss_gcl(self.model, self.graph_learner, features, anchor_adj)
             _, embedding = self.model(features, Adj)
             embedding = embedding.squeeze(0)
 

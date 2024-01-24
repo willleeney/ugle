@@ -69,7 +69,7 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
     return average_results
 
 
-def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str):
+def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str=None):
     """
     Run experiments which consists of multiple models and datasets
 

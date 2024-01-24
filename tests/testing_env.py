@@ -42,6 +42,7 @@ def test_pipeline():
     # load the dmon default hyperparameters
     cfg = ugle.utils.load_model_config(override_model="dmon_default")
     Trainer = ugle.trainer.ugleTrainer("dmon", cfg)
+    Trainer.cfg.args.max_epoch = 250
     results = Trainer.eval(dataset)
 
     # evalute dmon with hpo
@@ -50,3 +51,10 @@ def test_pipeline():
     Trainer.cfg.trainer.n_trials_hyperopt = 2 # this is how you change the config
     Trainer.cfg.args.max_epoch = 250
     results = Trainer.eval(dataset)
+
+
+if __name__ == "__main__":
+    test_exp_configs()
+    test_pipeline()
+    test_neural()
+    test_loading_real_data()

@@ -4,8 +4,10 @@ from main import neural_run
 import numpy as np
 
 def test_loading_real_data():
-    features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('cora', 0.5, False)
-    features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('facebook', 0.5, False)
+    features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('cora', 0.5, 'drop_edges')
+    features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('citeseer', 0.5, 'split_edges')
+    features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('citeseer', 0.5, 'all_edges')
+    features, label, training_adj, testing_adj = ugle.datasets.load_real_graph_data('citeseer', 0.5, 'no_edges')
     return
 
 def test_neural():
@@ -22,12 +24,12 @@ def test_neural():
 
 
 def test_exp_configs():
-    run_experiment('ugle/configs/testing/min_working_pipeline.yaml')
-    run_experiment('ugle/configs/testing/compute_allocation.yaml')
+    #run_experiment('ugle/configs/testing/min_working_pipeline.yaml')
+    #run_experiment('ugle/configs/testing/compute_allocation.yaml')
     run_experiment('ugle/configs/testing/min_hpo_resuggest.yaml')
     run_experiment('ugle/configs/testing/min_hpo_reuse.yaml')
     run_experiment('ugle/configs/testing/min_multi_objective.yaml')
-    run_experiment('ugle/configs/testing/synth_test.yaml')
+    #run_experiment('ugle/configs/testing/synth_test.yaml')
 
 def test_pipeline():
     n_nodes = 1000

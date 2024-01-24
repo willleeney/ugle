@@ -44,6 +44,8 @@ def neural_run(override_model: str = None,
         cfg.trainer.only_testing = True
     if 'default' in override_model:
         cfg.trainer.only_testing = True
+    else:
+         cfg.trainer.only_testing = False
 
     # make model save path
     if not override_model:

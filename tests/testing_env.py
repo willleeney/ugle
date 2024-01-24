@@ -18,18 +18,16 @@ def test_neural():
     neural_run(override_model='sublime_default')
     neural_run(override_model='vgaer_default')
     neural_run(override_model='dgi_default')
+    neural_run(override_model='cagc_default')
 
 
-def test_pipeline():
-    # test that pipeline fallsback to cpu correctly
-    run_experiment('ugle/configs/testing/min_cpu_fallback.yaml')
-    # test that pipeline works
-    run_experiment('ugle/configs/testing/min_working_pipeline_config.yaml')
-
-
-def test_multi_objective():
+def test_exp_configs():
+    run_experiment('ugle/configs/testing/min_working_pipeline.yaml')
+    run_experiment('ugle/configs/testing/compute_allocation.yaml')
+    run_experiment('ugle/configs/testing/min_hpo_resuggest.yaml')
+    run_experiment('ugle/configs/testing/min_hpo_reuse.yaml')
     run_experiment('ugle/configs/testing/min_multi_objective.yaml')
-    run_experiment('ugle/configs/testing/min_multi_hpo_non_neural.yaml')
+    run_experiment('ugle/configs/testing/synth_test.yaml')
 
 def test_pipeline():
     n_nodes = 1000

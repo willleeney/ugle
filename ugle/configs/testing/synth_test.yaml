@@ -1,0 +1,3 @@
+seeds: [42]
+datasets: ['synth_disjoint_2']
+algorithms: ['dmon_default']

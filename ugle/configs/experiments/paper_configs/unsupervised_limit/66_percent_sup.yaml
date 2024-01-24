@@ -1,19 +1,10 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: ['cornell', 'wisc', 'texas', 'dblp', 'citeseer', 'cora']
-algorithms: ['dgi_default']
-dataset_algo_combinations: null
-run_cpu_fallback: False
+algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
 
 study_override_cfg:
   trainer:
-    n_trials_hyperopt: 1
-    results_path: './results/default_66_sup/'
-    only_testing: True
-    
-    show_config: False
-    load_existing_test: False
-    calc_time: False
-
+    results_path: './results/ul/66_train_sup/'
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     gpu: '0'
@@ -21,3 +12,4 @@ study_override_cfg:
     train_to_valid_split: 1.0
     training_to_testing_split: 0.66
     save_validation: True
+    log_interval: 1000

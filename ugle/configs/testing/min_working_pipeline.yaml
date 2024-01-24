@@ -1,0 +1,12 @@
+seeds: [42]
+datasets: ['texas']
+algorithms: ['daegc_default', 'grace_default', 'dgi_default', 'selfgnn_default', 'sublime_default', 'bgrl_default', 'vgaer_default', 'dmon_default']
+
+study_override_cfg:
+  trainer:
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    valid_metrics: ['f1']
+    n_trials_hyperopt: 2
+    
+  args:
+    max_epoch: 100

@@ -32,11 +32,8 @@ jobs:
             conda init bash
             conda activate ugle
       - name: Install Repo
-        run: |
-          CUDA=cpu
-          pip install --extra-index-url https://data.pyg.org/whl/torch-1.12.0+{CUDA}.html --no-cache-dir .
+        run: pip install --extra-index-url https://data.pyg.org/whl/torch-1.12.0+cpu.html git+https://github.com/willleeney/ugle.git
       - name: Install plugin
         run: pip install pytest-github-actions-annotate-failures
       - name: Test with pytest
-        run: |
-          python tests/testing_env.py
+        run: python tests/testing_env.py

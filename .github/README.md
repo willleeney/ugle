@@ -17,7 +17,7 @@ Any method can be trained individually via the main script using a specified con
 
 ## Installation
 
-To use this repository, you need to install `pytorch_geometric` so adjust the variables for the appropriate `TORCH` version and `CUDA` option. Please refer to the [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html) installation guide if the following doesn't work for you as pytorch-geometric can be tricky with an M* Series Mac or Windows. Please use a virtual environment manager to install. 
+To use this repository, you need to install `pytorch_geometric` so adjust the variables for the appropriate `TORCH` version and `CUDA` option. Please refer to the [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html) installation guide if the following doesn't work for you as pytorch-geometric can be tricky with an M* Series Mac or Windows. Please use a virtual environment manager to install and use a version of `python>=3.9.12`. 
 
 -`TORCH=1.12.0` or greater
 -`CUDA=cpu | cu102 | cu113 | cu116`

@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 main_directory = Path(__file__).parent.parent
 sys.path.append(main_directory)   
-sys.path.append('/home/runner/work/ugle')
+sys.path.append(Path('/home/runner/work/ugle/'))
 
 from model_evaluations import run_experiment
 from main import neural_run

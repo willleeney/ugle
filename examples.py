@@ -1,12 +1,4 @@
 import ugle
-import sys
-
-from pathlib import Path
-main_directory = Path(__file__).parent.parent
-print(main_directory)
-sys.path.append(main_directory)   
-sys.path.append(Path('/home/runner/work/ugle/ugle/'))
-
 from model_evaluations import run_experiment
 from main import neural_run
 import numpy as np
@@ -62,10 +54,3 @@ def test_pipeline():
     Trainer.cfg.trainer.n_trials_hyperopt = 2 # this is how you change the config
     Trainer.cfg.args.max_epoch = 250
     results = Trainer.eval(dataset)
-
-
-if __name__ == "__main__":
-   test_exp_configs()
-   test_pipeline()
-   test_neural()
-   test_loading_real_data()

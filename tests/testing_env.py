@@ -3,8 +3,9 @@ import sys
 
 from pathlib import Path
 main_directory = Path(__file__).parent.parent
+print(main_directory)
 sys.path.append(main_directory)   
-sys.path.append(Path('/home/runner/work/ugle/'))
+sys.path.append(Path('/home/runner/work/ugle/ugle/'))
 
 from model_evaluations import run_experiment
 from main import neural_run
@@ -64,7 +65,7 @@ def test_pipeline():
 
 
 if __name__ == "__main__":
-    test_exp_configs()
-    test_pipeline()
-    test_neural()
-    test_loading_real_data()
+   test_exp_configs()
+   test_pipeline()
+   test_neural()
+   test_loading_real_data()

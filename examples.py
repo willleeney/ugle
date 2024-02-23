@@ -54,3 +54,20 @@ def test_pipeline():
     Trainer.cfg.trainer.n_trials_hyperopt = 2 # this is how you change the config
     Trainer.cfg.args.max_epoch = 250
     results = Trainer.eval(dataset)
+
+
+if __name__ == "__main__":
+    n_nodes = 1000
+    n_features = 200
+    n_clusters = 3
+
+    # demo to evaluate a In Memory dataset 
+    dataset = {'features': np.random.rand(n_nodes, n_features),
+               'adjacency': np.random.rand(n_nodes, n_nodes),
+               'label': np.random.randint(0, n_clusters+1, size=n_nodes)}
+
+    # load the dmon default hyperparameters
+    cfg = ugle.utils.load_model_config(override_model="daegc_default")
+    Trainer = ugle.trainer.ugleTrainer("daegc", cfg)
+    Trainer.cfg.args.max_epoch = 250
+    results = Trainer.eval(dataset)

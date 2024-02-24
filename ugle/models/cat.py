@@ -8,6 +8,14 @@ import math
 from collections import OrderedDict
 from copy import deepcopy
 import numpy as np
+import torch.nn.functional as F
+
+
+def loss_fn(x, y):
+    x = F.normalize(x, dim=-1, p=2)
+    y = F.normalize(y, dim=-1, p=2)
+    return 2 - 2 * (x * y).sum(dim=-1)
+
 
 class EMA:
     def __init__(self, beta, epochs):
@@ -126,11 +134,9 @@ class CAT(nn.Module):
         # contrastive architecture
         with torch.no_grad(): 
             aug_out = self.aug_gcn(aug_features, graph_normalised, sparse=True)
-            c = self.sigm(self.read(aug_out))
-
+            
         pred_aug_out = self.decoder_gcn(gcn_out, graph_normalised, sparse=True)
-        ret = self.disc(c, pred_aug_out, aug_out)
-        loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
+        loss += self.con_loss_reg * loss_fn(pred_aug_out, aug_out)
 
         #c = self.sigm(self.read(gcn_out))
         #ret = self.disc(c, gcn_out, aug_out)

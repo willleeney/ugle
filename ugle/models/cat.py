@@ -84,13 +84,13 @@ class CAT(nn.Module):
         # self.contrastive_loss = nn.BCEWithLogitsLoss()
         self.con_loss_reg = args.con_loss_reg
 
-        # def init_weights(m):
-        #     if isinstance(m, nn.Linear):
-        #         nn.init.orthogonal_(m.weight.data, gain=math.sqrt(2))
-        #         if m.bias is not None:
-        #             m.bias.data.fill_(0.0)
+        def init_weights(m):
+            if isinstance(m, nn.Linear):
+                nn.init.orthogonal_(m.weight.data, gain=math.sqrt(2))
+                if m.bias is not None:
+                    m.bias.data.fill_(0.0)
 
-        # self.transform.apply(init_weights)
+        self.transform.apply(init_weights)
 
         return
     

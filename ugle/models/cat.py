@@ -6,6 +6,32 @@ import torch
 from ugle.gnn_architecture import GCN, AvgReadout, Discriminator
 import math
 from collections import OrderedDict
+from copy import deepcopy
+
+class EMA:
+    def __init__(self, beta, epochs):
+        super().__init__()
+        self.beta = beta
+        self.step = 0
+        self.total_steps = epochs
+
+    def update_average(self, old, new):
+        if old is None:
+            return new
+        beta = 1 - (1 - self.beta) * (np.cos(np.pi * self.step / self.total_steps) + 1) / 2.0
+        self.step += 1
+        return old * beta + (1 - beta) * new
+
+def update_moving_average(ema_updater, ma_model, current_model):
+    for current_params, ma_params in zip(current_model.parameters(), ma_model.parameters()):
+        old_weight, up_weight = ma_params.data, current_params.data
+        ma_params.data = ema_updater.update_average(old_weight, up_weight)
+
+
+def set_requires_grad(model, val):
+    for p in model.parameters():
+        p.requires_grad = val
+
 
 class CAT(nn.Module):
     def __init__(self,
@@ -27,6 +53,10 @@ class CAT(nn.Module):
 
         self.decoder_gcn = GCN(args.architecture, args.architecture, act=act)
         self.con_loss_fn = nn.CrossEntropyLoss()
+
+        self.aug_gcn = deepcopy(self.gcn)
+        set_requires_grad(self.aug_gcn, False)
+        self.teacher_ema_updater = EMA(0.99, self.args.max_epoch)
 
         # sigmoid decoder
         self.sigm = nn.Sigmoid()
@@ -61,6 +91,8 @@ class CAT(nn.Module):
 
     def forward(self, graph, graph_normalised, features, aug_features, lbl, dense_graph):
 
+        self.model.update_moving_average()
+
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
         assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
@@ -88,13 +120,13 @@ class CAT(nn.Module):
 
         # contrastive architecture
         with torch.no_grad(): 
-            aug_out = self.gcn(aug_features, graph_normalised, sparse=True)
+            aug_out = self.aug_gcn(aug_features, graph_normalised, sparse=True)
             c = self.sigm(self.read(aug_out))
 
         pred_aug_out = self.decoder_gcn(gcn_out, graph_normalised, sparse=True)
         ret = self.disc(c, pred_aug_out, aug_out)
         loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
-        
+
         #c = self.sigm(self.read(gcn_out))
         #ret = self.disc(c, gcn_out, aug_out)
         # contrastive loss function

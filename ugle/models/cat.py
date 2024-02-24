@@ -55,13 +55,13 @@ class CAT(nn.Module):
         self.dropout_rate = args.dropout_rate
         self.do_unpooling = do_unpooling
         self.gcn = GCN(args.n_features, args.architecture, act=act)
-        # self.transform = nn.Sequential(OrderedDict([
-        #     ('layer1', nn.Linear(args.architecture, args.n_clusters)),
-        #     ('dropout', nn.Dropout(args.dropout_rate)),
-        # ]))
+        self.transform = nn.Sequential(OrderedDict([
+            ('layer1', nn.Linear(args.architecture, args.n_clusters)),
+            ('dropout', nn.Dropout(args.dropout_rate)),
+        ]))
 
 
-        self.student_gcn = nn.Linear(args.architecture, args.n_clusters)
+        self.student_gcn = GCN(args.architecture, args.n_clusters, act=act)
         self.teacher_gcn = deepcopy(self.student_gcn)
         set_requires_grad(self.teacher_gcn, False)
         self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
@@ -113,7 +113,7 @@ class CAT(nn.Module):
         self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.student_gcn(gcn_out).squeeze(0)
+        assignments = self.transform(gcn_out).squeeze(0)
         assignments = F.softmax(assignments, dim=1)
 
         n_edges = graph._nnz()
@@ -137,12 +137,13 @@ class CAT(nn.Module):
         #feature_rec = self.sigm(self.decoder_gcn(gcn_out, graph_normalised, sparse=True))
         #loss += self.recon_loss_reg * self.recon_loss(feature_rec.view(-1), features.view(-1))
 
+        pred_ass = self.student_gcn(gcn_out, graph_normalised, sparse=True)
+
         # contrastive architecture
         with torch.no_grad(): 
-
             assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True)))
             
-        loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), assignments.squeeze(0))
+        loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
 
         #c = self.sigm(self.read(gcn_out))
         #ret = self.disc(c, gcn_out, aug_out)
@@ -153,7 +154,7 @@ class CAT(nn.Module):
 
     def embed(self, graph_normalised, features):
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.student_gcn(gcn_out).squeeze(0)
+        assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
         return assignments

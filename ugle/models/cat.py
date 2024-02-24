@@ -74,7 +74,7 @@ class CAT(nn.Module):
         #self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
 
         # # sigmoid decoder
-        # self.sigm = nn.Sigmoid()
+        self.sigm = nn.Sigmoid()
         # self.recon_loss = nn.BCELoss()
         # self.recon_loss_reg = args.recon_loss_reg
 

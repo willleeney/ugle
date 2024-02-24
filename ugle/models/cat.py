@@ -65,7 +65,7 @@ class CAT(nn.Module):
 
         self.aug_gcn = deepcopy(self.gcn)
         set_requires_grad(self.aug_gcn, False)
-        self.teacher_ema_updater = EMA(0.99, self.args.max_epoch)
+        self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
 
         # sigmoid decoder
         self.sigm = nn.Sigmoid()

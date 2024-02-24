@@ -136,7 +136,7 @@ class CAT(nn.Module):
             aug_out = self.aug_gcn(aug_features, graph_normalised, sparse=True)
             
         pred_aug_out = self.decoder_gcn(gcn_out, graph_normalised, sparse=True)
-        loss += self.con_loss_reg * loss_fn(pred_aug_out, aug_out)
+        loss += self.con_loss_reg * loss_fn(pred_aug_out.squeeze(0), aug_out.squeeze(0))
 
         #c = self.sigm(self.read(gcn_out))
         #ret = self.disc(c, gcn_out, aug_out)

@@ -82,7 +82,7 @@ class CAT(nn.Module):
         # self.read = AvgReadout()
         # self.disc = Discriminator(args.architecture)
         # self.contrastive_loss = nn.BCEWithLogitsLoss()
-        # self.con_loss_reg = args.con_loss_reg
+        self.con_loss_reg = args.con_loss_reg
 
         # def init_weights(m):
         #     if isinstance(m, nn.Linear):

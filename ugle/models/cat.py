@@ -61,7 +61,7 @@ class CAT(nn.Module):
         # ]))
 
 
-        self.student_gcn = GCN(args.architecture, args.n_clusters, act=act)
+        self.student_gcn = nn.Linear(args.architecture, args.n_clusters)
         self.teacher_gcn = deepcopy(self.student_gcn)
         set_requires_grad(self.teacher_gcn, False)
         self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
@@ -113,7 +113,7 @@ class CAT(nn.Module):
         self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.student_gcn(gcn_out, graph_normalised, sparse=True).squeeze(0)
+        assignments = self.student_gcn(gcn_out).squeeze(0)
         assignments = F.softmax(assignments, dim=1)
 
         n_edges = graph._nnz()
@@ -139,7 +139,7 @@ class CAT(nn.Module):
 
         # contrastive architecture
         with torch.no_grad(): 
-            assingments_hat = F.softmax(self.teacher_gcn(gcn_out, graph_normalised, sparse=True))
+            assingments_hat = F.softmax(self.teacher_gcn(gcn_out))
             
         loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), assignments.squeeze(0))
 
@@ -152,7 +152,7 @@ class CAT(nn.Module):
 
     def embed(self, graph_normalised, features):
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.student_gcn(gcn_out, graph_normalised, sparse=True).squeeze(0)
+        assignments = self.student_gcn(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
         return assignments

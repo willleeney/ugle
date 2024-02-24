@@ -7,6 +7,7 @@ from ugle.gnn_architecture import GCN, AvgReadout, Discriminator
 import math
 from collections import OrderedDict
 from copy import deepcopy
+import numpy as np
 
 class EMA:
     def __init__(self, beta, epochs):

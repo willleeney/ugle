@@ -3,7 +3,7 @@ import scipy.sparse as sp
 from ugle.trainer import ugleTrainer
 import torch.nn as nn
 import torch
-from ugle.gnn_architecture import GCN, AvgReadout, Discriminator
+from ugle.gnn_architecture import GCN
 import math
 from collections import OrderedDict
 from copy import deepcopy
@@ -60,28 +60,10 @@ class CAT(nn.Module):
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
 
-
         self.student_gcn = GCN(args.architecture, args.n_clusters, act=act)
         self.teacher_gcn = deepcopy(self.student_gcn)
         set_requires_grad(self.teacher_gcn, False)
         self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
-
-
-        #self.con_loss_fn = nn.CrossEntropyLoss()
-
-        #self.aug_gcn = deepcopy(self.gcn)
-        #set_requires_grad(self.aug_gcn, False)
-        #self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
-
-        # # sigmoid decoder
-        # self.sigm = nn.Sigmoid()
-        # self.recon_loss = nn.BCELoss()
-        # self.recon_loss_reg = args.recon_loss_reg
-
-        # # contrastive architecture
-        # self.read = AvgReadout()
-        # self.disc = Discriminator(args.architecture)
-        # self.contrastive_loss = nn.BCEWithLogitsLoss()
         self.con_loss_reg = args.con_loss_reg
 
         def init_weights(m):
@@ -94,15 +76,6 @@ class CAT(nn.Module):
 
         return
     
-    # def bce_pytorch_geometric(pred_graph, real_graph):
-    #     loss = torch.FloatTensor(0.)
-    #     # go thru all pred_graph 
-    #     # if there exists a link there then do: true * log (pred) + (1-true)*log(1-pred)
-    #     # else just do log(1-pred)
-    #     # sum up all of these and then div by the constant below
-    #     # might need fancy index strat
-    #     return - loss / pred_graph.shape(0)
-    
     def update_moving_average(self):
         assert self.teacher_gcn is not None, 'teacher encoder has not been created yet'
         update_moving_average(self.teacher_ema_updater, self.teacher_gcn, self.student_gcn)
@@ -113,7 +86,7 @@ class CAT(nn.Module):
         self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.student_gcn(gcn_out, graph_normalised, sparse=True).squeeze(0)
+        assignments = self.transform(gcn_out).squeeze(0)
         assignments = F.softmax(assignments, dim=1)
 
         n_edges = graph._nnz()
@@ -130,30 +103,19 @@ class CAT(nn.Module):
         cluster_loss *= self.cluster_size_regularization
         loss += cluster_loss
 
-        # sigmoid decoder 
-        #adj_rec = self.sigm(torch.matmul(gcn_out.squeeze(0), gcn_out.squeeze(0).t()))
-        # reconstruction loss
-        #loss = self.recon_loss_reg * self.recon_loss(adj_rec.view(-1), dense_graph.view(-1))
-        #feature_rec = self.sigm(self.decoder_gcn(gcn_out, graph_normalised, sparse=True))
-        #loss += self.recon_loss_reg * self.recon_loss(feature_rec.view(-1), features.view(-1))
-
         # contrastive architecture
+        pred_ass = self.student_gcn(gcn_out, graph_normalised, sparse=True)
         with torch.no_grad(): 
-            assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True).squeeze(0))
+            assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True))
             
-        loss += self.con_loss_reg * loss_fn(assingments_hat, assignments)
-
-        #c = self.sigm(self.read(gcn_out))
-        #ret = self.disc(c, gcn_out, aug_out)
-        # contrastive loss function
-        #loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
+        loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
 
         return loss
 
     def embed(self, graph_normalised, features):
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.student_gcn(gcn_out, graph_normalised, sparse=True).squeeze(0)
-        assignments = F.softmax(assignments, dim=1)
+        assignments = self.transform(gcn_out).squeeze(0)
+        assignments = nn.functional.softmax(assignments, dim=1)
 
         return assignments
 
@@ -210,6 +172,3 @@ class cat_trainer(ugleTrainer):
             preds = assignments.detach().cpu().numpy().argmax(axis=1)
 
         return preds
-
-
-

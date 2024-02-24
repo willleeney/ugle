@@ -113,7 +113,7 @@ class CAT(nn.Module):
         self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.student_gcn(gcn_out).squeeze(0)
+        assignments = self.student_gcn(gcn_out, graph_normalised, sparse=True).squeeze(0)
         assignments = F.softmax(assignments, dim=1)
 
         n_edges = graph._nnz()
@@ -152,7 +152,7 @@ class CAT(nn.Module):
 
     def embed(self, graph_normalised, features):
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.student_gcn(gcn_out).squeeze(0)
+        assignments = self.student_gcn(gcn_out, graph_normalised, sparse=True).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
         return assignments

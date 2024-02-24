@@ -55,51 +55,57 @@ class CAT(nn.Module):
         self.dropout_rate = args.dropout_rate
         self.do_unpooling = do_unpooling
         self.gcn = GCN(args.n_features, args.architecture, act=act)
-        self.transform = nn.Sequential(OrderedDict([
-            ('layer1', nn.Linear(args.architecture, args.n_clusters)),
-            ('dropout', nn.Dropout(args.dropout_rate)),
-        ]))
+        # self.transform = nn.Sequential(OrderedDict([
+        #     ('layer1', nn.Linear(args.architecture, args.n_clusters)),
+        #     ('dropout', nn.Dropout(args.dropout_rate)),
+        # ]))
 
-        self.decoder_gcn = GCN(args.architecture, args.architecture, act=act)
-        self.con_loss_fn = nn.CrossEntropyLoss()
 
-        self.aug_gcn = deepcopy(self.gcn)
-        set_requires_grad(self.aug_gcn, False)
+        self.student_gcn = GCN(args.architecture, args.n_clusters, act=act)
+        self.teacher_gcn = deepcopy(self.student_gcn)
+        set_requires_grad(self.teacher_gcn, False)
         self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
 
-        # sigmoid decoder
-        self.sigm = nn.Sigmoid()
-        self.recon_loss = nn.BCELoss()
-        self.recon_loss_reg = args.recon_loss_reg
 
-        # contrastive architecture
-        self.read = AvgReadout()
-        self.disc = Discriminator(args.architecture)
-        self.contrastive_loss = nn.BCEWithLogitsLoss()
-        self.con_loss_reg = args.con_loss_reg
+        #self.con_loss_fn = nn.CrossEntropyLoss()
 
-        def init_weights(m):
-            if isinstance(m, nn.Linear):
-                nn.init.orthogonal_(m.weight.data, gain=math.sqrt(2))
-                if m.bias is not None:
-                    m.bias.data.fill_(0.0)
+        #self.aug_gcn = deepcopy(self.gcn)
+        #set_requires_grad(self.aug_gcn, False)
+        #self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
 
-        self.transform.apply(init_weights)
+        # # sigmoid decoder
+        # self.sigm = nn.Sigmoid()
+        # self.recon_loss = nn.BCELoss()
+        # self.recon_loss_reg = args.recon_loss_reg
+
+        # # contrastive architecture
+        # self.read = AvgReadout()
+        # self.disc = Discriminator(args.architecture)
+        # self.contrastive_loss = nn.BCEWithLogitsLoss()
+        # self.con_loss_reg = args.con_loss_reg
+
+        # def init_weights(m):
+        #     if isinstance(m, nn.Linear):
+        #         nn.init.orthogonal_(m.weight.data, gain=math.sqrt(2))
+        #         if m.bias is not None:
+        #             m.bias.data.fill_(0.0)
+
+        # self.transform.apply(init_weights)
 
         return
     
-    def bce_pytorch_geometric(pred_graph, real_graph):
-        loss = torch.FloatTensor(0.)
-        # go thru all pred_graph 
-        # if there exists a link there then do: true * log (pred) + (1-true)*log(1-pred)
-        # else just do log(1-pred)
-        # sum up all of these and then div by the constant below
-        # might need fancy index strat
-        return - loss / pred_graph.shape(0)
+    # def bce_pytorch_geometric(pred_graph, real_graph):
+    #     loss = torch.FloatTensor(0.)
+    #     # go thru all pred_graph 
+    #     # if there exists a link there then do: true * log (pred) + (1-true)*log(1-pred)
+    #     # else just do log(1-pred)
+    #     # sum up all of these and then div by the constant below
+    #     # might need fancy index strat
+    #     return - loss / pred_graph.shape(0)
     
     def update_moving_average(self):
-        assert self.aug_gcn is not None, 'teacher encoder has not been created yet'
-        update_moving_average(self.teacher_ema_updater, self.aug_gcn, self.gcn)
+        assert self.teacher_gcn is not None, 'teacher encoder has not been created yet'
+        update_moving_average(self.teacher_ema_updater, self.teacher_gcn, self.student_gcn)
 
 
     def forward(self, graph, graph_normalised, features, aug_features, lbl, dense_graph):
@@ -107,8 +113,8 @@ class CAT(nn.Module):
         self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.transform(gcn_out).squeeze(0)
-        assignments = nn.functional.softmax(assignments, dim=1)
+        assignments = self.student_gcn(gcn_out).squeeze(0)
+        assignments = F.softmax(assignments, dim=1)
 
         n_edges = graph._nnz()
         degrees = torch.sparse.sum(graph, dim=0)._values().unsqueeze(1)
@@ -133,10 +139,9 @@ class CAT(nn.Module):
 
         # contrastive architecture
         with torch.no_grad(): 
-            aug_out = self.aug_gcn(aug_features, graph_normalised, sparse=True)
+            assingments_hat = F.softmax(self.teacher_gcn(gcn_out, graph_normalised, sparse=True))
             
-        pred_aug_out = self.decoder_gcn(gcn_out, graph_normalised, sparse=True)
-        loss += self.con_loss_reg * loss_fn(pred_aug_out.squeeze(0), aug_out.squeeze(0))
+        loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), assignments.squeeze(0))
 
         #c = self.sigm(self.read(gcn_out))
         #ret = self.disc(c, gcn_out, aug_out)
@@ -147,7 +152,7 @@ class CAT(nn.Module):
 
     def embed(self, graph_normalised, features):
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.transform(gcn_out).squeeze(0)
+        assignments = self.student_gcn(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
         return assignments

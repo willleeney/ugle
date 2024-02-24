@@ -3,7 +3,7 @@ import scipy.sparse as sp
 from ugle.trainer import ugleTrainer
 import torch.nn as nn
 import torch
-from ugle.gnn_architecture import GCN
+from ugle.gnn_architecture import GCN, AvgReadout, Discriminator
 import math
 from collections import OrderedDict
 
@@ -25,7 +25,16 @@ class CAT(nn.Module):
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
 
-        # add sigmoid decoder
+        # sigmoid decoder
+        self.sigm = nn.Sigmoid()
+        self.recon_loss = nn.BCELoss()
+        self.recon_loss_reg = args.recon_loss_reg
+
+        # contrastive architecture
+        self.read = AvgReadout()
+        self.disc = Discriminator(args.architecture)
+        self.contrastive_loss = nn.BCEWithLogitsLoss()
+        self.con_loss_reg = args.con_loss_reg
 
         def init_weights(m):
             if isinstance(m, nn.Linear):
@@ -36,9 +45,18 @@ class CAT(nn.Module):
         self.transform.apply(init_weights)
 
         return
+    
+    def bce_pytorch_geometric(pred_graph, real_graph):
+        loss = torch.FloatTensor(0.)
+        # go thru all pred_graph 
+        # if there exists a link there then do: true * log (pred) + (1-true)*log(1-pred)
+        # else just do log(1-pred)
+        # sum up all of these and then div by the constant below
+        # might need fancy index strat
+        return - loss / pred_graph.shape(0)
 
 
-    def forward(self, graph, graph_normalised, features):
+    def forward(self, graph, graph_normalised, features, aug_features, lbl, dense_graph):
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
 
@@ -59,15 +77,21 @@ class CAT(nn.Module):
         cluster_loss *= self.cluster_size_regularization
         loss += cluster_loss
 
-        # add sigmoid decoder 
-        # add reconstruction loss from DAEGC 
+        # sigmoid decoder 
+        #adj_rec = self.sigm(torch.matmul(gcn_out.squeeze(0), gcn_out.squeeze(0).t()))
+        # reconstruction loss
+        #loss += self.recon_loss_reg * self.recon_loss(adj_rec.view(-1), dense_graph.view(-1))
 
-        # add gcn with corrupted features - torch no_grad? 
-        # add dgi style contrastive loss function
+        # contrastive architecture
+        aug_out = self.gcn(aug_features, graph_normalised, sparse=True)
+        c = self.sigm(self.read(gcn_out))
+        ret = self.disc(c, gcn_out, aug_out)
+        # contrastive loss function
+        loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
 
         return loss
 
-    def embed(self, graph, graph_normalised, features):
+    def embed(self, graph_normalised, features):
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
         assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
@@ -91,9 +115,19 @@ class cat_trainer(ugleTrainer):
         graph = ugle.process.sparse_mx_to_torch_sparse_tensor(adj_label)
 
         # add corrupted features 
-        # add ground-truth label
+        idx = torch.randperm(self.cfg.args.n_nodes)
+        aug_features = features[idx, :]
 
-        return graph, graph_normalised, features
+        # add 'ground-truth' labels
+        lbl_1 = torch.ones(1, self.cfg.args.n_nodes)
+        lbl_2 = torch.zeros(1, self.cfg.args.n_nodes)
+        lbl = torch.cat((lbl_1, lbl_2), 1)
+        aug_features = aug_features.to(self.device)
+        lbl = lbl.to(self.device)
+
+        dense_graph = graph_normalised.to_dense().to(self.device)
+
+        return graph, graph_normalised, features, aug_features, lbl, dense_graph
 
     def training_preprocessing(self, args, processed_data):
 
@@ -104,15 +138,16 @@ class cat_trainer(ugleTrainer):
         return
 
     def training_epoch_iter(self, args, processed_data):
-        graph, graph_normalised, features = processed_data
-        loss = self.model(graph, graph_normalised, features)
+        graph, graph_normalised, features, aug_features, lbl, dense_graph = processed_data
+        loss = self.model(graph, graph_normalised, features, aug_features, lbl, dense_graph)
         
         return loss, None
 
     def test(self, processed_data):
-        graph, graph_normalised, features = processed_data
+        # need to check if this is still right?
+        _, graph_normalised, features, _, _, _ = processed_data
         with torch.no_grad():
-            assignments = self.model.embed(graph, graph_normalised, features)
+            assignments = self.model.embed(graph_normalised, features)
             preds = assignments.detach().cpu().numpy().argmax(axis=1)
 
         return preds

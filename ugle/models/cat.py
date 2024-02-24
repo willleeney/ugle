@@ -87,11 +87,15 @@ class CAT(nn.Module):
         # sum up all of these and then div by the constant below
         # might need fancy index strat
         return - loss / pred_graph.shape(0)
+    
+    def update_moving_average(self):
+        assert self.aug_gcn is not None, 'teacher encoder has not been created yet'
+        update_moving_average(self.teacher_ema_updater, self.aug_gcn, self.gcn)
 
 
     def forward(self, graph, graph_normalised, features, aug_features, lbl, dense_graph):
 
-        self.model.update_moving_average()
+        self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
         assignments = self.transform(gcn_out).squeeze(0)

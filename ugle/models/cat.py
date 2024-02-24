@@ -88,7 +88,7 @@ class CAT(nn.Module):
 
         # contrastive architecture
         aug_out = self.gcn(aug_features, graph_normalised, sparse=True)
-        loss += self.con_loss_reg * self.con_loss_fn(gcn_out, aug_out)
+        loss += self.con_loss_reg * self.con_loss_fn(gcn_out, aug_out)/gcn_out.shape[1]
         #c = self.sigm(self.read(gcn_out))
         #ret = self.disc(c, gcn_out, aug_out)
         # contrastive loss function

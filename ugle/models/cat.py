@@ -9,7 +9,7 @@ from collections import OrderedDict
 from copy import deepcopy
 import numpy as np
 import torch.nn.functional as F
-
+import wandb
 
 def loss_fn(x, y):
     x = F.normalize(x, dim=-1, p=2)
@@ -74,6 +74,9 @@ class CAT(nn.Module):
 
         self.transform.apply(init_weights)
 
+        self.epoch_counter = 0 
+        wandb.init(project='cat', entity='phd-keep-learning')
+
         return
     
     def update_moving_average(self):
@@ -107,9 +110,19 @@ class CAT(nn.Module):
         pred_ass = self.student_gcn(gcn_out, graph_normalised, sparse=True)
         with torch.no_grad(): 
             assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True))
-            
-        loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
+        
+        con_loss = self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
+        loss += con_loss
 
+    
+        #if self.epoch_counter % 15 == 0:
+        #    wandb.log({})
+
+        wandb.log({'con_loss': con_loss, 
+                   'spectral_loss': spectral_loss,
+                   'cluster_loss': cluster_loss}, commit=True)
+        
+        self.epoch_counter += 1
         return loss
 
     def embed(self, graph_normalised, features):
@@ -165,7 +178,6 @@ class cat_trainer(ugleTrainer):
         return loss, None
 
     def test(self, processed_data):
-        # need to check if this is still right?
         _, graph_normalised, features, _, _, _ = processed_data
         with torch.no_grad():
             assignments = self.model.embed(graph_normalised, features)

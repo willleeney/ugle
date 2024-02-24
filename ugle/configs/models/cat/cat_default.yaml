@@ -8,6 +8,7 @@ args:
   dropout_rate: 0.5
   recon_loss_reg: 1.0
   con_loss_reg: 1.0
+  beta: 0.99
 
 trainer:
   only_testing: True

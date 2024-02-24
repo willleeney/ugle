@@ -222,6 +222,7 @@ class ugleTrainer:
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 
         log.debug('splitting dataset into train/validation')
+        log.info(f'Split scheme: {self.cfg.trainer.split_scheme} -- Train {(1-self.cfg.trainer.train_to_valid_split)*100:.0f}%, Valid {self.cfg.trainer.train_to_valid_split*100:.0f}%')
         train_adjacency, validation_adjacency = datasets.split_adj(validation_adjacency, 
                                                                    self.cfg.trainer.train_to_valid_split, 
                                                                    self.cfg.trainer.split_scheme)

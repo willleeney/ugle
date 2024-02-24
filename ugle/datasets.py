@@ -187,6 +187,7 @@ def load_real_graph_data(dataset_name: str, test_split: float = 0.5,
         adjacency = to_dense_adj(data.edge_index).numpy().squeeze(0)
 
     log.debug('Splitting dataset into training/testing')
+    log.info(f'Split scheme: {split_scheme} -- Training {(1-test_split)*100:.0f}%, Test {test_split*100:.0f}%')
     train_adj, test_adj = split_adj(adjacency, test_split, split_scheme)
 
     return features, label, train_adj, test_adj

@@ -79,9 +79,9 @@ class CAT(nn.Module):
         # self.recon_loss_reg = args.recon_loss_reg
 
         # # contrastive architecture
-        # self.read = AvgReadout()
-        # self.disc = Discriminator(args.architecture)
-        # self.contrastive_loss = nn.BCEWithLogitsLoss()
+        self.read = AvgReadout()
+        self.disc = Discriminator(args.n_clusters)
+        self.contrastive_loss = nn.BCEWithLogitsLoss()
         self.con_loss_reg = args.con_loss_reg
 
         def init_weights(m):
@@ -143,12 +143,12 @@ class CAT(nn.Module):
         with torch.no_grad(): 
             assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True))
             
-        loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
+        #loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
 
-        #c = self.sigm(self.read(gcn_out))
-        #ret = self.disc(c, gcn_out, aug_out)
+        c = self.sigm(self.read(pred_ass))
+        ret = self.disc(c, pred_ass, assingments_hat)
         # contrastive loss function
-        #loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
+        loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
 
         return loss
 

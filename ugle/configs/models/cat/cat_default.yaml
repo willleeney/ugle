@@ -6,6 +6,8 @@ args:
   architecture: 64
   cluster_size_regularization: 0.3
   dropout_rate: 0.5
+  recon_loss_reg: 1.0
+  con_loss_reg: 1.0
 
 trainer:
   only_testing: True

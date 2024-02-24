@@ -7,7 +7,7 @@ args:
   cluster_size_regularization: 1.0
   dropout_rate: 0.5
   recon_loss_reg: 1.0
-  con_loss_reg: 0.5
+  con_loss_reg: 1.0
 
 trainer:
   only_testing: True

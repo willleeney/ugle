@@ -1,0 +1,11 @@
+args:
+  max_epoch: 2500
+  patience: 1000
+  learning_rate: 0.001
+  weight_decay: 0.0
+  architecture: 64
+  cluster_size_regularization: 0.3
+  dropout_rate: 0.5
+
+trainer:
+  only_testing: True

@@ -141,7 +141,7 @@ class CAT(nn.Module):
 
         # contrastive architecture
         with torch.no_grad(): 
-            assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True)))
+            assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True))
             
         loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
 

@@ -24,6 +24,7 @@ class CAT(nn.Module):
             ('layer1', nn.Linear(args.architecture, args.n_clusters)),
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
+        self.decoder_gcn = GCN(args.architecture, args.n_features, act=act)
 
         # sigmoid decoder
         self.sigm = nn.Sigmoid()
@@ -70,17 +71,19 @@ class CAT(nn.Module):
         normalizer_right = torch.spmm(assignments.T, degrees).T
         normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
         spectral_loss = - torch.trace(graph_pooled - normalizer) / 2 / n_edges
-        loss = spectral_loss
+        #loss = spectral_loss
        
         cluster_sizes = torch.sum(assignments, dim=0)
         cluster_loss = torch.norm(cluster_sizes) / self.args.n_nodes * math.sqrt(float(self.n_clusters)) - 1
         cluster_loss *= self.cluster_size_regularization
-        loss += cluster_loss
+        #loss += cluster_loss
 
         # sigmoid decoder 
         #adj_rec = self.sigm(torch.matmul(gcn_out.squeeze(0), gcn_out.squeeze(0).t()))
         # reconstruction loss
-        #loss += self.recon_loss_reg * self.recon_loss(adj_rec.view(-1), dense_graph.view(-1))
+        #loss = self.recon_loss_reg * self.recon_loss(adj_rec.view(-1), dense_graph.view(-1))
+        feature_rec = self.sigm(self.decoder_gcn(gcn_out, graph_normalised, sparse=True))
+        loss = self.recon_loss_reg * self.recon_loss(feature_rec.view(-1), features.view(-1))
 
         # contrastive architecture
         aug_out = self.gcn(aug_features, graph_normalised, sparse=True)

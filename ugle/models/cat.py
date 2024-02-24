@@ -74,14 +74,14 @@ class CAT(nn.Module):
         #self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
 
         # # sigmoid decoder
-        self.sigm = nn.Sigmoid()
+        # self.sigm = nn.Sigmoid()
         # self.recon_loss = nn.BCELoss()
         # self.recon_loss_reg = args.recon_loss_reg
 
         # # contrastive architecture
-        self.read = AvgReadout()
-        self.disc = Discriminator(args.n_clusters)
-        self.contrastive_loss = nn.BCEWithLogitsLoss()
+        # self.read = AvgReadout()
+        # self.disc = Discriminator(args.architecture)
+        # self.contrastive_loss = nn.BCEWithLogitsLoss()
         self.con_loss_reg = args.con_loss_reg
 
         def init_weights(m):
@@ -113,7 +113,7 @@ class CAT(nn.Module):
         self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.transform(gcn_out).squeeze(0)
+        assignments = self.student_gcn(gcn_out, graph_normalised, sparse=True).squeeze(0)
         assignments = F.softmax(assignments, dim=1)
 
         n_edges = graph._nnz()
@@ -137,25 +137,23 @@ class CAT(nn.Module):
         #feature_rec = self.sigm(self.decoder_gcn(gcn_out, graph_normalised, sparse=True))
         #loss += self.recon_loss_reg * self.recon_loss(feature_rec.view(-1), features.view(-1))
 
-        pred_ass = self.student_gcn(gcn_out, graph_normalised, sparse=True)
-
         # contrastive architecture
         with torch.no_grad(): 
-            assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True))
+            assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True).squeeze(0))
             
-        #loss += self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
+        loss += self.con_loss_reg * loss_fn(assingments_hat, assignments)
 
-        c = self.sigm(self.read(pred_ass))
-        ret = self.disc(c, pred_ass, assingments_hat)
+        #c = self.sigm(self.read(gcn_out))
+        #ret = self.disc(c, gcn_out, aug_out)
         # contrastive loss function
-        loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
+        #loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
 
         return loss
 
     def embed(self, graph_normalised, features):
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-        assignments = self.transform(gcn_out).squeeze(0)
-        assignments = nn.functional.softmax(assignments, dim=1)
+        assignments = self.student_gcn(gcn_out, graph_normalised, sparse=True).squeeze(0)
+        assignments = F.softmax(assignments, dim=1)
 
         return assignments
 

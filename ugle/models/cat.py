@@ -89,9 +89,12 @@ class CAT(nn.Module):
         # contrastive architecture
         with torch.no_grad(): 
             aug_out = self.gcn(aug_features, graph_normalised, sparse=True)
-        
+            c = self.sigm(self.read(aug_out))
+
         pred_aug_out = self.decoder_gcn(gcn_out, graph_normalised, sparse=True)
-        loss += self.con_loss_reg * self.con_loss_fn(pred_aug_out, aug_out)/gcn_out.shape[1]
+        ret = self.disc(c, pred_aug_out, aug_out)
+        loss += self.con_loss_reg * self.contrastive_loss(ret, lbl)
+        
         #c = self.sigm(self.read(gcn_out))
         #ret = self.disc(c, gcn_out, aug_out)
         # contrastive loss function

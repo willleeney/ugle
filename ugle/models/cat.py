@@ -24,7 +24,8 @@ class CAT(nn.Module):
             ('layer1', nn.Linear(args.architecture, args.n_clusters)),
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
-        self.decoder_gcn = GCN(args.architecture, args.n_features, act=act)
+
+        self.decoder_gcn = GCN(args.architecture, args.architecture, act=act)
         self.con_loss_fn = nn.CrossEntropyLoss()
 
         # sigmoid decoder
@@ -61,7 +62,6 @@ class CAT(nn.Module):
     def forward(self, graph, graph_normalised, features, aug_features, lbl, dense_graph):
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
-
         assignments = self.transform(gcn_out).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
@@ -87,8 +87,11 @@ class CAT(nn.Module):
         #loss += self.recon_loss_reg * self.recon_loss(feature_rec.view(-1), features.view(-1))
 
         # contrastive architecture
-        aug_out = self.gcn(aug_features, graph_normalised, sparse=True)
-        loss += self.con_loss_reg * self.con_loss_fn(gcn_out, aug_out)/gcn_out.shape[1]
+        with torch.no_grad(): 
+            aug_out = self.gcn(aug_features, graph_normalised, sparse=True)
+        
+        pred_aug_out = self.gcn(gcn_out, graph_normalised, sparse=True)
+        loss += self.con_loss_reg * self.con_loss_fn(pred_aug_out, aug_out)/gcn_out.shape[1]
         #c = self.sigm(self.read(gcn_out))
         #ret = self.disc(c, gcn_out, aug_out)
         # contrastive loss function

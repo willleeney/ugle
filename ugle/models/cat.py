@@ -86,7 +86,7 @@ class CAT(nn.Module):
     
     def update_moving_average(self):
         assert self.teacher_gcn is not None, 'teacher encoder has not been created yet'
-        update_moving_average(self.teacher_ema_updater, self.teacher_gcn, self.student_gcn)
+        update_moving_average(self.teacher_ema_updater, self.teacher_gcn, self.gcn)
 
 
     def forward(self, graph, graph_normalised, features, lbl, dense_graph):

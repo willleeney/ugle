@@ -92,7 +92,7 @@ class CAT(nn.Module):
 
         # add corrupted features 
         idx2 = torch.randperm(self.args.n_nodes)
-        features = features[idx2, :]
+        aug_features2 = features[idx2, :].to(features.device)
 
         self.update_moving_average()
 
@@ -115,9 +115,9 @@ class CAT(nn.Module):
         loss += cluster_loss
 
         # contrastive architecture
-        pred_ass = self.student_gcn(gcn_out, graph_normalised, sparse=True)
+        pred_ass = self.student_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True)
         with torch.no_grad(): 
-            assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True))
+            assingments_hat = F.softmax(self.teacher_gcn(self.gcn(aug_features2, graph_normalised, sparse=True), graph_normalised, sparse=True))
         
         con_loss = self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
         loss += con_loss

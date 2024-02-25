@@ -77,7 +77,7 @@ class CAT(nn.Module):
                     m.bias.data.fill_(0.0)
 
         self.transform.apply(init_weights)
-        self.predict_contrastiv.apply(init_weights)
+        self.predict_contrastive.apply(init_weights)
 
         self.epoch_counter = 0 
         wandb.init(project='cat', entity='phd-keep-learning')

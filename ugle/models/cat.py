@@ -90,6 +90,10 @@ class CAT(nn.Module):
         idx = torch.randperm(self.args.n_nodes)
         aug_features = features[idx, :].to(features.device)
 
+        # add corrupted features 
+        idx2 = torch.randperm(self.args.n_nodes)
+        features = features[idx2, :]
+
         self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)

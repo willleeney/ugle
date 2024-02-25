@@ -14,7 +14,7 @@ import wandb
 def loss_fn(x, y):
     x = F.normalize(x, dim=-1, p=2)
     y = F.normalize(y, dim=-1, p=2)
-    return torch.mean(2 - 2 * (x * y).sum(dim=-1))
+    return torch.sum(2 - 2 * (x * y).sum(dim=-1))
 
 
 class EMA:

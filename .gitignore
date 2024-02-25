@@ -31,3 +31,4 @@ mprofile*
 tests/models/*
 build/*
 dist/*
+wandb/*

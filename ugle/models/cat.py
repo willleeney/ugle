@@ -88,7 +88,7 @@ class CAT(nn.Module):
 
         # add corrupted features 
         idx = torch.randperm(self.args.n_nodes)
-        aug_features = features[idx, :].to(self.device)
+        aug_features = features[idx, :].to(features.device)
 
         self.update_moving_average()
 

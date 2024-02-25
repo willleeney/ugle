@@ -84,7 +84,11 @@ class CAT(nn.Module):
         update_moving_average(self.teacher_ema_updater, self.teacher_gcn, self.student_gcn)
 
 
-    def forward(self, graph, graph_normalised, features, aug_features, lbl, dense_graph):
+    def forward(self, graph, graph_normalised, features, lbl, dense_graph):
+
+        # add corrupted features 
+        idx = torch.randperm(self.cfg.args.n_nodes)
+        aug_features = features[idx, :].to(self.device)
 
         self.update_moving_average()
 
@@ -113,10 +117,6 @@ class CAT(nn.Module):
         
         con_loss = self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
         loss += con_loss
-
-    
-        #if self.epoch_counter % 15 == 0:
-        #    wandb.log({})
 
         wandb.log({'con_loss': con_loss, 
                    'spectral_loss': spectral_loss,
@@ -148,20 +148,14 @@ class cat_trainer(ugleTrainer):
         adj_label = sp.coo_matrix(adj_label)
         graph = ugle.process.sparse_mx_to_torch_sparse_tensor(adj_label)
 
-        # add corrupted features 
-        idx = torch.randperm(self.cfg.args.n_nodes)
-        aug_features = features[idx, :]
-
         # add 'ground-truth' labels
         lbl_1 = torch.ones(1, self.cfg.args.n_nodes)
         lbl_2 = torch.zeros(1, self.cfg.args.n_nodes)
         lbl = torch.cat((lbl_1, lbl_2), 1)
-        aug_features = aug_features.to(self.device)
-        lbl = lbl.to(self.device)
 
-        dense_graph = graph_normalised.to_dense().to(self.device)
+        dense_graph = graph_normalised.to_dense()
 
-        return graph, graph_normalised, features, aug_features, lbl, dense_graph
+        return graph, graph_normalised, features, lbl, dense_graph
 
     def training_preprocessing(self, args, processed_data):
 
@@ -172,13 +166,13 @@ class cat_trainer(ugleTrainer):
         return
 
     def training_epoch_iter(self, args, processed_data):
-        graph, graph_normalised, features, aug_features, lbl, dense_graph = processed_data
-        loss = self.model(graph, graph_normalised, features, aug_features, lbl, dense_graph)
+        graph, graph_normalised, features, lbl, dense_graph = processed_data
+        loss = self.model(graph, graph_normalised, features, lbl, dense_graph)
         
         return loss, None
 
     def test(self, processed_data):
-        _, graph_normalised, features, _, _, _ = processed_data
+        _, graph_normalised, features, _, _ = processed_data
         with torch.no_grad():
             assignments = self.model.embed(graph_normalised, features)
             preds = assignments.detach().cpu().numpy().argmax(axis=1)

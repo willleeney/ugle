@@ -60,14 +60,19 @@ class CAT(nn.Module):
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
 
-        self.predict_contrastive = nn.Sequential(OrderedDict([
-            ('layer1', nn.Linear(args.architecture, args.architecture)),
+        self.y_encoder = nn.Sequential(OrderedDict([
+            ('layer1', nn.Linear(args.n_clusters, args.n_clusters)),
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
 
-        self.teacher_gcn = deepcopy(self.gcn)
-        set_requires_grad(self.teacher_gcn, False)
-        self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
+        self.y_predictor = nn.Sequential(OrderedDict([
+            ('layer1', nn.Linear(args.architecture, args.n_clusters)),
+            ('dropout', nn.Dropout(args.dropout_rate)),
+        ]))
+
+        # self.teacher_gcn = deepcopy(self.gcn)
+        # set_requires_grad(self.teacher_gcn, False)
+        # self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
         self.con_loss_reg = args.con_loss_reg
 
         def init_weights(m):
@@ -77,7 +82,8 @@ class CAT(nn.Module):
                     m.bias.data.fill_(0.0)
 
         self.transform.apply(init_weights)
-        self.predict_contrastive.apply(init_weights)
+        self.y_encoder.apply(init_weights)
+        self.y_predictor.apply(init_weights)
 
         self.epoch_counter = 0 
         wandb.init(project='cat', entity='phd-keep-learning')
@@ -95,11 +101,11 @@ class CAT(nn.Module):
             self.idx = torch.randperm(self.args.n_nodes)
             self.idx2 = torch.randperm(self.args.n_nodes)
 
-        # add corrupted features 
-        aug_features = features[self.idx, :].to(features.device)
-        aug_features2 = features[self.idx2, :].to(features.device)
+        # # add corrupted features 
+        # aug_features = features[self.idx, :].to(features.device)
+        # aug_features2 = features[self.idx2, :].to(features.device)
 
-        self.update_moving_average()
+        # self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
         assignments = self.transform(gcn_out).squeeze(0)
@@ -120,11 +126,14 @@ class CAT(nn.Module):
         loss += cluster_loss
 
         # contrastive architecture
-        pred_ass = self.predict_contrastive(self.gcn(aug_features, graph_normalised, sparse=True))
-        with torch.no_grad(): 
-            assingments_hat = self.teacher_gcn(aug_features2, graph_normalised, sparse=True)
+        y_hat = self.y_predictor(gcn_out[self.idx, :])
+        y = self.y_encoder(assignments)
+
+        # pred_ass = self.predict_contrastive(self.gcn(aug_features, graph_normalised, sparse=True))
+        # with torch.no_grad(): 
+        #     assingments_hat = self.teacher_gcn(aug_features2, graph_normalised, sparse=True)
         
-        con_loss = self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
+        con_loss = self.con_loss_reg * loss_fn(y_hat.squeeze(0), y.squeeze(0))
         loss += con_loss
 
         wandb.log({'con_loss': con_loss, 

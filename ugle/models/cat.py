@@ -126,7 +126,7 @@ class CAT(nn.Module):
         loss += cluster_loss
 
         # contrastive architecture
-        y_hat = self.y_predictor(gcn_out[self.idx, :])
+        y_hat = self.y_predictor(gcn_out.squeeze(0)[self.idx, :])
         y = self.y_encoder(assignments)
 
         # pred_ass = self.predict_contrastive(self.gcn(aug_features, graph_normalised, sparse=True))

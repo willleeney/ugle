@@ -85,14 +85,14 @@ class CAT(nn.Module):
 
 
     def forward(self, graph, graph_normalised, features, lbl, dense_graph):
-
+        
+        if self.epoch_counter % 100 == 0:
+            self.idx = torch.randperm(self.args.n_nodes)
+            self.idx2 = torch.randperm(self.args.n_nodes)
+            
         # add corrupted features 
-        idx = torch.randperm(self.args.n_nodes)
-        aug_features = features[idx, :].to(features.device)
-
-        # add corrupted features 
-        idx2 = torch.randperm(self.args.n_nodes)
-        aug_features2 = features[idx2, :].to(features.device)
+        aug_features = features[self.idx, :].to(features.device)
+        aug_features2 = features[self.idx2, :].to(features.device)
 
         self.update_moving_average()
 

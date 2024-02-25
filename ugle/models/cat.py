@@ -120,7 +120,7 @@ class CAT(nn.Module):
         loss += cluster_loss
 
         # contrastive architecture
-        pred_ass = self.gcn(aug_features, graph_normalised, sparse=True)
+        pred_ass = self.predict_contrastive(self.gcn(aug_features, graph_normalised, sparse=True))
         with torch.no_grad(): 
             assingments_hat = self.teacher_gcn(aug_features2, graph_normalised, sparse=True)
         

@@ -421,6 +421,8 @@ class ugleTrainer:
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
                     results = self.testing_loop(label, validation_adjacency, processed_valid_data, self.cfg.trainer.valid_metrics)
+
+                ##### here for wandb logging #####
                 
                 # put data back into training mode
                 processed_data = self.move_to_activedevice(processed_data)

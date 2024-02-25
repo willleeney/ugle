@@ -60,8 +60,12 @@ class CAT(nn.Module):
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
 
-        self.student_gcn = GCN(args.architecture, args.n_clusters, act=act)
-        self.teacher_gcn = deepcopy(self.student_gcn)
+        self.predict_contrastive = nn.Sequential(OrderedDict([
+            ('layer1', nn.Linear(args.architecture, args.architecture)),
+            ('dropout', nn.Dropout(args.dropout_rate)),
+        ]))
+
+        self.teacher_gcn = deepcopy(self.gcn)
         set_requires_grad(self.teacher_gcn, False)
         self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
         self.con_loss_reg = args.con_loss_reg
@@ -73,6 +77,7 @@ class CAT(nn.Module):
                     m.bias.data.fill_(0.0)
 
         self.transform.apply(init_weights)
+        self.predict_contrastiv.apply(init_weights)
 
         self.epoch_counter = 0 
         wandb.init(project='cat', entity='phd-keep-learning')
@@ -115,9 +120,9 @@ class CAT(nn.Module):
         loss += cluster_loss
 
         # contrastive architecture
-        pred_ass = self.student_gcn(self.gcn(aug_features, graph_normalised, sparse=True), graph_normalised, sparse=True)
+        pred_ass = self.gcn(aug_features, graph_normalised, sparse=True)
         with torch.no_grad(): 
-            assingments_hat = self.teacher_gcn(self.gcn(aug_features2, graph_normalised, sparse=True), graph_normalised, sparse=True)
+            assingments_hat = self.teacher_gcn(aug_features2, graph_normalised, sparse=True)
         
         con_loss = self.con_loss_reg * loss_fn(assingments_hat.squeeze(0), pred_ass.squeeze(0))
         loss += con_loss

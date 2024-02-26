@@ -139,7 +139,7 @@ class CAT(nn.Module):
         con_loss = self.con_loss_reg * loss_fn(y_hat.squeeze(0), y.squeeze(0))
         loss += con_loss
         
-        if self.epoch_counter % 5 == 0:
+        if self.epoch_counter % 25 == 0:
                     tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
                     embedding = tsne.fit_transform(gcn_out.squeeze(0).detach().cpu().numpy())
                     preds = assignments.detach().cpu().numpy().argmax(axis=1)
@@ -151,7 +151,7 @@ class CAT(nn.Module):
                                                                 color=self.labels,  # Node color
                                                                 line=dict(
                                                                     color=border_colors,  # Border color
-                                                                    width=3),
+                                                                    width=1),
                                                                 size=5,
                                                                 colorscale='Spectral',
                                                                 )

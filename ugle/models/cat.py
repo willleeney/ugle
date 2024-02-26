@@ -129,7 +129,7 @@ class CAT(nn.Module):
         loss += cluster_loss
 
         # contrastive architecture
-        aug_gcnout = gcn_out.squeeze(0)
+        aug_gcnout = gcn_out.squeeze(0).clone()
         aug_gcnout[self.indices_to_shuffle, :] = aug_gcnout[self.indices_to_shuffle, :][torch.randperm(len(self.indices_to_shuffle)), :]
         y_hat = self.y_predictor(aug_gcnout)
         y = self.y_encoder(assignments)

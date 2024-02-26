@@ -77,6 +77,7 @@ class CAT(nn.Module):
         # set_requires_grad(self.teacher_gcn, False)
         # self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
         self.con_loss_reg = args.con_loss_reg
+        self.con_loss_fn = nn.MSELoss()
 
         def init_weights(m):
             if isinstance(m, nn.Linear):
@@ -101,8 +102,7 @@ class CAT(nn.Module):
     def forward(self, graph, graph_normalised, features, lbl, dense_graph):
         
         if self.epoch_counter % 100 == 0:
-            self.idx = torch.randperm(self.args.n_nodes)
-            self.idx2 = torch.randperm(self.args.n_nodes)
+            self.indices_to_shuffle = torch.randperm(self.args.n_nodes)[:self.args.n_nodes // 4]
 
         # # add corrupted features 
         # aug_features = features[self.idx, :].to(features.device)
@@ -129,15 +129,17 @@ class CAT(nn.Module):
         loss += cluster_loss
 
         # contrastive architecture
-        y_hat = self.y_predictor(gcn_out.squeeze(0)[self.idx, :])
+        aug_gcnout = gcn_out.squeeze(0)
+        aug_gcnout[self.indices_to_shuffle, :] = aug_gcnout[self.indices_to_shuffle, :][torch.randperm(len(self.indices_to_shuffle)), :]
+        y_hat = self.y_predictor(aug_gcnout)
         y = self.y_encoder(assignments)
 
         # pred_ass = self.predict_contrastive(self.gcn(aug_features, graph_normalised, sparse=True))
         # with torch.no_grad(): 
         #     assingments_hat = self.teacher_gcn(aug_features2, graph_normalised, sparse=True)
         
-        #con_loss = self.con_loss_reg * loss_fn(y_hat.squeeze(0), y.squeeze(0))
-        #loss += con_loss
+        con_loss = self.con_loss_reg * self.con_loss_fn(y_hat, y)
+        loss += con_loss
         
         if self.epoch_counter % 25 == 0:
                     tsne = TSNE(n_components=2, learning_rate='auto', init='pca')

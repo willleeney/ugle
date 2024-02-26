@@ -382,6 +382,7 @@ class ugleTrainer:
         processed_data = self.move_to_activedevice(processed_data)
         self.training_preprocessing(self.cfg.args, processed_data)
         self.model.train()
+        self.model.labels = label
 
         # create training loop
         self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:15}{r_bar}{bar:-15b}', file=open(devnull, 'w'))

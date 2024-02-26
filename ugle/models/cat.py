@@ -166,7 +166,7 @@ class CAT(nn.Module):
                     
 
 
-        wandb.log({#'con_loss': con_loss, 
+        wandb.log({'con_loss': con_loss, 
                    'spectral_loss': spectral_loss,
                    'cluster_loss': cluster_loss}, commit=True)
         

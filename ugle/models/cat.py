@@ -130,7 +130,7 @@ class CAT(nn.Module):
 
         # contrastive architecture
         aug_gcnout = gcn_out.squeeze(0).clone()
-        aug_gcnout[self.indices_to_shuffle, :] = aug_gcnout[self.indices_to_shuffle, :][torch.randperm(len(self.indices_to_shuffle)), :]
+        aug_gcnout[self.indices_to_shuffle, :] = 0.#aug_gcnout[self.indices_to_shuffle, :][torch.randperm(len(self.indices_to_shuffle)), :]
         y_hat = self.y_predictor(aug_gcnout)
         y = self.y_encoder(assignments)
 
@@ -138,7 +138,7 @@ class CAT(nn.Module):
         # with torch.no_grad(): 
         #     assingments_hat = self.teacher_gcn(aug_features2, graph_normalised, sparse=True)
         
-        con_loss = self.con_loss_reg * loss_fn(y_hat.squeeze(0), y.squeeze(0))
+        con_loss = self.con_loss_reg * self.con_loss_fn(y_hat, y)
         loss += con_loss
         
         if self.epoch_counter % 25 == 0:

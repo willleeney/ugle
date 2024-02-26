@@ -136,8 +136,8 @@ class CAT(nn.Module):
         # with torch.no_grad(): 
         #     assingments_hat = self.teacher_gcn(aug_features2, graph_normalised, sparse=True)
         
-        con_loss = self.con_loss_reg * loss_fn(y_hat.squeeze(0), y.squeeze(0))
-        loss += con_loss
+        #con_loss = self.con_loss_reg * loss_fn(y_hat.squeeze(0), y.squeeze(0))
+        #loss += con_loss
         
         if self.epoch_counter % 25 == 0:
                     tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
@@ -156,8 +156,13 @@ class CAT(nn.Module):
                                                                 colorscale='Spectral',
                                                                 )
                                                             ))
+                    acc = round(float(sum(preds == self.labels) /len(self.labels)), 3)
 
-                    wandb.log({"tsne_vis": wandb.Plotly(fig)}, commit=False)
+                    wandb.log({"tsne_vis": wandb.Plotly(fig),
+                               "acc": acc}, commit=False)
+
+                    
+
 
         wandb.log({'con_loss': con_loss, 
                    'spectral_loss': spectral_loss,

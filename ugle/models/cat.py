@@ -10,6 +10,9 @@ from copy import deepcopy
 import numpy as np
 import torch.nn.functional as F
 import wandb
+from fast_pytorch_kmeans import KMeans
+import plotly.graph_objs as go
+from sklearn.manifold import TSNE
 
 def loss_fn(x, y):
     x = F.normalize(x, dim=-1, p=2)
@@ -135,6 +138,26 @@ class CAT(nn.Module):
         
         con_loss = self.con_loss_reg * loss_fn(y_hat.squeeze(0), y.squeeze(0))
         loss += con_loss
+        
+        if self.epoch_counter % 5 == 0:
+                    tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
+                    embedding = tsne.fit_transform(gcn_out.squeeze(0).detach().cpu().numpy())
+                    preds = assignments.detach().cpu().numpy().argmax(axis=1)
+                    preds, _ = ugle.process.hungarian_algorithm(self.labels, preds)
+                    border_colors = ['green' if pred == label else 'red' for pred, label in zip(preds, self.labels)]
+               
+                    fig = go.Figure(data=go.Scatter(x=embedding[:, 0], y=embedding[:, 1], mode='markers',
+                                                        marker=dict(
+                                                                color=self.labels,  # Node color
+                                                                line=dict(
+                                                                    color=border_colors,  # Border color
+                                                                    width=3),
+                                                                size=5,
+                                                                colorscale='Spectral',
+                                                                )
+                                                            ))
+
+                    wandb.log({"tsne_vis": wandb.Plotly(fig)}, commit=False)
 
         wandb.log({'con_loss': con_loss, 
                    'spectral_loss': spectral_loss,

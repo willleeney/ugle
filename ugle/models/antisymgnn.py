@@ -153,11 +153,11 @@ class antisymgnn(nn.Module):
         loss = self.recon_loss(out, features)
         
         if self.epoch_counter % 25 == 0:
+            kmeans = KMeans(n_clusters=self.args.n_clusters)
+            preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
+
             tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
             embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
-
-            kmeans = KMeans(n_clusters=self.args.n_clusters)
-            preds = kmeans.fit_predict(torch.Tensor(embedding)).cpu().numpy()
 
             preds, _ = ugle.process.hungarian_algorithm(self.labels, preds)
             border_colors = ['green' if pred == label else 'red' for pred, label in zip(preds, self.labels)]
@@ -224,11 +224,8 @@ class antisymgnn_trainer(ugleTrainer):
         features, graph = processed_data
         with torch.no_grad():
             x = self.model.embed(features, graph).squeeze(0)
-
-        tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
-        embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
-
+        
         kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
-        preds = kmeans.fit_predict(torch.Tensor(embedding)).cpu().numpy()
+        preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
 
         return preds

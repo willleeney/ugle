@@ -10,7 +10,7 @@ from optuna.trial import Trial
 import os 
 import pickle
 
-neural_algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc', 'cat']
+neural_algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc', 'cat', 'antisymgnn']
 
 
 def load_model_config(override_model: str = None, override_cfg: DictConfig = None) -> DictConfig:

@@ -1,0 +1,6 @@
+args:
+  gcn_norm: [False, True]
+  epsilon: [1., 1e-1, 1e-2, 1e-3, 1e-4]
+  gamma: [1., 1e-1, 1e-2, 1e-3, 1e-4]
+  num_layers: [30, 20, 10, 5, 3, 2, 1]
+  hidden_dim: [128, 64, 32]

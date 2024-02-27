@@ -228,7 +228,7 @@ class antisymgnn_trainer(ugleTrainer):
         tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
         embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
 
-        kmeans = KMeans(n_clusters=self.args.n_clusters)
+        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         preds = kmeans.fit_predict(embedding).cpu().numpy()
 
         return preds

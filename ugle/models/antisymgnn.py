@@ -157,7 +157,7 @@ class antisymgnn(nn.Module):
             embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
 
             kmeans = KMeans(n_clusters=self.args.n_clusters)
-            preds = kmeans.fit_predict(embedding).cpu().numpy()
+            preds = kmeans.fit_predict(torch.Tensor(embedding)).cpu().numpy()
 
             preds, _ = ugle.process.hungarian_algorithm(self.labels, preds)
             border_colors = ['green' if pred == label else 'red' for pred, label in zip(preds, self.labels)]
@@ -229,6 +229,6 @@ class antisymgnn_trainer(ugleTrainer):
         embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
 
         kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
-        preds = kmeans.fit_predict(embedding).cpu().numpy()
+        preds = kmeans.fit_predict(torch.Tensor(embedding)).cpu().numpy()
 
         return preds

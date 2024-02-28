@@ -180,7 +180,8 @@ class antisymgnn(nn.Module):
             wandb.log({'spectral_loss': spectral_loss}, commit=False)
         
         if self.epoch_counter % 25 == 0:
-            preds = assignments.detach().cpu().numpy().argmax(axis=1)
+            kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
+            preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
 
             tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
             embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
@@ -215,9 +216,9 @@ class antisymgnn(nn.Module):
         x = self.emb(features) if self.emb else features
         for conv in self.conv:
             x = conv(x, graph)
-
-        assignments = self.relu3(self.readout_assignments(x)).squeeze(0)
-        return nn.functional.softmax(assignments, dim=1)
+        return x
+        #assignments = self.relu3(self.readout_assignments(x)).squeeze(0)
+        #return nn.functional.softmax(assignments, dim=1).squeeze(0).detach().cpu().numpy().argmax(axis=1)
 
 
 class antisymgnn_trainer(ugleTrainer):
@@ -252,9 +253,9 @@ class antisymgnn_trainer(ugleTrainer):
     def test(self, processed_data):
         features, graph, _ = processed_data
         with torch.no_grad():
-            preds = self.model.embed(features, graph).squeeze(0).detach().cpu().numpy().argmax(axis=1)
+            x = self.model.embed(features, graph)
         
-        #kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
-        #preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
+        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
+        preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
 
         return preds

@@ -104,6 +104,8 @@ class antisymgnn(nn.Module):
         self.weight_sharing = True
 
         self.recon_loss = nn.MSELoss()
+        self.relu = nn.ReLU()
+        self.relu2 = nn.ReLU()
 
         inp = self.input_dim
         self.emb = None
@@ -137,20 +139,23 @@ class antisymgnn(nn.Module):
                 )
 
         self.readout = Linear(inp, self.output_dim)
+        self.readout_adj = Linear(inp, args.n_nodes)
 
         self.epoch_counter = 0 
         wandb.init(project='antisymgnn', entity='phd-keep-learning')
         return
 
 
-    def forward(self, features, graph):
+    def forward(self, features, graph, dense_graph):
 
         x = self.emb(features) if self.emb else features
         for conv in self.conv:
             x = conv(x, graph)
-        out = self.readout(x)
+        out = self.relu(self.readout(x))
+        adj_hat = self.relu2(self.readout_adj(x))
 
         loss = self.recon_loss(out, features)
+        loss += self.recon_loss(adj_hat, dense_graph)
         
         if self.epoch_counter % 25 == 0:
             kmeans = KMeans(n_clusters=self.args.n_clusters)
@@ -197,8 +202,6 @@ class antisymgnn_trainer(ugleTrainer):
 
         adjacency = adjacency + sp.eye(adjacency.shape[0])
         adjacency = sp.coo_matrix(adjacency)
-        graph = ugle.process.sparse_mx_to_torch_sparse_tensor(adjacency)
-
 
         adj_label = adjacency.todok()
 
@@ -207,7 +210,7 @@ class antisymgnn_trainer(ugleTrainer):
 
         adj = torch.from_numpy(np.array([outwards, inwards], dtype=int))
 
-        return features, adj
+        return features, adj, torch.Tensor(adjacency.todense())
 
     def training_preprocessing(self, args, processed_data):
 
@@ -221,7 +224,7 @@ class antisymgnn_trainer(ugleTrainer):
         return loss, None
 
     def test(self, processed_data):
-        features, graph = processed_data
+        features, graph, _ = processed_data
         with torch.no_grad():
             x = self.model.embed(features, graph).squeeze(0)
         

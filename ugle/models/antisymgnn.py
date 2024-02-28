@@ -106,6 +106,12 @@ class antisymgnn(nn.Module):
         self.recon_loss = nn.MSELoss()
         self.relu = nn.ReLU()
         self.relu2 = nn.ReLU()
+        self.relu3 = nn.ReLU()
+
+        self.readout = Linear(self.input_dim, self.output_dim)
+        self.readout_adj = Linear(self.input_dim, args.n_nodes)
+        self.readout_assignments = Linear(self.input_dim, args.n_clusters)
+
 
         inp = self.input_dim
         self.emb = None
@@ -138,9 +144,6 @@ class antisymgnn(nn.Module):
                                       train_weights = self.train_weights)
                 )
 
-        self.readout = Linear(inp, self.output_dim)
-        self.readout_adj = Linear(inp, args.n_nodes)
-
         self.epoch_counter = 0 
         wandb.init(project='antisymgnn', entity='phd-keep-learning')
         return
@@ -153,9 +156,22 @@ class antisymgnn(nn.Module):
             x = conv(x, graph)
         out = self.relu(self.readout(x))
         adj_hat = self.relu2(self.readout_adj(x))
+        assignments = self.relu2(self.readout_assignments(x)).squeeze(0)
+        assignments = nn.functional.softmax(assignments, dim=1)
 
-        loss = self.recon_loss(out, features)
-        loss += self.recon_loss(adj_hat, dense_graph)
+        n_edges = graph._nnz()
+        degrees = torch.sparse.sum(graph, dim=0)._values().unsqueeze(1)
+        graph_pooled = torch.spmm(torch.spmm(graph, assignments).T, assignments)
+        normalizer_left = torch.spmm(assignments.T, degrees)
+        normalizer_right = torch.spmm(assignments.T, degrees).T
+        normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
+        spectral_loss = - torch.trace(graph_pooled - normalizer) / 2 / n_edges
+
+        recon_feat_loss = self.recon_loss(out, features)
+        recon_adj_loss = self.recon_loss(adj_hat, dense_graph)
+
+        loss = spectral_loss + recon_feat_loss + recon_adj_loss
+
         
         if self.epoch_counter % 25 == 0:
             kmeans = KMeans(n_clusters=self.args.n_clusters)
@@ -182,7 +198,11 @@ class antisymgnn(nn.Module):
             wandb.log({"tsne_vis": wandb.Plotly(fig),
                         "acc": acc}, commit=False)
 
-        wandb.log({'loss': loss}, commit=True)
+        wandb.log({'loss': loss,
+                   'recon_feat_loss': recon_feat_loss,
+                   'recon_adj_loss': recon_adj_loss,
+                   'spectral_loss': spectral_loss
+                   }, commit=True)
         
         self.epoch_counter += 1
         return loss
@@ -191,7 +211,8 @@ class antisymgnn(nn.Module):
         x = self.emb(features) if self.emb else features
         for conv in self.conv:
             x = conv(x, graph)
-        return x
+        assignments = self.relu2(self.readout_assignments(x)).squeeze(0)
+        return nn.functional.softmax(assignments, dim=1)
 
 
 class antisymgnn_trainer(ugleTrainer):
@@ -226,9 +247,9 @@ class antisymgnn_trainer(ugleTrainer):
     def test(self, processed_data):
         features, graph, _ = processed_data
         with torch.no_grad():
-            x = self.model.embed(features, graph).squeeze(0)
+            preds = self.model.embed(features, graph).squeeze(0)
         
-        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
-        preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
+        #kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
+        #preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
 
         return preds

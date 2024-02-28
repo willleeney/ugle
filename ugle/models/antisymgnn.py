@@ -177,6 +177,7 @@ class antisymgnn(nn.Module):
             normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
             spectral_loss = - torch.trace(graph_pooled - normalizer) / 2 / n_edges
             loss += spectral_loss
+            wandb.log({'spectral_loss': spectral_loss}, commit=False)
         
         if self.epoch_counter % 25 == 0:
             preds = assignments.detach().cpu().numpy().argmax(axis=1)
@@ -205,7 +206,6 @@ class antisymgnn(nn.Module):
         wandb.log({'loss': loss,
                    'recon_feat_loss': recon_feat_loss,
                    'recon_adj_loss': recon_adj_loss,
-                   'spectral_loss': spectral_loss
                    }, commit=True)
         
         self.epoch_counter += 1

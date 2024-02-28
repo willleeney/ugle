@@ -12,7 +12,7 @@ import random
 import scipy.sparse as sp
 from typing import Union, Tuple
 from ugle.logger import log, ugle_path
-from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph
+from torch_geometric.utils import to_dense_adj, stochastic_blockmodel_graph, is_undirected
 import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.datasets import Coauthor
@@ -139,6 +139,9 @@ def dropout_edge_undirected(edge_index: torch.Tensor, p: float = 0.5) -> Tuple[t
 
     keep_edge_index = torch.cat([keep_edge_index, keep_edge_index.flip(0)], dim=1)
     drop_edge_index = torch.cat([drop_edge_index, drop_edge_index.flip(0)], dim=1)
+
+    assert is_undirected(keep_edge_index)
+    assert is_undirected(drop_edge_index)
 
     return keep_edge_index, drop_edge_index
 

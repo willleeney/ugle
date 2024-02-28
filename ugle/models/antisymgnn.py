@@ -108,16 +108,16 @@ class antisymgnn(nn.Module):
         self.relu2 = nn.ReLU()
         self.relu3 = nn.ReLU()
 
-        self.readout = Linear(self.input_dim, self.output_dim)
-        self.readout_adj = Linear(self.input_dim, args.n_nodes)
-        self.readout_assignments = Linear(self.input_dim, args.n_clusters)
-
 
         inp = self.input_dim
         self.emb = None
         if self.hidden_dim is not None:
             self.emb = Linear(self.input_dim, self.hidden_dim)
             inp = self.hidden_dim
+
+        self.readout = Linear(inp, self.output_dim)
+        self.readout_adj = Linear(inp, args.n_nodes)
+        self.readout_assignments = Linear(inp, args.n_clusters)
 
         self.conv = ModuleList()
         if self.weight_sharing:
@@ -156,12 +156,16 @@ class antisymgnn(nn.Module):
             x = conv(x, graph)
         out = self.relu(self.readout(x))
         adj_hat = self.relu2(self.readout_adj(x))
-        assignments = self.relu2(self.readout_assignments(x)).squeeze(0)
+        assignments = self.relu3(self.readout_assignments(x)).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
-        n_edges = graph._nnz()
-        degrees = torch.sparse.sum(graph, dim=0)._values().unsqueeze(1)
-        graph_pooled = torch.spmm(torch.spmm(graph, assignments).T, assignments)
+        adj = torch.sparse.FloatTensor(graph, torch.ones_like(graph[0,:], dtype=torch.float32), (self.args.n_nodes, self.args.n_nodes)).to(graph.device)
+        n_edges = adj._nnz()
+        degrees = torch.sparse.sum(adj, dim=0)._values().unsqueeze(1).to(torch.float32)
+        #degrees = torch.bincount(graph[0, :])
+        #assert torch.bincount(graph[0, :]).shape[0] == self.args.nodes
+
+        graph_pooled = torch.spmm(torch.spmm(adj, assignments).T, assignments)
         normalizer_left = torch.spmm(assignments.T, degrees)
         normalizer_right = torch.spmm(assignments.T, degrees).T
         normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
@@ -174,8 +178,7 @@ class antisymgnn(nn.Module):
 
         
         if self.epoch_counter % 25 == 0:
-            kmeans = KMeans(n_clusters=self.args.n_clusters)
-            preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
+            preds = assignments.detach().cpu().numpy().argmax(axis=1)
 
             tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
             embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
@@ -211,7 +214,8 @@ class antisymgnn(nn.Module):
         x = self.emb(features) if self.emb else features
         for conv in self.conv:
             x = conv(x, graph)
-        assignments = self.relu2(self.readout_assignments(x)).squeeze(0)
+
+        assignments = self.relu3(self.readout_assignments(x)).squeeze(0)
         return nn.functional.softmax(assignments, dim=1)
 
 
@@ -247,7 +251,7 @@ class antisymgnn_trainer(ugleTrainer):
     def test(self, processed_data):
         features, graph, _ = processed_data
         with torch.no_grad():
-            preds = self.model.embed(features, graph).squeeze(0)
+            preds = self.model.embed(features, graph).squeeze(0).detach().cpu().numpy().argmax(axis=1)
         
         #kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         #preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()

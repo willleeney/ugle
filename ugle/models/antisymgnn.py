@@ -159,23 +159,24 @@ class antisymgnn(nn.Module):
         assignments = self.relu3(self.readout_assignments(x)).squeeze(0)
         assignments = nn.functional.softmax(assignments, dim=1)
 
-        adj = torch.sparse.FloatTensor(graph, torch.ones_like(graph[0,:], dtype=torch.float32), (self.args.n_nodes, self.args.n_nodes)).to(graph.device)
-        n_edges = adj._nnz()
-        degrees = torch.sparse.sum(adj, dim=0)._values().unsqueeze(1).to(torch.float32)
-        #degrees = torch.bincount(graph[0, :])
-        #assert torch.bincount(graph[0, :]).shape[0] == self.args.nodes
-
-        graph_pooled = torch.spmm(torch.spmm(adj, assignments).T, assignments)
-        normalizer_left = torch.spmm(assignments.T, degrees)
-        normalizer_right = torch.spmm(assignments.T, degrees).T
-        normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
-        spectral_loss = - torch.trace(graph_pooled - normalizer) / 2 / n_edges
-
         recon_feat_loss = self.recon_loss(out, features)
         recon_adj_loss = self.recon_loss(adj_hat, dense_graph)
 
-        loss = spectral_loss + recon_feat_loss + recon_adj_loss
+        loss = recon_feat_loss + recon_adj_loss
 
+        if self.epoch_counter > 1000:
+            adj = torch.sparse.FloatTensor(graph, torch.ones_like(graph[0,:], dtype=torch.float32), (self.args.n_nodes, self.args.n_nodes)).to(graph.device)
+            n_edges = adj._nnz()
+            degrees = torch.sparse.sum(adj, dim=0)._values().unsqueeze(1).to(torch.float32)
+            #degrees = torch.bincount(graph[0, :])
+            #assert torch.bincount(graph[0, :]).shape[0] == self.args.nodes
+
+            graph_pooled = torch.spmm(torch.spmm(adj, assignments).T, assignments)
+            normalizer_left = torch.spmm(assignments.T, degrees)
+            normalizer_right = torch.spmm(assignments.T, degrees).T
+            normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
+            spectral_loss = - torch.trace(graph_pooled - normalizer) / 2 / n_edges
+            loss += spectral_loss
         
         if self.epoch_counter % 25 == 0:
             preds = assignments.detach().cpu().numpy().argmax(axis=1)

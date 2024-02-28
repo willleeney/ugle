@@ -180,7 +180,7 @@ class antisymgnn(nn.Module):
             wandb.log({'spectral_loss': spectral_loss}, commit=False)
         
         if self.epoch_counter % 25 == 0:
-            kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
+            kmeans = KMeans(n_clusters=self.args.n_clusters)
             preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
 
             tsne = TSNE(n_components=2, learning_rate='auto', init='pca')

@@ -10,8 +10,8 @@ args:
   i: 6
 
   # Structure Bootapping
-  tau: 1
-  c: 0
+  tau: 1 # bootstrapping decay [0.999, 0.9999, 0.99999]
+  c: 0 # how often anchor adj is updated [5, 10, 15]
 
   # GCL Module -Augmentation
   maskfeat_rate_learner: [0.2, 0.5, 0.8]
@@ -19,9 +19,8 @@ args:
   dropedge_rate: [0.25, 0.5, 0.75]
 
   # GSL Module
-  k: [20, 30, 40]
+  k: [20, 30, 40] # top-k neighbours taken in sparseification 
   sim_function: 'cosine'
-  gamma: 0.9
   activation_learner: 'relu'
 
 

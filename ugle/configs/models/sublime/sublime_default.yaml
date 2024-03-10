@@ -27,7 +27,6 @@ args:
   # GSL Module
   k: 30
   sim_function: 'cosine'
-  gamma: 0.9
   activation_learner: 'relu'
 
 trainer:

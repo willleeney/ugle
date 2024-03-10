@@ -85,9 +85,6 @@ class CAT(nn.Module):
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
 
-        # self.teacher_gcn = deepcopy(self.gcn)
-        # set_requires_grad(self.teacher_gcn, False)
-        # self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
         self.con_loss_reg = args.con_loss_reg
         self.con_loss_fn = nn.MSELoss()
 
@@ -98,8 +95,12 @@ class CAT(nn.Module):
                     m.bias.data.fill_(0.0)
 
         self.transform.apply(init_weights)
-        self.y_encoder.apply(init_weights)
+        #self.y_encoder.apply(init_weights)
         self.y_predictor.apply(init_weights)
+
+        self.y_encoder = deepcopy(self.y_predictor)
+        set_requires_grad(self.y_encoder, False)
+        self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
 
         self.epoch_counter = 0 
         wandb.init(project='cat', entity='phd-keep-learning')
@@ -108,7 +109,7 @@ class CAT(nn.Module):
     
     def update_moving_average(self):
         assert self.teacher_gcn is not None, 'teacher encoder has not been created yet'
-        update_moving_average(self.teacher_ema_updater, self.teacher_gcn, self.gcn)
+        update_moving_average(self.teacher_ema_updater, self.y_encoder, self.y_predictor)
 
 
     def forward(self, graph, graph_normalised, features, lbl, dense_graph):

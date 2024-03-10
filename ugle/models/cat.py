@@ -98,9 +98,9 @@ class CAT(nn.Module):
         #self.y_encoder.apply(init_weights)
         self.y_predictor.apply(init_weights)
 
-        self.y_encoder = deepcopy(self.y_predictor)
-        set_requires_grad(self.y_encoder, False)
-        self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
+        #self.y_encoder = deepcopy(self.y_predictor)
+        #set_requires_grad(self.y_encoder, False)
+        #self.teacher_ema_updater = EMA(self.args.beta, self.args.max_epoch)
 
         self.epoch_counter = 0 
         wandb.init(project='cat', entity='phd-keep-learning')
@@ -108,7 +108,7 @@ class CAT(nn.Module):
         return
     
     def update_moving_average(self):
-        assert self.teacher_gcn is not None, 'teacher encoder has not been created yet'
+        assert self.y_encoder is not None, 'teacher encoder has not been created yet'
         update_moving_average(self.teacher_ema_updater, self.y_encoder, self.y_predictor)
 
 
@@ -121,7 +121,7 @@ class CAT(nn.Module):
         # aug_features = features[self.idx, :].to(features.device)
         # aug_features2 = features[self.idx2, :].to(features.device)
 
-        # self.update_moving_average()
+        #self.update_moving_average()
 
         gcn_out = self.gcn(features, graph_normalised, sparse=True)
         assignments = self.transform(gcn_out).squeeze(0)

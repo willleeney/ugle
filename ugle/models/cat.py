@@ -14,6 +14,14 @@ from fast_pytorch_kmeans import KMeans
 import plotly.graph_objs as go
 from sklearn.manifold import TSNE
 
+## the better way to test this would've been to use many different options in the hyperparameter space when actually fixing different things
+## batch norm positioning 
+## EMA for encoder
+## prediction w / w/o clustering loss
+## clustering size regularisation loss
+## contrastive loss with a MSE or a Cosine similairty loss 
+## GCN/Linear encoding choices
+
 def loss_fn(x, y):
     x = F.normalize(x, dim=-1, p=2)
     y = F.normalize(y, dim=-1, p=2)
@@ -65,11 +73,15 @@ class CAT(nn.Module):
 
         self.y_encoder = nn.Sequential(OrderedDict([
             ('layer1', nn.Linear(args.n_clusters, args.n_clusters)),
+            ('batch_norm', nn.BatchNorm1d(args.n_clusters)),
+            ('relu', nn.ReLU()),
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
 
         self.y_predictor = nn.Sequential(OrderedDict([
             ('layer1', nn.Linear(args.architecture, args.n_clusters)),
+            ('batch_norm', nn.BatchNorm1d(args.n_clusters)),
+            ('relu', nn.ReLU()),
             ('dropout', nn.Dropout(args.dropout_rate)),
         ]))
 
@@ -130,7 +142,7 @@ class CAT(nn.Module):
 
         # contrastive architecture
         aug_gcnout = gcn_out.squeeze(0).clone()
-        aug_gcnout[self.indices_to_shuffle, :] = 0.#aug_gcnout[self.indices_to_shuffle, :][torch.randperm(len(self.indices_to_shuffle)), :]
+        aug_gcnout[self.indices_to_shuffle, :] = 0. #aug_gcnout[self.indices_to_shuffle, :][torch.randperm(len(self.indices_to_shuffle)), :]
         y_hat = self.y_predictor(aug_gcnout)
         y = self.y_encoder(assignments)
 

@@ -1,19 +1,19 @@
 args:
-  max_epoch: 1000
-  patience: 500
-  learning_rate: 0.001
-  weight_decay: 0.
+  max_epoch: 200
+  patience: 200
+  learning_rate: 0.0005
+  weight_decay: 0.00001
 
   num_hidden: 128
-  num_proj_hidden: 218
-  activation: 'relu'
+  num_proj_hidden: 128
+  activation: 'prelu'
   base_model: 'GCNConv'
   num_layers: 2
   drop_edge_rate_1: 0.4
   drop_edge_rate_2: 0.1
   drop_feature_rate_1: 0.0
   drop_feature_rate_2: 0.2
-  tau: 0.7
+  tau: 0.4
 
 trainer:
   only_testing: True

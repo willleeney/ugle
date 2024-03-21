@@ -106,7 +106,6 @@ class antisymgnn(nn.Module):
         self.recon_loss = nn.MSELoss()
         self.relu = nn.ReLU()
         self.relu2 = nn.ReLU()
-        self.relu3 = nn.ReLU()
 
 
         inp = self.input_dim
@@ -117,7 +116,6 @@ class antisymgnn(nn.Module):
 
         self.readout = Linear(inp, self.output_dim)
         self.readout_adj = Linear(inp, args.n_nodes)
-        self.readout_assignments = Linear(inp, args.n_clusters)
 
         self.conv = ModuleList()
         if self.weight_sharing:
@@ -156,30 +154,13 @@ class antisymgnn(nn.Module):
             x = conv(x, graph)
         out = self.relu(self.readout(x))
         adj_hat = self.relu2(self.readout_adj(x))
-        assignments = self.relu3(self.readout_assignments(x)).squeeze(0)
-        assignments = nn.functional.softmax(assignments, dim=1)
 
         recon_feat_loss = self.recon_loss(out, features)
         recon_adj_loss = self.recon_loss(adj_hat, dense_graph)
 
         loss = recon_feat_loss + recon_adj_loss
-
-        if self.epoch_counter > 1000:
-            adj = torch.sparse.FloatTensor(graph, torch.ones_like(graph[0,:], dtype=torch.float32), (self.args.n_nodes, self.args.n_nodes)).to(graph.device)
-            n_edges = adj._nnz()
-            degrees = torch.sparse.sum(adj, dim=0)._values().unsqueeze(1).to(torch.float32)
-            #degrees = torch.bincount(graph[0, :])
-            #assert torch.bincount(graph[0, :]).shape[0] == self.args.nodes
-
-            graph_pooled = torch.spmm(torch.spmm(adj, assignments).T, assignments)
-            normalizer_left = torch.spmm(assignments.T, degrees)
-            normalizer_right = torch.spmm(assignments.T, degrees).T
-            normalizer = torch.spmm(normalizer_left, normalizer_right) / 2 / n_edges
-            spectral_loss = - torch.trace(graph_pooled - normalizer) / 2 / n_edges
-            loss += spectral_loss
-            wandb.log({'spectral_loss': spectral_loss}, commit=False)
         
-        if self.epoch_counter % 25 == 0:
+        if self.epoch_counter % 10 == 0:
             kmeans = KMeans(n_clusters=self.args.n_clusters)
             preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
 

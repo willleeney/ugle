@@ -45,6 +45,7 @@ class AntiSymmetricConv(MessagePassing):
         self.gamma = gamma
         self.epsilon = epsilon
         self.activation = getattr(torch, activ_fun)
+        self.centroids = None
 
         self.reset_parameters()
 
@@ -63,6 +64,8 @@ class AntiSymmetricConv(MessagePassing):
             conv = x @ antisymmetric_W.T + neigh_x
 
             ### v3: minimise distance to cluster centroids using antisymmetric weight matrix
+            if self.centroids is not None:
+                conv = conv + self.center_attention @ self.centroids
 
             if self.bias is not None:
                 conv += self.bias
@@ -162,24 +165,28 @@ class antisymgnn(nn.Module):
         for conv in self.conv:
             x = conv(x, graph)
 
-        ### v4: add contrastive loss here which mimics subdiffusion term?
-        con_loss = contrastive_loss_no_labels(x)
+        # dbscan + hierarchical clustering + loss
+        pairwise_distances = torch.cdist(x, x, p=2)
+        cluster_labels = dbscan_clustering(x, pairwise_distances, self.args.eps, self.args.minPts)
+        preds, clustering_loss = merge_clusters(cluster_labels, pairwise_distances, self.args.n_clusters, linkage='complete')
 
         out = self.relu(self.readout(x))
         adj_hat = self.relu2(self.readout_adj(x))
         recon_feat_loss = self.recon_loss(out, features)
         recon_adj_loss = self.recon_loss(adj_hat, dense_graph)
 
-        loss = recon_feat_loss + recon_adj_loss + con_loss
+        loss = recon_feat_loss + recon_adj_loss + (clustering_loss * self.args.alpha)
         
-        if self.epoch_counter % 10 == 0:
-            kmeans = KMeans(n_clusters=self.args.n_clusters)
-            preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
+        if self.epoch_counter % 25 == 0:
+            #kmeans = KMeans(n_clusters=self.args.n_clusters)
+            #preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
+
+            #preds2 = dbscan_clustering(x.squeeze(0).detach(), pairwise_distances, self.args.eps, self.args.minPts)
 
             tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
             embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
 
-            preds, _ = ugle.process.hungarian_algorithm(self.labels, preds)
+            preds, _ = ugle.process.hungarian_algorithm(self.labels, preds.detach().cpu().numpy())
             border_colors = ['green' if pred == label else 'red' for pred, label in zip(preds, self.labels)]
         
             fig = go.Figure(data=go.Scatter(x=embedding[:, 0], y=embedding[:, 1], mode='markers',
@@ -200,7 +207,7 @@ class antisymgnn(nn.Module):
         wandb.log({'loss': loss,
                    'recon_feat_loss': recon_feat_loss,
                    'recon_adj_loss': recon_adj_loss,
-                   'con_loss': con_loss
+                   'clustering_loss': clustering_loss
                    }, commit=True)
         
         self.epoch_counter += 1
@@ -249,29 +256,171 @@ class antisymgnn_trainer(ugleTrainer):
         with torch.no_grad():
             x = self.model.embed(features, graph)
         
-        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
-        preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
+        # dbscan + hierarchical clustering + loss
+        pairwise_distances = torch.cdist(x, x, p=2)
+        cluster_labels = dbscan_clustering(x, pairwise_distances, self.cfg.args.eps, self.cfg.args.minPts)
+        preds, _ = merge_clusters(cluster_labels, pairwise_distances, self.cfg.args.n_clusters, linkage='complete')
 
-        return preds
+        return preds.detach().cpu().numpy()
 
 
 
-def contrastive_loss_no_labels(embeddings, margin=1.0):
+def contrastive_loss_no_labels(embeddings):
     """
     Compute a modified contrastive loss over a batch of embeddings where each
     point is treated as a positive example for itself and a negative example for all others.
 
     Args:
     - embeddings: A tensor of shape (N, F) where N is the number of points and F is the feature space.
-    - margin: A scalar that defines the margin for dissimilar pairs.
 
     Returns:
     - loss: A tensor containing the contrastive loss.
     """
-    n = embeddings.size(0)
-    
-    # Compute pairwise Euclidean distances
-    distances = torch.sqrt(torch.sum((embeddings[:, None] - embeddings) ** 2, dim=2))
-    # Loss is the sum of all distances, scaled by the number of negative pairs (n-1) for each point
-    loss = distances.sum() / (n * (n - 1))  
+    # Normalize embeddings to lie on the unit sphere, which simplifies the cosine similarity calculation
+    normalized_embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+
+    # Compute the cosine similarity matrix
+    similarity_matrix = torch.mm(normalized_embeddings, normalized_embeddings.t())
+
+    # Set the diagonal (self-similarity) to 0 because we don't want to consider it in the loss
+    similarity_matrix.fill_diagonal_(0.)
+
+    # Since we want to minimize similarity between different embeddings, the loss is the sum of all
+    # positive similarities in the matrix, divided by the number of elements considered (to average it)
+    loss = similarity_matrix.sum() / (similarity_matrix.numel() - similarity_matrix.size(0))
     return loss
+
+
+def dbscan_clustering(node_embeddings, pairwise_distances, eps, minPts):
+    # Compute the number of neighbors within the eps distance
+    neighbor_counts = (pairwise_distances < eps).sum(dim=1)
+    # sort those neighbours
+    sorted_neighbours = torch.sort(neighbor_counts, descending=True)
+    # Identify core points
+    core_point_mask = sorted_neighbours[0] >= minPts
+    # Compute neighbor lists for core points
+    neighbor_lists = [(pairwise_distances[i] < eps).nonzero().squeeze() for i in sorted_neighbours[1][core_point_mask]]
+
+    # Initialize with -1 (noise)
+    cluster_labels = torch.full((node_embeddings.shape[0],), -1, dtype=torch.long)
+
+    # the issue we had is that node A be in between B and C and be neighbouring both but that doesn't mean B and C are neighbours
+    # so we actually want to do this but where core_point_mask is in order of most to least neighbours 
+    # and every time those get assigned you want to remove those neighbours from any other nodes that may 
+    # have had them from the neighbours, but actually maybe it's fine anyway because if that node was in the neighbour of the previous node
+    # then it would already be assigned so that node and all of it's neighbours would've been skipped 
+    # so ive got done from like 631 to 280 clusters
+
+    # the two other ways are to not ignore this previous thing and instead just cluster all of those previous nodes that were neighbours into the same cluster
+    # but the issue with this (which is why im not going to do it) is that when you have two big clusters and some points in the middle that could be either cluster
+    # if you chain cluster then both clusters would end up getting clustered together, so i think it's probably just not ideal
+
+    # also sidenote, there should be some way of determining eps and minpoints based on the density of the data...
+ 
+    next_label = 0
+    node_assigned = []
+    for neighbour_idx, n_neighbours in enumerate(sorted_neighbours[0][core_point_mask]):
+        node_idx = sorted_neighbours[1][core_point_mask][neighbour_idx]
+        # if the current node is unassigned
+        if cluster_labels[node_idx] == -1:
+            # get the neighbours of the current node
+            neighbors = neighbor_lists[neighbour_idx].tolist()
+            # check that this node has at least 5 non assigned neighbours
+            neighbors = list(set(neighbors) - set(node_assigned))
+            if len(neighbors) >= minPts:
+                # make all those neighbours a cluster
+                cluster_labels[neighbors] = next_label
+                #print(f"cluster: {next_label}  node: {node_idx}  n_neighbours: {n_neighbours}")
+                next_label += 1
+                node_assigned.extend(neighbors)
+            
+
+    # Assign noise points to the closest cluster
+    noise_points = torch.where(cluster_labels == -1)[0]
+    clustered_points =  torch.where(cluster_labels >= 0)[0]
+    if noise_points.numel() > 0:
+        # get the distances from noisy points to all clustered nodes
+        noise_distances = pairwise_distances[noise_points, :][:, clustered_points]
+        # get the closest clustered node for every noisy point 
+        closest_nodes = noise_distances.argmin(dim=1)
+        # assign the noisy points to the same label as their closest clustered node
+        cluster_labels[noise_points] = cluster_labels[clustered_points[closest_nodes]]
+
+    return cluster_labels
+
+
+def merge_clusters(cluster_labels, pairwise_distances, k, linkage='complete'):
+    """
+    Merge clusters using agglomerative hierarchical clustering.
+
+    Args:
+        cluster_labels (torch.Tensor): A tensor of shape (num_nodes,) containing the initial cluster assignments.
+        pairwise_distances (torch.Tensor): A tensor of shape (num_nodes, num_nodes) containing the pairwise distances.
+        k (int): number of clusters needed
+        linkage (str, optional): The linkage criterion to use for merging clusters ('complete', 'average', or 'single').
+            Default is 'complete'.
+
+    Returns:
+        torch.Tensor: A tensor of shape (num_nodes,) containing the final cluster assignments after merging.
+        torch.Tensor: A tensor containing the total intra-cluster distances for the final k clusters.
+    """
+    num_nodes = cluster_labels.numel()
+    cluster_sizes = torch.bincount(cluster_labels)
+    num_clusters = cluster_sizes.numel()
+
+    while num_clusters > k:
+        # Compute the intra-cluster distances for all cluster pairs
+        intra_cluster_dists = torch.zeros((num_clusters, num_clusters))
+        for i in range(num_clusters):
+            for j in range(i + 1, num_clusters):
+                cluster_i = torch.where(cluster_labels == i)[0]
+                cluster_j = torch.where(cluster_labels == j)[0]
+                if linkage == 'complete':
+                    intra_cluster_dists[i, j] = pairwise_distances[cluster_i, :][:, cluster_j].max()
+                elif linkage == 'average':
+                    intra_cluster_dists[i, j] = (pairwise_distances[cluster_i, :][:, cluster_j].sum()
+                                                 / (cluster_sizes[i] * cluster_sizes[j]))
+                elif linkage == 'single':
+                    intra_cluster_dists[i, j] = pairwise_distances[cluster_i, :][:, cluster_j].min()
+                else:
+                    raise ValueError(f"Invalid linkage criterion: {linkage}")
+
+        # Find the two clusters with the smallest intra-cluster distance
+        merge_indices = torch.triu_indices(num_clusters, num_clusters, offset=1)
+        min_dist, (i, j) = intra_cluster_dists[merge_indices].min(dim=0)
+
+        # Merge the two clusters
+        cluster_labels[cluster_labels == j] = i
+        cluster_sizes[i] += cluster_sizes[j]
+        cluster_sizes = torch.cat((cluster_sizes[:j], cluster_sizes[j + 1:]))
+
+        num_clusters -= 1
+
+    # Compute the total intra-cluster distances for the final k clusters
+    total_intra_cluster_dists = torch.zeros(k)
+    for i in range(len(torch.unique(cluster_labels))):
+        cluster_i = torch.where(cluster_labels == i)[0]
+        total_intra_cluster_dists[i] = pairwise_distances[cluster_i, :][:, cluster_i].sum() / (2 * cluster_sizes[i])
+
+    return cluster_labels, total_intra_cluster_dists.sum()
+
+
+def density_clustering_loss(pairwise_distances, eps, minPts, alpha=0.001):
+    # Compute the number of neighbors within the eps distance
+    neighbor_counts = (pairwise_distances < eps).sum(dim=1)
+    
+    # Compute the core point mask (points with >= minPts neighbors)
+    core_point_mask = neighbor_counts >= minPts
+    
+    # Compute the distance penalty for core point pairs
+    core_point_dists = pairwise_distances[core_point_mask][:, core_point_mask]
+    core_point_penalty = core_point_dists[core_point_dists > eps].sum()
+    
+    # Compute the distance penalty for non-core point pairs
+    non_core_point_dists = pairwise_distances[~core_point_mask][:, ~core_point_mask]
+    non_core_point_penalty = non_core_point_dists[non_core_point_dists <= eps].sum()
+    
+    # Combine the penalties
+    density_clustering_loss = alpha * (core_point_penalty + non_core_point_penalty)
+    
+    return density_clustering_loss

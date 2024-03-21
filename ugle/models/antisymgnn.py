@@ -342,7 +342,9 @@ def dbscan_clustering(node_embeddings, pairwise_distances, eps, minPts):
     # Assign noise points to the closest cluster
     noise_points = torch.where(cluster_labels == -1)[0]
     clustered_points =  torch.where(cluster_labels >= 0)[0]
-    if noise_points.numel() > 0:
+    if clustered_points.numel() == 0:
+        cluster_labels[noise_points] = 0
+    elif noise_points.numel() > 0:
         # get the distances from noisy points to all clustered nodes
         noise_distances = pairwise_distances[noise_points, :][:, clustered_points]
         # get the closest clustered node for every noisy point 

@@ -62,8 +62,17 @@ class AntiSymmetricConv(MessagePassing):
 
             conv = x @ antisymmetric_W.T + neigh_x
 
+            ### v3: minimise distance to cluster centroids using antisymmetric weight matrix
+
             if self.bias is not None:
                 conv += self.bias
+
+            ### v1: minimise to cluster centres
+            ### function that minimises distance to centriods for all points 
+
+
+            ### v2: minimise distance to each other? 
+            
 
             x = x + self.epsilon * self.activation(conv)
         return x
@@ -152,13 +161,16 @@ class antisymgnn(nn.Module):
         x = self.emb(features) if self.emb else features
         for conv in self.conv:
             x = conv(x, graph)
+
+        ### v4: add contrastive loss here which mimics subdiffusion term?
+        con_loss = contrastive_loss_no_labels(x)
+
         out = self.relu(self.readout(x))
         adj_hat = self.relu2(self.readout_adj(x))
-
         recon_feat_loss = self.recon_loss(out, features)
         recon_adj_loss = self.recon_loss(adj_hat, dense_graph)
 
-        loss = recon_feat_loss + recon_adj_loss
+        loss = recon_feat_loss + recon_adj_loss + con_loss
         
         if self.epoch_counter % 10 == 0:
             kmeans = KMeans(n_clusters=self.args.n_clusters)
@@ -188,6 +200,7 @@ class antisymgnn(nn.Module):
         wandb.log({'loss': loss,
                    'recon_feat_loss': recon_feat_loss,
                    'recon_adj_loss': recon_adj_loss,
+                   'con_loss': con_loss
                    }, commit=True)
         
         self.epoch_counter += 1
@@ -240,3 +253,25 @@ class antisymgnn_trainer(ugleTrainer):
         preds = kmeans.fit_predict(x.squeeze(0).detach()).cpu().numpy()
 
         return preds
+
+
+
+def contrastive_loss_no_labels(embeddings, margin=1.0):
+    """
+    Compute a modified contrastive loss over a batch of embeddings where each
+    point is treated as a positive example for itself and a negative example for all others.
+
+    Args:
+    - embeddings: A tensor of shape (N, F) where N is the number of points and F is the feature space.
+    - margin: A scalar that defines the margin for dissimilar pairs.
+
+    Returns:
+    - loss: A tensor containing the contrastive loss.
+    """
+    n = embeddings.size(0)
+    
+    # Compute pairwise Euclidean distances
+    distances = torch.sqrt(torch.sum((embeddings[:, None] - embeddings) ** 2, dim=2))
+    # Loss is the sum of all distances, scaled by the number of negative pairs (n-1) for each point
+    loss = distances.sum() / (n * (n - 1))  
+    return loss

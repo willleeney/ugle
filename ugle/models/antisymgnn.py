@@ -183,8 +183,12 @@ class antisymgnn(nn.Module):
 
             #preds2 = dbscan_clustering(x.squeeze(0).detach(), pairwise_distances, self.args.eps, self.args.minPts)
 
+
             tsne = TSNE(n_components=2, learning_rate='auto', init='pca')
             embedding = tsne.fit_transform(x.squeeze(0).detach().cpu().numpy())
+            pairwise_distances = torch.cdist(torch.from_numpy(embedding), torch.from_numpy(embedding), p=2)
+            cluster_labels = dbscan_clustering(x, pairwise_distances, self.args.eps, self.args.minPts)
+            preds, clustering_loss = merge_clusters(cluster_labels, pairwise_distances, self.args.n_clusters, linkage='complete')
 
             preds, _ = ugle.process.hungarian_algorithm(self.labels, preds.detach().cpu().numpy())
             border_colors = ['green' if pred == label else 'red' for pred, label in zip(preds, self.labels)]
@@ -387,11 +391,14 @@ def merge_clusters(cluster_labels, pairwise_distances, k, linkage='complete'):
 
         # Find the two clusters with the smallest intra-cluster distance
         merge_indices = torch.triu_indices(num_clusters, num_clusters, offset=1)
-        min_dist, (i, j) = intra_cluster_dists[merge_indices].min(dim=0)
+        (i, j) = merge_indices[:, intra_cluster_dists[merge_indices[0], merge_indices[1]].argmin()]
 
         # Merge the two clusters
+        # merge cluster labels from j into i 
         cluster_labels[cluster_labels == j] = i
+        # increase the cluster size of i
         cluster_sizes[i] += cluster_sizes[j]
+        # remove the cluster j from cluster sizes array
         cluster_sizes = torch.cat((cluster_sizes[:j], cluster_sizes[j + 1:]))
 
         num_clusters -= 1

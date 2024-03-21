@@ -400,6 +400,8 @@ def merge_clusters(cluster_labels, pairwise_distances, k, linkage='complete'):
         cluster_sizes[i] += cluster_sizes[j]
         # remove the cluster j from cluster sizes array
         cluster_sizes = torch.cat((cluster_sizes[:j], cluster_sizes[j + 1:]))
+        # deincrement all the cluster labels bigger than j so there isn't a missing label
+        cluster_labels[cluster_labels > j] -= 1
 
         num_clusters -= 1
 

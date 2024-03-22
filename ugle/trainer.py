@@ -222,6 +222,7 @@ class ugleTrainer:
         self.cfg.hypersaved_args = copy.deepcopy(self.cfg.args)
 
         log.debug('splitting dataset into train/validation')
+        log.info(f'Split scheme: {self.cfg.trainer.split_scheme} -- Train {(1-self.cfg.trainer.train_to_valid_split)*100:.0f}%, Valid {self.cfg.trainer.train_to_valid_split*100:.0f}%')
         train_adjacency, validation_adjacency = datasets.split_adj(validation_adjacency, 
                                                                    self.cfg.trainer.train_to_valid_split, 
                                                                    self.cfg.trainer.split_scheme)
@@ -381,6 +382,7 @@ class ugleTrainer:
         processed_data = self.move_to_activedevice(processed_data)
         self.training_preprocessing(self.cfg.args, processed_data)
         self.model.train()
+        self.model.labels = label
 
         # create training loop
         self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:15}{r_bar}{bar:-15b}', file=open(devnull, 'w'))
@@ -420,6 +422,8 @@ class ugleTrainer:
                     log.info(f"Max memory usage by testing_loop(): {max(mem_usage):.2f}MB")
                 else:
                     results = self.testing_loop(label, validation_adjacency, processed_valid_data, self.cfg.trainer.valid_metrics)
+
+                ##### here for wandb logging #####
                 
                 # put data back into training mode
                 processed_data = self.move_to_activedevice(processed_data)

@@ -110,11 +110,15 @@ class vgaer_trainer(ugleTrainer):
     def preprocess_data(self, features, adjacency):
         A = torch.FloatTensor(adjacency)
         A[A != 0] = 1
-        A_orig_ten = A.detach().clone()
+        #A_orig_ten = A.detach().clone()
+
 
         # compute B matrix
         K = 1 / (A.sum().item()) * (A.sum(dim=1).reshape(A.shape[0], 1) @ A.sum(dim=1).reshape(1, A.shape[0]))
-        feats = A - K
+        B = A - K
+        feats = torch.concat((B, torch.tensor(features)), 1).to(dtype=torch.float32)
+
+        self.cfg.args.n_features = feats.shape[1]
 
         # compute A_hat matrix
         A = A + torch.eye(A.shape[0])
@@ -122,16 +126,13 @@ class vgaer_trainer(ugleTrainer):
         A_hat = D @ A @ D
 
         weight_tensor, norm = compute_loss_para(A)
-        weight_tensor = weight_tensor
-        A_hat = A_hat
-        feats = feats
-
-        return A_orig_ten, A_hat, feats, weight_tensor, norm
+  
+        return B.detach().clone(), A_hat, feats, weight_tensor, norm
 
 
     def training_preprocessing(self, args, processed_data):
 
-        self.model = VGAERModel(args.n_nodes, args.hidden1, args.hidden2, self.device).to(self.device)
+        self.model = VGAERModel(self.cfg.args.n_features, args.hidden1, args.hidden2, self.device).to(self.device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
         self.optimizers = [optimizer]
@@ -162,7 +163,7 @@ class vgaer_trainer(ugleTrainer):
         emb = recovered[1]
         emb = emb.float().clamp(torch.finfo(torch.float32).min, torch.finfo(torch.float32).max)
 
-        kmeans = kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
+        kmeans = KMeans(n_clusters=self.cfg.args.n_clusters)
         preds = kmeans.fit_predict(emb).cpu().numpy()
       
         return preds

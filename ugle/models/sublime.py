@@ -252,7 +252,6 @@ class gclloss_obj:
 
         learned_adj = self.graph_learner_forward(graph_learner, features)
 
-
         learned_adj = symmetrize(learned_adj)
         learned_adj = normalize(learned_adj, 'sym')
 

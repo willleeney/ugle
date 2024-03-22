@@ -11,6 +11,7 @@ def test_loading_real_data():
 
 
 def test_neural():
+    neural_run(override_model='cat_default')
     neural_run(override_model='grace_default')
     neural_run(override_model='dmon_default')
     neural_run(override_model='daegc_default')
@@ -57,17 +58,19 @@ def test_pipeline():
 
 
 if __name__ == "__main__":
-    n_nodes = 1000
-    n_features = 200
-    n_clusters = 3
+    do_this = False
+    if do_this:
+        n_nodes = 1000
+        n_features = 200
+        n_clusters = 3
 
-    # demo to evaluate a In Memory dataset 
-    dataset = {'features': np.random.rand(n_nodes, n_features),
-               'adjacency': np.random.rand(n_nodes, n_nodes),
-               'label': np.random.randint(0, n_clusters+1, size=n_nodes)}
+        # demo to evaluate a In Memory dataset 
+        dataset = {'features': np.random.rand(n_nodes, n_features),
+                'adjacency': np.random.rand(n_nodes, n_nodes),
+                'label': np.random.randint(0, n_clusters+1, size=n_nodes)}
 
-    # load the dmon default hyperparameters
-    cfg = ugle.utils.load_model_config(override_model="daegc_default")
-    Trainer = ugle.trainer.ugleTrainer("daegc", cfg)
-    Trainer.cfg.args.max_epoch = 250
-    results = Trainer.eval(dataset)
+        # load the dmon default hyperparameters
+        cfg = ugle.utils.load_model_config(override_model="daegc_default")
+        Trainer = ugle.trainer.ugleTrainer("daegc", cfg)
+        Trainer.cfg.args.max_epoch = 250
+        results = Trainer.eval(dataset)

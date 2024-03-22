@@ -4,10 +4,10 @@ args:
   learning_rate: 0.001
   weight_decay: 0.
 
-  pre_epoch: 50
+  pre_epoch: 30
   lr: 0.001
   pre_lr: 0.005
-  update_interval: 3
+  update_interval: 1
   hidden_size: 128
   embedding_size: 16
   alpha: 0.2

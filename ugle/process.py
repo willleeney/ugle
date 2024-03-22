@@ -216,6 +216,17 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx: sp.csr_matrix) -> torch.FloatTen
     shape = torch.Size(sparse_mx.shape)
     return torch.sparse.FloatTensor(indices, values, shape)
 
+def numpy_to_sparse_tensor(sparse_mx: np.ndarray):
+
+    values = sparse_mx.data
+    indices = np.vstack((sparse_mx.row, sparse_mx.col))
+
+    i = torch.LongTensor(indices)
+    v = torch.FloatTensor(values)
+    shape = sparse_mx.shape
+
+    return torch.sparse.FloatTensor(i, v, torch.Size(shape))
+
 
 def euclidean_distance(point1: np.ndarray, point2: np.ndarray):
     """

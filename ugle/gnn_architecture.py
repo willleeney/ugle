@@ -69,7 +69,7 @@ class AvgReadout(nn.Module):
     def __init__(self):
         super(AvgReadout, self).__init__()
 
-    def forward(self, seq, msk):
+    def forward(self, seq, msk=None):
         if msk is None:
             return torch.mean(seq, 1)
         else:

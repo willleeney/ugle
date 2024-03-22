@@ -54,7 +54,7 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
 
         elif study_cfg.trainer.use_hps_on_all_seeds:
             study_cfg.trainer.only_testing = True
-            study_cfg.trainer.load_existing_test: True
+            study_cfg.trainer.load_existing_test = True
 
     # average results stores the average calculation of statistics
     average_results = ugle.utils.calc_average_results(average_results)
@@ -85,6 +85,8 @@ def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str=None):
     exp_cfg = ugle.utils.merge_yaml(exp_cfg, exp_cfg_name)
     if dataset_algorithm_override: 
         exp_cfg.dataset_algo_combinations = [dataset_algorithm_override]
+        exp_cfg.datasets = []
+        exp_cfg.algorithms = []
     
 
     save_path = exp_cfg.study_override_cfg.trainer.results_path

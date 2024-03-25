@@ -69,7 +69,7 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
     return average_results
 
 
-def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str=None):
+def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str=None, gpu_override: str=None):
     """
     Run experiments which consists of multiple models and datasets
 
@@ -87,6 +87,8 @@ def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str=None):
         exp_cfg.dataset_algo_combinations = [dataset_algorithm_override]
         exp_cfg.datasets = []
         exp_cfg.algorithms = []
+    if gpu_override:
+        exp_cfg.study_override_cfg.trainer.gpu = gpu_override
     
 
     save_path = exp_cfg.study_override_cfg.trainer.results_path
@@ -149,5 +151,6 @@ if __name__ == "__main__":
                         help='the location of the experiment config')
     parser.add_argument('-da', '--dataset_algorithm_override', type=str, default=None,
                         help='dataset_algorithm override setting')
+    parser.add_argument('--gpu', type=str, default=None)
     parsed = parser.parse_args()
-    run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override)
+    run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override, parsed.gpu)

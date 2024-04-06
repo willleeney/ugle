@@ -3,7 +3,7 @@
 
 for d in bat citeseer cora dblp eat texas wisc cornell uat amac amap; do
     lbatch -c 1 -g 1 -m 22 -t 300 -a EMAT022967 -q gpu --conda-env UFR --cmd python3 model_evaluations.py -ec=ugle/configs/experiments/paper_configs/complex_networks/default.yaml -da=${d}_vgaer_default --gpu=0
-    python3 model_evaluations.py -ec=ugle/configs/experiments/paper_configs/complex_networks/hpo.yaml -da=${d}_vgaer --gpu=0
+    lbatch -c 1 -g 1 -m 22 -t 300 -a EMAT022967 -q gpu --conda-env UFR --cmd python3 model_evaluations.py -ec=ugle/configs/experiments/paper_configs/complex_networks/hpo.yaml -da=${d}_vgaer --gpu=0
 done
 
 for d in cornell wisc texas dblp citeseer cora; do

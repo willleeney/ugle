@@ -10,6 +10,8 @@ study_override_cfg:
     train_to_valid_split: 0.2
     use_hps_on_all_seeds: True
     log_interval: 1000
+    valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
 
   args:
     max_epoch: 5000

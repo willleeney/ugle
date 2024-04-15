@@ -274,76 +274,104 @@ class ugleTrainer:
             study = None
 
         processed_test_data = self.preprocess_data(features, test_adjacency)
-        if self.cfg.trainer.only_testing:
-            validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
-        elif not self.cfg.trainer.multi_objective_study:
-            validation_results = study.best_trial.user_attrs['validation_results']
-        # if you aren't optimising for more than one metric or are only evaluating hps 
-        if (not self.cfg.trainer.multi_objective_study) or self.cfg.trainer.only_testing:                         
-            objective_results = []
-            for opt_metric in self.cfg.trainer.valid_metrics:
-                log.info(f'Evaluating {opt_metric} model on test split')
-                self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
-                self.model.to(self.device)
-                results = self.testing_loop(label, test_adjacency, processed_test_data, self.cfg.trainer.test_metrics)
-                # log test results
-                right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
-                to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
-                log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
-                objective_results.append({'metrics': opt_metric, 'results': results, 
-                                          'args': params_to_assign, "validation_results": validation_results})
+        objective_results = []
+        # if only testing and not multi-objective 
+        if not self.cfg.trainer.multi_objective_study:
+            if self.cfg.trainer.only_testing:
+                validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
+            else:
+                validation_results = study.best_trial.user_attrs['validation_results']
 
-        # if you have optimised for more than one metric then there are potentially more than one 
-        # metrics that need to be optimised for 
+            self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{self.cfg.trainer.valid_metrics[0]}.pt")['model'])
+            self.model.to(self.device)
+            results = self.testing_loop(label, test_adjacency, processed_test_data, self.cfg.trainer.test_metrics)
+            objective_results.append({'metrics': self.cfg.trainer.valid_metrics[0], 'results': results, 
+                                    'args': self.cfg.trainer.args, "validation_results": validation_results})
+
         else:
-            # extract best hps found for each metrics
-            best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
-            unique_trials = list(np.unique(np.array(associated_trial)))
-            objective_results = []
-
-            for idx, best_trial_id in enumerate(unique_trials):
-                # find the metrics for which trial is best at
-                best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if associated_trial[i] == best_trial_id]
-                best_hp_params = [trial for trial in study.best_trials if trial.number == best_trial_id][0].params
-
-                # log the best hyperparameters and metrics at which they are best
-                best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
-                best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
-                test_metrics = ''.join(f'{metric}_' for metric in best_at_metrics)
-                test_metrics = test_metrics[:test_metrics.rfind(',')]
-                log.info(f'Best hyperparameters for metric(s): {best_at_metrics_str} ')
-                if not self.cfg.trainer.only_testing:
-                    for hp_key, hp_val in best_hp_params.items():
-                        log.info(f'{hp_key} : {hp_val}')
-                
-                # assign best hyperparameters to config
-                self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
-
-                # at this point, the self.train() loop should go have saved models for each validation metric 
-                # then go through the best at metrics, and do a test for each of the best models 
-                for opt_metric in best_at_metrics:
-                    # if epoch is the same for all opt_metrics, there will be an unecessary forward pass but we move since unlikely 
-                    log.debug(f'Evaluating {opt_metric} model on test split')
+            if self.cfg.trainer.only_testing and not self.cfg.trainer.use_hps_on_all_seeds: 
+                validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
+                for opt_metric in self.cfg.trainer.valid_metrics:
+                    log.info(f'Evaluating {opt_metric} model on test split')
                     self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
                     self.model.to(self.device)
                     results = self.testing_loop(label, test_adjacency, processed_test_data, self.cfg.trainer.test_metrics)
-                    
                     # log test results
                     right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
                     to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
                     log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
                     objective_results.append({'metrics': opt_metric, 'results': results, 
-                                              'args': best_hp_params, "validation_results": study.trials[best_trial_id].user_attrs['validation_results']})
-                                            
-                # re init the args object for assign_test params
-                self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
+                                            'args': params_to_assign, "validation_results": validation_results})
+                    
+            elif self.cfg.trainer.only_testing and self.cfg.trainer.use_hps_on_all_seeds:
+                for opt_metric_cfg in self.cfg.previous_results:
+                    opt_metric = opt_metric_cfg['metrics']
+                    self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
+                    log.info(f'Best hyperparameters for metric(s): {opt_metric} ')
+                    for hp_key, hp_val in opt_metric_cfg['args'].items():
+                        log.info(f'{hp_key} : {hp_val}')
 
-                # this isnt the best code but we move
-                if self.cfg.trainer.save_model:
-                    log.info(f'Saving best version of model for {best_at_metrics}')
-                    torch.save({"model": self.model.state_dict(),
-                                "args": best_hp_params},
-                               f"{self.cfg.trainer.models_path}{self.cfg.model}_{test_metrics}.pt")
+                    self.cfg = utils.assign_test_params(self.cfg, opt_metric_cfg['args'])
+                    validation_results = self.train(None, label, processed_data, validation_adjacency, processed_valid_data)
+                    self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
+                    self.model.to(self.device)
+                    results = self.testing_loop(label, test_adjacency, processed_test_data, self.cfg.trainer.test_metrics)
+                    # log test results
+                    right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
+                    to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                    log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
+                    objective_results.append({'metrics': opt_metric, 'results': results, 
+                                            'args': self.cfg.args, "validation_results": validation_results})
+
+            elif not self.cfg.trainer.only_testing:
+                # extract best hps found for each metrics
+                best_values, associated_trial = ugle.utils.extract_best_trials_info(study, self.cfg.trainer.valid_metrics)
+                unique_trials = list(np.unique(np.array(associated_trial)))
+                objective_results = []
+
+                for idx, best_trial_id in enumerate(unique_trials):
+                    # find the metrics for which trial is best at
+                    best_at_metrics = [metric for i, metric in enumerate(self.cfg.trainer.valid_metrics) if associated_trial[i] == best_trial_id]
+                    best_hp_params = [trial for trial in study.best_trials if trial.number == best_trial_id][0].params
+
+                    # log the best hyperparameters and metrics at which they are best
+                    best_at_metrics_str = ''.join(f'{metric}, ' for metric in best_at_metrics)
+                    best_at_metrics_str = best_at_metrics_str[:best_at_metrics_str.rfind(',')]
+                    test_metrics = ''.join(f'{metric}_' for metric in best_at_metrics)
+                    test_metrics = test_metrics[:test_metrics.rfind(',')]
+                    log.info(f'Best hyperparameters for metric(s): {best_at_metrics_str} ')
+                   
+                    for hp_key, hp_val in best_hp_params.items():
+                        log.info(f'{hp_key} : {hp_val}')
+                    
+                    # assign best hyperparameters to config
+                    self.cfg = utils.assign_test_params(self.cfg, best_hp_params)
+
+                    # at this point, the self.train() loop should go have saved models for each validation metric 
+                    # then go through the best at metrics, and do a test for each of the best models 
+                    for opt_metric in best_at_metrics:
+                        # if epoch is the same for all opt_metrics, there will be an unecessary forward pass but we move since unlikely 
+                        log.debug(f'Evaluating {opt_metric} model on test split')
+                        self.model.load_state_dict(torch.load(f"{self.cfg.trainer.models_path}{self.cfg.model}_{self.device_name}_{opt_metric}.pt")['model'])
+                        self.model.to(self.device)
+                        results = self.testing_loop(label, test_adjacency, processed_test_data, self.cfg.trainer.test_metrics)
+                        
+                        # log test results
+                        right_order_results = [results[k] for k in self.cfg.trainer.test_metrics]
+                        to_log_trial_values = ''.join(f'{metric}={right_order_results[i]}, ' for i, metric in enumerate(self.cfg.trainer.test_metrics))
+                        log.info(f'Test results optimised for {opt_metric}: {to_log_trial_values.rpartition(",")[0]}')
+                        objective_results.append({'metrics': opt_metric, 'results': results, 
+                                                'args': best_hp_params, "validation_results": study.trials[best_trial_id].user_attrs['validation_results']})
+                                                
+                    # re init the args object for assign_test params
+                    self.cfg.args = copy.deepcopy(self.cfg.hypersaved_args)
+
+                    # this isnt the best code but we move
+                    if self.cfg.trainer.save_model:
+                        log.info(f'Saving best version of model for {best_at_metrics}')
+                        torch.save({"model": self.model.state_dict(),
+                                    "args": best_hp_params},
+                                f"{self.cfg.trainer.models_path}{self.cfg.model}_{test_metrics}.pt")
 
         if study and self.cfg.trainer.save_hpo_study:
             pickle.dump(study, open(f"{self.cfg.trainer.results_path}study_{self.cfg.args.random_seed}_{self.cfg.dataset}_{self.cfg.model}.pkl","wb"))

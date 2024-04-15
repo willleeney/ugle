@@ -45,7 +45,10 @@ def neural_run(override_model: str = None,
     if 'default' in override_model:
         cfg.trainer.only_testing = True
     else:
-         cfg.trainer.only_testing = False
+        cfg.trainer.only_testing = False
+    
+    if cfg.trainer.use_hps_on_all_seeds and cfg.previous_results is not None:
+        cfg.trainer.only_testing = True
 
     # make model save path
     if not override_model:

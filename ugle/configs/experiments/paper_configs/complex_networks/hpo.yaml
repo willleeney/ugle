@@ -5,7 +5,7 @@ algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'selfgnn', 'sublime', 'bgrl', 'vga
 study_override_cfg:
   trainer:
     results_path: './results/cm/hpo/'
-    n_trials_hyperopt: 2
+    n_trials_hyperopt: 300
     training_to_testing_split: 0.2
     train_to_valid_split: 0.2
     use_hps_on_all_seeds: True
@@ -14,4 +14,4 @@ study_override_cfg:
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     
   args:
-    max_epoch: 10
+    max_epoch: 5000

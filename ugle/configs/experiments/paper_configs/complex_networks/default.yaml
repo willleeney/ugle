@@ -5,13 +5,14 @@ algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'm
 study_override_cfg:
   trainer:
     results_path: './results/cm/default/'
-    n_trials_hyperopt: 300
+    n_trials_hyperopt: 0
     training_to_testing_split: 0.2
     train_to_valid_split: 0.2
-    use_hps_on_all_seeds: True
+    use_hps_on_all_seeds: False
     log_interval: 1000
     valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
+    only_testing: True
 
   args:
     max_epoch: 5000

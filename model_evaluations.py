@@ -25,9 +25,7 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
                                       'model': algorithm,
                                       'average_results': {},
                                       'results': []})
-    if 'default' not in algorithm:
-        study_cfg.trainer.only_testing = True
-
+    study_cfg.previous_results = None
     # repeat training over all seeds
     for idx, seed in enumerate(seeds):
         study_cfg.args.random_seed = seed
@@ -52,9 +50,8 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
             for res in results:
                 study_cfg.trainer.hps_found_so_far.append(res['args'])
 
-        elif study_cfg.trainer.use_hps_on_all_seeds:
+        if study_cfg.trainer.use_hps_on_all_seeds:
             study_cfg.trainer.only_testing = True
-            study_cfg.trainer.load_existing_test = True
 
     # average results stores the average calculation of statistics
     average_results = ugle.utils.calc_average_results(average_results)

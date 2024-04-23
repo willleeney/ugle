@@ -807,7 +807,7 @@ def reshape_ranking_to_test_object(ranking_object):
     ranking_object = ranking_object.reshape((-1,) + ranking_object.shape[2:])
     return ranking_object
 
-def og_randomness(ranking_object):
+def og_randomness(ranking_object, print_draws=False):
     # og W coefficient where draws are the lowest rank that would occur from the ties
     n_draws = 0
     wills_order = []
@@ -818,7 +818,8 @@ def og_randomness(ranking_object):
                 n_draws += 10 - len(unique_scores)
         wills_order.append(kendall_w(test))
     wills_order = np.array(wills_order)
-    #print(f'n_draws: {n_draws}', end=',  ')
+    if print_draws:
+        print(f'n_draws: {n_draws}')
 
     return np.mean(wills_order)
 
@@ -1121,7 +1122,7 @@ def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorit
     return total_w_order
 
 def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend=False):
-    plt.style.use(['science', 'nature'])
+    #plt.style.use(['science', 'nature'])
     nature_colours = ["#0C5DA5", "#00B945", "#FF9500", "#FF2C00", "#845B97", "#474747", "#9e9e9e"]
     algorithm_colors = ["#434982", "#00B945", "#EA907A", "#845B97", "#4F8A8B", "#FFCB74", "#B5DEFF"]
     # extract results 
@@ -1144,7 +1145,7 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
    
     nrows, ncols = 2, 2
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(7, 4))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(9, 10))
 
     for i, ax in enumerate(axes.flat):
         if i == 0:
@@ -1232,41 +1233,44 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
         if x_label == "Modularity":
             x_label = r"$\mathcal{M}$"
         if y_label == "NMI":
-            y_label = r"$NMI$"
+            y_label = "NMI"
         if y_label == "F1":
-            y_label = r"$F1$"
+            y_label = "F1"
         
         if i == 0:
-            ax.set_ylabel(y_label, fontsize=11)
+            ax.set_ylabel(y_label, fontsize=14)
         if i == 2:
-            ax.set_ylabel(y_label, fontsize=11) 
-            ax.set_xlabel(x_label, fontsize=11)
+            ax.set_ylabel(y_label, fontsize=14) 
+            ax.set_xlabel(x_label, fontsize=14)
         if i == 3:
-            ax.set_xlabel(x_label, fontsize=11)
+            ax.set_xlabel(x_label, fontsize=14)
         
-        ax.set_ylim(0, 1)
-        ax.set_title(x_label + r' $\rightarrow$ '+ y_label, fontsize=13)# + " (l-"+ r"$R^2$" + f": {r_value_line:.2f}, q-" + r"$R^2$"  + f": {r_value_quad:.2f}, " + r"$W$" + f": {W_order:.2f})", fontsize=9)
+        if i == 0 or i == 1:
+            ax.set_ylim(0, 0.8)
+        else:
+            ax.set_ylim(0, 0.6)
+        ax.set_title(x_label + r' $\rightarrow$ '+ y_label, fontsize=14)# + " (l-"+ r"$R^2$" + f": {r_value_line:.2f}, q-" + r"$R^2$"  + f": {r_value_quad:.2f}, " + r"$W$" + f": {W_order:.2f})", fontsize=9)
         #if i == 1:
         #    ax.legend(handles=handles, bbox_to_anchor=(1.10, 1.5), fontsize=8, ncols=1)
-        ax.tick_params(axis='y', labelsize=7)
-        ax.tick_params(axis='x', labelsize=7)
+        ax.tick_params(axis='y', labelsize=12)
+        ax.tick_params(axis='x', labelsize=12)
        
     print_algo_table(datasets, algorithms, folder)
     print_dataset_table(datasets, algorithms, folder)
     plt.tight_layout()
     if "Large" not in title:
-        fig.suptitle(title, fontsize=16)
-        #plt.subplots_adjust(top=0.85, bottom=0.09, hspace=0.33)
-        #if pltlegend:
-            #plt.subplots_adjust(top=0.85, bottom=0.3, hspace=0.42)
-            #fig.add_subplot(111, frameon=False)
-            #plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
-            #plt.legend(handles=handles, bbox_to_anchor=(0, 0), fontsize=8, ncols=6)
+        fig.suptitle(title, fontsize=18)
+        plt.subplots_adjust(top=0.92, bottom=0.13)
+        if pltlegend:
+            # plt.subplots_adjust(top=0.85, bottom=0.3, hspace=0.42)
+            # fig.add_subplot(111, frameon=False)
+            # plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
+            # plt.legend(handles=handles, bbox_to_anchor=(0, 0), fontsize=8, ncols=6)
             
-            #blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
-            #blank_ax.axis('off')
-            #blank_ax.legend(handles=handles, loc='lower center', fontsize=10, ncols=5)
-        #plt.tight_layout()
+            blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+            blank_ax.axis('off')
+            blank_ax.legend(handles=handles, loc='lower center', fontsize=10, ncols=5)
+  
         if "66" in title:
             title_name = '66_data'
         elif "33" in title:
@@ -1274,8 +1278,8 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
         else:
             title_name = title.replace(" ", "_")
             title_name = title_name.replace("\'", "")
-        plt.tight_layout()
-        plt.savefig(f'./figures/unsupervised_limit/{title_name}.eps', format='eps')
+
+        plt.savefig(f'./figures/thesis/{title_name}.pdf')
     if pltlegend:
         return handles
 
@@ -1301,17 +1305,17 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
         total_w_order = np.mean(compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, [dataset]))
 
         if dataset == 'dblp':
-            ax.set_title("DBLP" + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=15)
+            ax.set_title("DBLP" + ' (' + r'$\mathcal{W}$' + f': {total_w_order:.2f})', fontsize=15)
         elif 'synth' in dataset:
             dataset_name = r"$A$" + ": " + dataset.split("_")[1] + '  ' + r"$X$" ": " + dataset.split("_")[2]
             dataset_name = dataset_name.replace("disjoint", "Distinct")
             dataset_name = dataset_name.replace("random", "Random")
             dataset_name = dataset_name.replace("complete", "Null")
-            ax.set_title(dataset_name + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=12)
+            ax.set_title(dataset_name + ' (' + r'$\mathcal{W}$' + f': {total_w_order:.2f})', fontsize=12)
         elif dataset == 'citeseer':
-            ax.set_title('CiteSeer' + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=15)
+            ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}$' + f': {total_w_order:.2f})', fontsize=15)
         else:
-            ax.set_title(dataset.capitalize() + ' (' + r'$W$' + f': {total_w_order:.2f})', fontsize=15)
+            ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}$' + f': {total_w_order:.2f})', fontsize=15)
 
 
         mod = []
@@ -1330,6 +1334,7 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
 
         for algo in algorithms:
             mod_results, con_results = extract_results([dataset], [algo], folder)
+            con_results[:, 0] = [1 - con_res for con_res in con_results[:, 0]]
             mod.append(np.mean(mod_results[:, 0]))
             mod_f1.append(np.mean(mod_results[:, 1]))
             mod_nmi.append(np.mean(mod_results[:, 2]))
@@ -1365,27 +1370,27 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
 
         if "Large" not in title:
             ax.set_xticks(x_axis_points - 0.5 * bar_width)
-            ax.set_xticklabels([name.upper() for name in x_axis_names], ha='left', rotation=-45, position=(-0.5, 0.0), fontsize=9)
+            ax.set_xticklabels([name.upper() if name != 'dmon' else 'DMoN' for name in x_axis_names], ha='left', rotation=-45, position=(-0.5, 0.0), fontsize=9)
         else:
             ax.set_xticks(x_axis_points + 0.4)
-            ax.set_xticklabels([name.upper() for name in x_axis_names], fontsize=15)
+            ax.set_xticklabels([name.upper() if name != 'dmon' else 'DMoN' for name in x_axis_names], fontsize=15)
         
         ax.set_axisbelow(True)
         ax.set_ylim(0.0, 1.0)
 
     if "Large" not in title:
-        fig.suptitle(title, fontsize=20)
+        fig.suptitle(title, fontsize=18)
     else:
-        fig.suptitle(title, fontsize=16) 
+        fig.suptitle(title, fontsize=18) 
 
     plt.tight_layout()
     if plot_legend:
-        #if "Synth" in title:
-        #    plt.subplots_adjust(top=0.9, bottom=0.16, hspace=0.55)
-        #else:
-        #    plt.subplots_adjust(top=0.87, bottom=0.22, hspace=0.55)
-        #blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
-        #blank_ax.axis('off')
+        if "Synth" in title:
+           plt.subplots_adjust(top=0.92, bottom=0.12, hspace=0.45)
+        else:
+           plt.subplots_adjust(top=0.92, bottom=0.13, hspace=0.25)
+        blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+        blank_ax.axis('off')
         handles = []
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[0], label=r'$\mathcal{M}$'))
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[3], label=r'$\mathcal{C}$'))
@@ -1393,11 +1398,11 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[4], label=r'$\mathcal{C} \rightarrow F1$', edgecolor='black'))
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[2], label=r'$\mathcal{M} \rightarrow NMI$', edgecolor='black'))
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[5], label=r'$\mathcal{C} \rightarrow NMI$',  edgecolor='black'))
-        #blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3)
+        blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3)
 
     save_name = f'{os.path.basename(os.path.normpath(folder))}'
     save_name = save_name.replace("\'", "")
-    plt.savefig(f'./figures/unsupervised_limit/{save_name}.eps', format='eps')
+    plt.savefig(f'./figures/thesis/{save_name}.pdf')
     if plot_legend:
         return handles
 
@@ -1431,17 +1436,20 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = True
-    make_big_figure = False
+    make_ugle = False
+    make_big_figure = True
     make_dist_figure = True
-    make_presentation_figures = False
-    make_paper_figures=  True
+    make_presentation_figures = True
+    make_paper_figures =  True
     make_rankings_table = True
 
     make_unsuper = True
-    calc_increases = True
-    calc_synth_increases = True
+    calc_increases = False
+    calc_synth_increases = False
 
+    make_abs = True
+    make_corr = True
+    make_synth = True
 
     if make_ugle:
         algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'sublime', 'bgrl', 'vgaer']
@@ -1456,7 +1464,7 @@ if __name__ == "__main__":
         if make_presentation_figures: 
             create_rand_dist_comparison(['cora'], algorithms, metrics, seeds, folder, default_algos, default_folder)
 
-        elif make_paper_figures: 
+        if make_paper_figures: 
             if make_big_figure:
                 create_big_figure(['cora', 'citeseer', 'dblp'], algorithms, folder, default_algos, default_folder)
                 create_big_figure(['amap', 'texas', 'wisc', 'cornell'], algorithms, folder, default_algos, default_folder)
@@ -1506,20 +1514,21 @@ if __name__ == "__main__":
 
 
             # print the average rank 
-            print('all')
-            
-            rank_order = np.argsort(np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)) 
-            hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-            default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-
-            for air, _ in enumerate(hpo_ranks):
-                print(f'& {hpo_ranks[air]}/{default_ranks[air]}', end=' ')
-            print('')
-            print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
-            print(np.array(algorithms)[rank_order])
-
-
             if make_rankings_table: 
+                print('all')
+                
+                rank_order = np.argsort(np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)) 
+                hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+
+                for air, _ in enumerate(hpo_ranks):
+                    print(f'& {hpo_ranks[air]}/{default_ranks[air]}', end=' ')
+                print('')
+                print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+                print(np.array(algorithms)[rank_order])
+                print('\n')
+
+
                 ## PER METRIC MATHCAL R
                 ## (11, 8, 4, 10)
                 for m, metric in enumerate(metrics):
@@ -1593,9 +1602,9 @@ if __name__ == "__main__":
             ranking_object = reshape_ranking_to_test_object(ranking_object)
             default_ranking_object = reshape_ranking_to_test_object(default_ranking_object)
 
-            og_w = og_randomness(ranking_object)
+            og_w = og_randomness(ranking_object, print_draws=True)
             print(f"OG W HPO: {og_w:.3f}")
-            og_w_def = og_randomness(default_ranking_object)
+            og_w_def = og_randomness(default_ranking_object, print_draws=True)
             print(f"OG W Default: {og_w_def:.3f}")
 
             result_object = np.concatenate((result_object[:, :, 0:3, :], con_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
@@ -1627,13 +1636,13 @@ if __name__ == "__main__":
             #random_rankings = create_random_results(44, 10, 10)
 
             if make_dist_figure: 
-                fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(4, 4))
+                fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(6, 5))
 
                 test_interval = 1
                 n_tests = result_object.shape[0]
                 n_repeats = 10
                 input_idxs = range(0, n_tests)
-                titles = ['Original ' + r'$W$' + ' Randomness', r'$W$' + ' Randomness\nw/ Mean Ties', 'Tied ' + r'$W_t$' + ' Randomness', r'$W_w$' + ' Wasserstein Randomness']
+                titles = ['Original ' + r'$\mathcal{W}$' + ' Randomness', 'Mean Ties ' + r'$\mathcal{W}^m$' + ' Randomness', 'Mean Ties ' + r'$\mathcal{W}^t$' + ' Randomness', r'$\mathcal{W}^w$' + ' Wasserstein Randomness']
                 w_fns = ['og_randomness', 'og_newOld_randomness', 'ties_randomness', 'wasserstein_randomness']
                 
 
@@ -1645,6 +1654,8 @@ if __name__ == "__main__":
                     else:
                         temp_object = result_object
                         default_temp_object = default_result_object
+                    cur_max = 0.
+                    cur_min = 1.
                     for test_interval in range(1, n_tests):
                         for i in range(n_repeats):
                             test_idx = random.sample(input_idxs, test_interval)
@@ -1656,21 +1667,32 @@ if __name__ == "__main__":
                             temp_rankings = default_temp_object[test_idx, :, :]
                             WW_DEF = locals()[w_fns[a]](temp_rankings)
                             ax.plot(test_interval, WW_DEF, 'x', c='C3', markersize=2)
+
+                            cur_max = max(cur_max, WW_HPO)
+                            cur_max = max(cur_max, WW_DEF)
+
+                            cur_min = min(cur_min, WW_HPO)
+                            cur_min = min(cur_min, WW_DEF)
                     
                     handles = []
-                    handles.append(mlines.Line2D([], [], label='HPO', color="C4", marker='x', linestyle='None'))
-                    handles.append(mlines.Line2D([], [], label='Default', color="C3", marker='x', linestyle='None'))
+                    handles.append(mlines.Line2D([], [], label='HPO', color="C4", marker='x', linestyle='None', markersize=7, linewidth=2))
+                    handles.append(mlines.Line2D([], [], label='Default', color="C3", marker='x', linestyle='None', markersize=7, linewidth=2))
+                    if a != 1 and a != 3:
+                        ax.set_ylabel(r'$\mathcal{W}$', fontsize=10)
+                    if a != 0 and a != 1:
+                        ax.set_xlabel(r'$\vert \mathcal{T} \vert $', fontsize=10)
 
-                    ax.set_xlabel('N Tests', fontsize=6)
-                    ax.set_ylabel(r'$W$', fontsize=6)
-                    ax.set_title(titles[a], fontsize=8)
-                    ax.set_ylim(0, 0.75)
-                    ax.legend(handles=handles, loc='best', fontsize=4)
+                    ax.set_title(titles[a], fontsize=12)
+                    ax.set_ylim(max(0, cur_min-0.1), min(1., cur_max+0.1))
                 
-
                 fig.tight_layout()
-                fig.savefig(f"{ugle_path}/figures/w_distribution_entropy.eps", format='eps', bbox_inches='tight')
-
+                blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+                blank_ax.axis('off')
+                #blank_ax.legend(handles=handles, bbox_to_anchor=(0.975, 0.2), fontsize=14)
+                blank_ax.legend(handles=handles, loc='lower center', fontsize=10, ncols=2)
+                fig.subplots_adjust(bottom=0.15)
+                
+                fig.savefig(f"{ugle_path}/figures/thesis/w_distribution_entropy.pdf", bbox_inches='tight')
 
 
     if make_unsuper:
@@ -1722,18 +1744,21 @@ if __name__ == "__main__":
 
         #calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder)
 
-        #handles = create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(8, 6), plot_legend=True)
-        #create_abs_performance_figure(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Performance", plot_dims=[2, 3], figsize=(8, 6))
-        #create_abs_performance_figure(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="DMoN Performance Large Datasets with HPO", plot_dims=[1, 2], figsize=(5, 2.5))
-        #create_abs_performance_figure(synth_datasets, default_algorithms, q5_folder, title="Default Hyperparameter's Performance on Synthetic Data", plot_dims=[3, 3], figsize=(9, 9))
-        #create_abs_performance_figure(datasets, default_algorithms, q5_folder2, title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 3], figsize=(8, 6))
-        #create_abs_performance_figure(datasets, default_algorithms, q5_folder1, title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 3], figsize=(8, 6))
-
-        #unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Correlation")
-        #handles2 = unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation", pltlegend=True)
+        if make_abs: 
+            handles = create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(9, 11), plot_legend=True)
+            create_abs_performance_figure(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Performance", plot_dims=[2, 3], figsize=(9, 11), plot_legend=True)
+            #create_abs_performance_figure(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="DMoN Performance Large Datasets with HPO", plot_dims=[1, 2], figsize=(9, 10), plot_legend=True)
+            
+            create_abs_performance_figure(datasets, default_algorithms, q5_folder2, title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 3], figsize=(9, 11), plot_legend=True)
+            create_abs_performance_figure(datasets, default_algorithms, q5_folder1, title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 3], figsize=(9, 11), plot_legend=True)
+        if make_corr:
+            unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Correlation", pltlegend=True)
+            handles2 = unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation", pltlegend=True)
         #unsupervised_prediction_graph(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="Large Dataset HPO")
-        unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
-        unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")
+        #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
+        #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")
+        if make_synth:
+            create_abs_performance_figure(synth_datasets, default_algorithms, q5_folder, title="Default Hyperparameter's Performance on Synthetic Data", plot_dims=[3, 3], figsize=(9, 11), plot_legend=True)
 
 
         def create_handles_image(handles, name):
@@ -1755,5 +1780,5 @@ if __name__ == "__main__":
             
             plt.savefig(f'./figures/unsupervised_limit/handles_{name}', format='png')
         
-        create_handles_image(handles, name='abs')
-        create_handles_image(handles, name='corr')
+        #create_handles_image(handles, name='abs')
+        #create_handles_image(handles, name='corr')

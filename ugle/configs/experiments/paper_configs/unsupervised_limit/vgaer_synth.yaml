@@ -2,7 +2,7 @@ seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
 datasets: ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
            'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
            'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
-algorithms: ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
+algorithms: ['vgaer_default']
 
 study_override_cfg:
   trainer:

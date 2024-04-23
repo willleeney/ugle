@@ -712,11 +712,11 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     ax[0] = create_rand_dist_fig(ax[0], algorithms, default_ranking_object, set_legend=False)
     ax[1] = create_rand_dist_fig(ax[1], algorithms, ranking_object, set_legend=True)
 
-    n_comparisons = result_object.flatten().shape[0]
+    result_object = result_object[0, :, 0, :].flatten()
+    default_result_object = default_result_object[0, :, 0, :].flatten()
+    n_comparisons = result_object.shape[0]
     rankings = np.zeros((n_comparisons, 2))
 
-    result_object = result_object.flatten()
-    default_result_object = default_result_object.flatten()
     for i in range(n_comparisons):
         if result_object[i] > default_result_object[i]:
             rankings[i] = [1, 2]

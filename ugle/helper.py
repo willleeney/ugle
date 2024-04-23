@@ -19,6 +19,7 @@ import scienceplots
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
 import random
+import matplotlib.gridspec as gridspec
 
 plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams["figure.dpi"] = 300
@@ -239,47 +240,59 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     bar_width = 1 / 4
     x_axis_names = np.arange(len(algorithms))
 
+    colour_width = 0.05
+    black_width = 0.75
+    e_width = 0.05
+
+    default_conductance = [1 - default_cond for default_cond in default_conductance ]
+    conductance = [1 - cond for cond in conductance]
+
     # plot hyperparameter results in full colour
     ax.bar(x_axis_names, f1, yerr=f1_std, ecolor=alt_colours[0],
            width=bar_width, facecolor=alt_colours[0], alpha=0.8, linewidth=0, label='f1')
-    ax.errorbar(x_axis_names, f1, f1_std, ecolor=alt_colours[0], elinewidth=2.5, linewidth=0)
+    ax.errorbar(x_axis_names, f1, f1_std, ecolor=alt_colours[0], elinewidth=colour_width, linewidth=0)
     ax.bar(x_axis_names + bar_width, nmi, yerr=nmi_std, ecolor=alt_colours[1],
            width=bar_width, facecolor=alt_colours[1], alpha=0.8, linewidth=0, label='nmi')
-    ax.errorbar(x_axis_names + bar_width, nmi, nmi_std, ecolor=alt_colours[1], elinewidth=2.5, linewidth=0)
+    ax.errorbar(x_axis_names + bar_width, nmi, nmi_std, ecolor=alt_colours[1], elinewidth=colour_width, linewidth=0)
     ax.bar(x_axis_names + (2 * bar_width), modularity, yerr=modularity_std, ecolor=alt_colours[2],
            width=bar_width, facecolor=alt_colours[2], alpha=0.8, linewidth=0, label='modularity')
-    ax.errorbar(x_axis_names + (2 * bar_width), modularity, modularity_std, ecolor=alt_colours[2], elinewidth=2.5, linewidth=0)
+    ax.errorbar(x_axis_names + (2 * bar_width), modularity, modularity_std, ecolor=alt_colours[2], elinewidth=colour_width, linewidth=0)
     ax.bar(x_axis_names + (3 * bar_width), conductance, yerr=conductance_std, ecolor=alt_colours[3],
            width=bar_width, facecolor=alt_colours[3], alpha=0.8, linewidth=0, label='conductance')
-    ax.errorbar(x_axis_names + (3 * bar_width), conductance, conductance_std, ecolor=alt_colours[3], elinewidth=2.5, linewidth=0)
+    ax.errorbar(x_axis_names + (3 * bar_width), conductance, conductance_std, ecolor=alt_colours[3], elinewidth=colour_width, linewidth=0)
 
     # plot default parameters bars in dashed lines
     blank_colours = np.zeros(4)
     ax.bar(x_axis_names, default_f1, yerr=default_f1_std, width=bar_width,
-           facecolor=blank_colours, edgecolor='black', linewidth=2, linestyle='--', label='default values')
-    ax.errorbar(x_axis_names, default_f1, default_f1_std, ecolor='black', elinewidth=3, linewidth=3, linestyle='none')
+           facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--', label='default values')
+    ax.errorbar(x_axis_names, default_f1, default_f1_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
     ax.bar(x_axis_names + bar_width, default_nmi, yerr=default_nmi_std, width=bar_width,
-           facecolor=blank_colours, edgecolor='black', linewidth=2, linestyle='--')
-    ax.errorbar(x_axis_names + bar_width, default_nmi, default_nmi_std, ecolor='black', elinewidth=3, linewidth=3, linestyle='none')
+           facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--')
+    ax.errorbar(x_axis_names + bar_width, default_nmi, default_nmi_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
     ax.bar(x_axis_names + (2 * bar_width), default_modularity, yerr=default_modularity_std, width=bar_width, 
-           facecolor=blank_colours, edgecolor='black', linewidth=2, linestyle='--')
-    ax.errorbar(x_axis_names + (2 * bar_width), default_modularity, default_modularity_std, ecolor='black', elinewidth=3, linewidth=3, linestyle='none')
+           facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--')
+    ax.errorbar(x_axis_names + (2 * bar_width), default_modularity, default_modularity_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
     ax.bar(x_axis_names + (3 * bar_width), default_conductance, yerr=default_conductance_std,
-           facecolor=blank_colours, width=bar_width, edgecolor='black', linewidth=2, linestyle='--')
-    ax.errorbar(x_axis_names + (3 * bar_width), default_conductance, default_conductance_std, ecolor='black', elinewidth=3, linewidth=3, linestyle='none')
+           facecolor=blank_colours, width=bar_width, edgecolor='black', linewidth=black_width, linestyle='--')
+    ax.errorbar(x_axis_names + (3 * bar_width), default_conductance, default_conductance_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
 
     # create the tick labels for axis
     ax.set_xticks(x_axis_names - 0.5 * bar_width)
-    ax.set_xticklabels(algorithms, ha='left', rotation=-45, position=(-0.3, 0))
+    algorithms = [algo.upper() if algo != 'dmon' else 'DMoN' for algo in algorithms]
+    if dataset_name == 'cora':
+        ax.set_xticklabels(algorithms,ha='left', position=(-0.15, 0))
+    else:
+        ax.set_xticklabels(algorithms, ha='left', rotation=-45, position=(-0.3, 0))
+
     ax.set_axisbelow(True)
 
     # Axis styling.
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-    ax.spines['bottom'].set_color('#DDDDDD')
-    ax.yaxis.grid(True, color='#EEEEEE')
-    ax.xaxis.grid(False)
+    # ax.spines['top'].set_visible(False)
+    # ax.spines['right'].set_visible(False)
+    # ax.spines['left'].set_visible(False)
+    # ax.spines['bottom'].set_color('#DDDDDD')
+    # ax.yaxis.grid(True, color='#EEEEEE')
+    # ax.xaxis.grid(False)
 
     # tighten the layout
     if dataset_name == 'citeseer':
@@ -288,9 +301,9 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
         title_name = dataset_name.capitalize()
     else:
          title_name = dataset_name.upper()
-    ax.set_title(title_name, y=0.95, fontsize=98)
+    ax.set_title(title_name, fontsize=18)
     for item in ([ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
-        item.set_fontsize(42)
+        item.set_fontsize(12)
     
     ax.set_ylim(bottom=0)
     #ax.set_xlabel('Algorithm')
@@ -585,42 +598,51 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
     creates figure for all datasets tested comparing default and hpo results
     """
     # create holder figure
-    nrows, ncols = 4, 3
-    col_n, row_n = 0, 0
-    fig, axs = plt.subplots(nrows, ncols, figsize=(56, 74))
+    fig = plt.figure(figsize=(9, 10))
+    axs = []
 
-    for dataset_name in datasets:
-        # create a figure on the axis
-        if row_n == nrows:
-            col_n += 1
-            row_n = 0
+    # Define GridSpec: 2 rows and 2 columns for more precise control
+    gs = gridspec.GridSpec(2, 2)
 
-        axs[row_n, col_n] = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, axs[row_n, col_n])
-        row_n += 1
+    if 'cora' in datasets:
+        # Top row, one centered plots, centered by spanning middle columns
+        axs.append(fig.add_subplot(gs[0, 0:2]))  # Fourth plot spans columns 
+    else:
+         # Top row, two plots across the full width
+        axs.append(fig.add_subplot(gs[0, 0]))  # First plot spans columns 
+        axs.append(fig.add_subplot(gs[0, 1]))  # Second plot spans columns 
 
-    axs[row_n, col_n].spines['top'].set_visible(False)
-    axs[row_n, col_n].spines['bottom'].set_visible(False)
-    axs[row_n, col_n].spines['left'].set_visible(False)
-    axs[row_n, col_n].spines['right'].set_visible(False)
-    axs[row_n, col_n].set_xticks([])
-    axs[row_n, col_n].set_yticks([])
+    # Bottom row, three plots across the full width
+    axs.append(fig.add_subplot(gs[1, 0]))  # First plot spans columns 
+    axs.append(fig.add_subplot(gs[1, 1]))  # Second plot spans columns 
+
+    for dataset_name, ax in zip(datasets, axs):
+        ax = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax)
+
     handles = []
     alt_colours = ['C2', 'C0', 'C1', 'C3']
-    metrics = ['f1', 'nmi', 'modularity', 'conductance']
+    metrics = ['F1', 'NMI', r'$\mathcal{M}$', r'$\mathcal{C}$']
+    fig.tight_layout()
     for i in range(len(alt_colours)):
         handles.append(mlines.Line2D([], [], color=alt_colours[i], linewidth=8, label=metrics[i]))
 
-    handles.append(mlines.Line2D([], [], color='black', linewidth=8, linestyle='--', label='Default\nHyperparameters'))
+    handles.append(mlines.Line2D([], [], color='black', linewidth=8, label='Default\nHyperparameters'))
 
     blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
     blank_ax.axis('off')
-    blank_ax.legend(handles=handles, bbox_to_anchor=(0.975, 0.2), fontsize=90)
+    #blank_ax.legend(handles=handles, bbox_to_anchor=(0.975, 0.2), fontsize=14)
+    blank_ax.legend(handles=handles, loc='lower center', fontsize=14, ncols=5)
+    fig.subplots_adjust(bottom=0.15)
     #axs[0].legend(loc='upper right', bbox_to_anchor=(1, 0.95))
     #for item in axs[0].get_legend().get_texts():
     #   item.set_fontsize(36)
 
-    fig.tight_layout()
-    fig.savefig(f"{ugle_path}/figures/hpo_investigation.eps", format='eps', bbox_inches='tight')
+    if 'cora' in datasets:
+        fig.savefig(f"{ugle_path}/figures/thesis/hpo_investigation.pdf", bbox_inches='tight')
+    elif 'amac' in datasets:
+        fig.savefig(f"{ugle_path}/figures/thesis/hpo_investigation_1.pdf", bbox_inches='tight')
+    elif 'amap' in datasets:
+        fig.savefig(f"{ugle_path}/figures/thesis/hpo_investigation_2.pdf", bbox_inches='tight')
     return
 
 
@@ -748,9 +770,9 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
     blank_ax.axis('off')
     blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=4)
-    fig.subplots_adjust(bottom=0.215)
+    fig.subplots_adjust(bottom=0.115)
     #fig.suptitle('Algorithm F1 Score Rank Distribution\n Estimation Comparison on Cora', fontsize=24)
-    fig.savefig(f'{ugle_path}/figures/le_rand_dist_comparison.pdf', bbox_inches='tight')
+    fig.savefig(f'{ugle_path}/figures/thesis/le_rand_dist_comparison.pdf', bbox_inches='tight')
     return
 
 
@@ -1412,13 +1434,12 @@ if __name__ == "__main__":
     make_ugle = True
     make_big_figure = True
     make_dist_figure = True
-    make_presentation_figures = True
+    make_presentation_figures = False
     make_paper_figures=  True
 
     make_unsuper = True
     calc_increases = True
     calc_synth_increases = True
-
 
 
     if make_ugle:
@@ -1446,8 +1467,13 @@ if __name__ == "__main__":
             # fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
         elif make_paper_figures: 
             if make_big_figure:
-                create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
+                create_big_figure(['cora', 'citeseer', 'dblp'], algorithms, folder, default_algos, default_folder)
+                create_big_figure(['amap', 'texas', 'wisc', 'cornell'], algorithms, folder, default_algos, default_folder)
+                create_big_figure(['amac', 'bat', 'eat', 'uat', 'texas', 'wisc', 'cornell'], algorithms, folder, default_algos, default_folder)
 
+
+
+            # =========== DO THE FOLLOWING + OUTPUT RANKINGS FOR ALL DIFFERENT TESTS ========= 
             # fetch absolute results
             result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
             default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
@@ -1477,6 +1503,11 @@ if __name__ == "__main__":
 
             print(f'HPO FCR: {means_hpo:.3f}+_ {np.std(rankings, axis=0)[0]:.2f}')
             print(f'Default FCR: {means_def:.3f}+_ {np.std(rankings, axis=0)[1]:.2f}')
+
+
+
+
+
 
             # calculate ranking of each metric
             ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=False)

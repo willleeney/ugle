@@ -1388,19 +1388,20 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = False
-    make_big_figure = False
+    make_ugle = True
+    make_big_figure = True
     make_dist_figure = True
     make_presentation_figures = False
+    make_paper_figures=  True
 
     make_unsuper = True
-    calc_increases = False
-    calc_synth_increases = False
+    calc_increases = True
+    calc_synth_increases = True
 
 
 
     if make_ugle:
-        algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc']
+        algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'sublime', 'bgrl', 'vgaer']
         datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
         metrics = ['f1', 'nmi', 'modularity', 'conductance']
         folder = './results/legacy_results/progress_results/'
@@ -1422,7 +1423,7 @@ if __name__ == "__main__":
 
             fig.tight_layout()
             fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
-        else: 
+        elif make_paper_figures: 
             if make_big_figure:
                 create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
 

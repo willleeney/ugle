@@ -20,6 +20,13 @@ import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
 import random
 
+plt.rcParams["font.family"] = "Times New Roman"
+plt.rcParams["figure.dpi"] = 300
+plt.rcParams.update({
+    "text.usetex": True,
+    "text.latex.preamble": r"\usepackage{amsmath}"
+})
+
 def search_results(folder, filename):
 
     for root, dirs, files in os.walk(f'{ugle_path}/{folder}'):
@@ -541,29 +548,34 @@ def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
     x_axis = np.arange(0, len(algorithms), 0.001)
     max_y = 0
     for j, algo_ranks in enumerate(all_ranks_per_algo.T):
+        print(algorithms[j])
+        print(algo_ranks)
         try:
             kde = gaussian_kde(algo_ranks)
-            y_axis = kde.evaluate(x_axis)
+            y_axis = kde(x_axis)
+
+            print(kde.integrate_box_1d(1, 8))
             ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10, color=cm[j])
-            print(f'{algorithms[j]}: {cm[j]}')
+            #print(f'{algorithms[j]}: {cm[j]}')
             max_y = max(max_y, max(y_axis)) + 0.05
         except:
             ax.axvline(x=algo_ranks[0], label=algorithms[j], zorder=10, color=cm[j])
 
+        print('\n')
     if set_legend:
         #ax.legend(loc='best', fontsize=20, ncol=1, bbox_to_anchor=(1, -0.5))
         #ax.legend(loc='upper center', fontsize=15, ncol=3, bbox_to_anchor=(0.475, -0.5))
-        ax.set_xlabel(r'$r$' + ' : algorithm ranking', fontsize=20)
+        ax.set_xlabel('Algorithm Rank ' + r'$(r)$', fontsize=16)
         #ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
 
     #ax.set_ybound(0, 3)
-    ax.set_xbound(0.9, 10.1)
+    ax.set_xbound(0.9, 8)
     ax.set_ybound(0, max_y)
-    ax.set_ylabel(r'$f_{j}(r)$', fontsize=20) #kde estimatation of rank distribution
+    ax.set_ylabel('Probability of Rank\n' + r'$P_{a^{*}}(r)$', fontsize=16) #kde estimatation of rank distribution
 
     #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
-    ax.tick_params(axis='x', labelsize=18)
-    ax.tick_params(axis='y', labelsize=15)
+    ax.tick_params(axis='x', labelsize=14)
+    ax.tick_params(axis='y', labelsize=14)
 
     return ax
 
@@ -672,7 +684,7 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
 
     # create holder figure
     nrows, ncols = 2, 1
-    fig, ax = plt.subplots(nrows, ncols, figsize=(15, 7.5))
+    fig, ax = plt.subplots(nrows, ncols, figsize=(9, 6))
 
     result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
     default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
@@ -692,8 +704,10 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     hpo_w = wordr(ranking_object)
     default_w = wordr(default_ranking_object)
 
-    titles_0 = 'Default ' + r'$W$: ' + str(round(default_w, 3))
-    titles_1 = 'HPO ' + r'$W$: ' + str(round(hpo_w, 3))
+    titles_0 = 'Default' 
+    titles_1 = 'HPO'
+    print(r'$\mathcal{W}$: ' + str(round(default_w, 3)))
+    print(r'$\mathcal{W}$: ' + str(round(hpo_w, 3)))
 
     ax[0] = create_rand_dist_fig(ax[0], algorithms, default_ranking_object, set_legend=False)
     ax[1] = create_rand_dist_fig(ax[1], algorithms, ranking_object, set_legend=True)
@@ -717,14 +731,26 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     print("Default: " + f"{means_def:.3f}\\neq{std_def:.3f}")
     print("HPO: " + f"{means_hpo:.3f}\\neq{std_hpo:.3f}")
 
-    titles_0 += f' FCR: {means_def:.3f}'
-    titles_1 += f' FCR: {means_hpo:.3f}'
+    print('   ' + r'$\mathcal{R}_{\text{def}}$' + f': {means_def:.3f}')
+    print('   ' + r'$\mathcal{R}_{\text{hpo}}$' + f': {means_hpo:.3f}')
     ax[0].set_title(titles_0, fontsize=20)
     ax[1].set_title(titles_1, fontsize=20)
 
-    #fig.suptitle('Algorithm F1 Score Rank Distribution\n Estimation Comparison on Cora', fontsize=24)
     fig.tight_layout()
-    fig.savefig(f'{ugle_path}/figures/le_rand_dist_comparison.png', bbox_inches='tight')
+    ## add figure bit at the end 
+    cm = plt.get_cmap('tab10').colors
+    handles = [] 
+    for i, algo_name in enumerate(algorithms):
+        algo_name = algo_name.upper()
+        if algo_name == 'DMON':
+            algo_name = 'DMoN'
+        handles.append(mlines.Line2D([], [], color=cm[i], linewidth=3, label=algo_name))
+    blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+    blank_ax.axis('off')
+    blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=4)
+    fig.subplots_adjust(bottom=0.215)
+    #fig.suptitle('Algorithm F1 Score Rank Distribution\n Estimation Comparison on Cora', fontsize=24)
+    fig.savefig(f'{ugle_path}/figures/le_rand_dist_comparison.pdf', bbox_inches='tight')
     return
 
 
@@ -1074,8 +1100,6 @@ def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorit
 
 def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend=False):
     plt.style.use(['science', 'nature'])
-    plt.rcParams["font.family"] = "Times New Roman"
-    plt.rcParams["figure.dpi"] = 144
     nature_colours = ["#0C5DA5", "#00B945", "#FF9500", "#FF2C00", "#845B97", "#474747", "#9e9e9e"]
     algorithm_colors = ["#434982", "#00B945", "#EA907A", "#845B97", "#4F8A8B", "#FFCB74", "#B5DEFF"]
     # extract results 
@@ -1234,9 +1258,6 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
         return handles
 
 def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims, figsize, plot_legend=False):
-    plt.style.use(['science', 'nature'])
-    plt.rcParams["font.family"] = "Times New Roman"
-    plt.rcParams["figure.dpi"] = 144
     plt.rcParams["hatch.linewidth"] = 0.3
 
     nature_colours = ["#0C5DA5", "#00B945", "#FF9500", "#FF2C00", "#845B97", "#474747", "#9e9e9e"]
@@ -1391,7 +1412,7 @@ if __name__ == "__main__":
     make_ugle = True
     make_big_figure = True
     make_dist_figure = True
-    make_presentation_figures = False
+    make_presentation_figures = True
     make_paper_figures=  True
 
     make_unsuper = True
@@ -1406,23 +1427,23 @@ if __name__ == "__main__":
         metrics = ['f1', 'nmi', 'modularity', 'conductance']
         folder = './results/legacy_results/progress_results/'
         seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-        default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default', 'selfgnn_default',
-                        'sublime_default', 'bgrl_default', 'vgaer_default', 'cagc_default']
+        default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default',
+                        'sublime_default', 'bgrl_default', 'vgaer_default']
         default_folder = './results/legacy_results/default_results/'
 
         if make_presentation_figures: 
             create_rand_dist_comparison(['cora'], algorithms, metrics, seeds, folder, default_algos, default_folder)
 
-            # create holder figure
-            fig, ax = plt.subplots(1, 1, figsize=(20, 16))
-            ax = create_result_bar_chart('cora', algorithms, folder, default_algos, default_folder, ax)
+            # # create holder figure
+            # fig, ax = plt.subplots(1, 1, figsize=(20, 16))
+            # ax = create_result_bar_chart('cora', algorithms, folder, default_algos, default_folder, ax)
 
-            ax.legend(loc='upper right', bbox_to_anchor=(1.05, 1))
-            for item in ax.get_legend().get_texts():
-                item.set_fontsize(36)
+            # ax.legend(loc='upper right', bbox_to_anchor=(1.05, 1))
+            # for item in ax.get_legend().get_texts():
+            #     item.set_fontsize(36)
 
-            fig.tight_layout()
-            fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
+            # fig.tight_layout()
+            # fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
         elif make_paper_figures: 
             if make_big_figure:
                 create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
@@ -1629,4 +1650,4 @@ if __name__ == "__main__":
             plt.savefig(f'./figures/unsupervised_limit/handles_{name}', format='png')
         
         create_handles_image(handles, name='abs')
-        create_handles_image(handles2, name='corr')
+        create_handles_image(handles, name='corr')

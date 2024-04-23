@@ -1432,10 +1432,11 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 if __name__ == "__main__":
     matplotlib.use("macosx")
     make_ugle = True
-    make_big_figure = True
+    make_big_figure = False
     make_dist_figure = True
     make_presentation_figures = False
     make_paper_figures=  True
+    make_rankings_table = True
 
     make_unsuper = True
     calc_increases = True
@@ -1455,16 +1456,6 @@ if __name__ == "__main__":
         if make_presentation_figures: 
             create_rand_dist_comparison(['cora'], algorithms, metrics, seeds, folder, default_algos, default_folder)
 
-            # # create holder figure
-            # fig, ax = plt.subplots(1, 1, figsize=(20, 16))
-            # ax = create_result_bar_chart('cora', algorithms, folder, default_algos, default_folder, ax)
-
-            # ax.legend(loc='upper right', bbox_to_anchor=(1.05, 1))
-            # for item in ax.get_legend().get_texts():
-            #     item.set_fontsize(36)
-
-            # fig.tight_layout()
-            # fig.savefig(f"{ugle_path}/figures/hpo_investigation_presentation.png", format='png', bbox_inches='tight')
         elif make_paper_figures: 
             if make_big_figure:
                 create_big_figure(['cora', 'citeseer', 'dblp'], algorithms, folder, default_algos, default_folder)
@@ -1483,35 +1474,122 @@ if __name__ == "__main__":
             dcon_out = np.array([1 - res if res != -10 else res for res in default_result_object[:, :, 3, :].flatten()])
 
             # flatten object 
-            result_object_fcr = np.concatenate((con_out, result_object[:, :, 0:3, :].flatten()))
-            default_result_object_fcr = np.concatenate((dcon_out, default_result_object[:, :, 0:3, :].flatten()))
-            
-            # make comparisons
-            n_comparisons = result_object_fcr.shape[0]
-            rankings = np.zeros((n_comparisons, 2))
-            result_object_fcr = result_object_fcr.flatten()
-            default_result_object_fcr = default_result_object_fcr.flatten()
-            for i in range(n_comparisons):
-                if result_object_fcr[i] > default_result_object_fcr[i]:
-                    rankings[i] = [1, 2]
-                elif default_result_object_fcr[i] < result_object_fcr[i]:
-                    rankings[i] = [2, 1]
-                else:
-                    rankings[i] = [1.5, 1.5]
-            means_hpo = np.mean(rankings, axis=0)[0]
-            means_def = np.mean(rankings, axis=0)[1]
+            og_shape =  result_object[:, :, 3, :].shape
+            con_out2 = con_out.reshape(og_shape)
+            dcon_out2 = dcon_out.reshape(og_shape)
 
-            print(f'HPO FCR: {means_hpo:.3f}+_ {np.std(rankings, axis=0)[0]:.2f}')
-            print(f'Default FCR: {means_def:.3f}+_ {np.std(rankings, axis=0)[1]:.2f}')
+            result_object[:, :, 3, :]  = con_out2
+            default_result_object[:, :, 3, :] = dcon_out2
 
-
-
-
-
+            ## OVERALL MATHCAL R 
+            ## RANK FOR EACH METHOD
+            if make_rankings_table: 
+                result_object_fcr = result_object.flatten()
+                default_result_object_fcr = default_result_object.flatten()
+                
+                # make comparisons
+                n_comparisons = result_object_fcr.shape[0]
+                rankings = np.zeros((n_comparisons, 2))
+                for i in range(n_comparisons):
+                    if result_object_fcr[i] > default_result_object_fcr[i]:
+                        rankings[i] = [1, 2]
+                    elif default_result_object_fcr[i] < result_object_fcr[i]:
+                        rankings[i] = [2, 1]
+                    else:
+                        rankings[i] = [1.5, 1.5]
+                means_hpo = np.mean(rankings, axis=0)[0]
+                means_def = np.mean(rankings, axis=0)[1]
 
             # calculate ranking of each metric
             ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=False)
             default_ranking_object = calculate_ranking_performance(default_result_object, datasets, metrics, seeds, calc_ave_first=False)
+
+
+            # print the average rank 
+            print('all')
+            
+            rank_order = np.argsort(np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)) 
+            hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+            default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+
+            for air, _ in enumerate(hpo_ranks):
+                print(f'& {hpo_ranks[air]}/{default_ranks[air]}', end=' ')
+            print('')
+            print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+            print(np.array(algorithms)[rank_order])
+
+
+            if make_rankings_table: 
+                ## PER METRIC MATHCAL R
+                ## (11, 8, 4, 10)
+                for m, metric in enumerate(metrics):
+                    copyresult_object = np.expand_dims(deepcopy(result_object[:, :, m, :]), axis=2)
+                    copydefault_result_object = np.expand_dims(deepcopy(default_result_object[:, :, m, :]), axis=2)
+
+                    result_object_fcr = copyresult_object.flatten()
+                    default_result_object_fcr = copydefault_result_object.flatten()
+                    
+                    # make comparisons
+                    n_comparisons = result_object_fcr.shape[0]
+                    rankings = np.zeros((n_comparisons, 2))
+                    for i in range(n_comparisons):
+                        if result_object_fcr[i] > default_result_object_fcr[i]:
+                            rankings[i] = [1, 2]
+                        elif default_result_object_fcr[i] < result_object_fcr[i]:
+                            rankings[i] = [2, 1]
+                        else:
+                            rankings[i] = [1.5, 1.5]
+                    means_hpo = np.mean(rankings, axis=0)[0]
+                    means_def = np.mean(rankings, axis=0)[1]
+
+                    # calculate ranking of each metric
+                    ranking_object = calculate_ranking_performance(copyresult_object, datasets, [metric], seeds, calc_ave_first=False)
+                    default_ranking_object = calculate_ranking_performance(copydefault_result_object, datasets, [metric], seeds, calc_ave_first=False)
+
+                    # print the average rank 
+                    print(f'{metric}')
+                    hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+
+                    for air, _ in enumerate(hpo_ranks):
+                        print(f'& {hpo_ranks[air]}/{default_ranks[air]}', end=' ')
+                    print('')
+                    print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+          
+                for d, dataset in enumerate(datasets):
+                    copyresult_object = np.expand_dims(deepcopy(result_object[d, :, :, :]), axis=0)
+                    copydefault_result_object = np.expand_dims(deepcopy(default_result_object[d, :, :, :]), axis=0)
+
+                    result_object_fcr = copyresult_object.flatten()
+                    default_result_object_fcr = copydefault_result_object.flatten()
+                    
+                    # make comparisons
+                    n_comparisons = result_object_fcr.shape[0]
+                    rankings = np.zeros((n_comparisons, 2))
+                    for i in range(n_comparisons):
+                        if result_object_fcr[i] > default_result_object_fcr[i]:
+                            rankings[i] = [1, 2]
+                        elif default_result_object_fcr[i] < result_object_fcr[i]:
+                            rankings[i] = [2, 1]
+                        else:
+                            rankings[i] = [1.5, 1.5]
+                    means_hpo = np.mean(rankings, axis=0)[0]
+                    means_def = np.mean(rankings, axis=0)[1]
+
+                    # calculate ranking of each metric
+                    ranking_object = calculate_ranking_performance(copyresult_object, [dataset], metrics, seeds, calc_ave_first=False)
+                    default_ranking_object = calculate_ranking_performance(copydefault_result_object, [dataset], metrics, seeds, calc_ave_first=False)
+
+                    # print the average rank 
+                    print(f'{dataset}')
+                    hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    for air, _ in enumerate(hpo_ranks):
+                        print(f'& {hpo_ranks[air]}/{default_ranks[air]}', end=' ')
+                    print('')
+                    print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+
+
             ranking_object = reshape_ranking_to_test_object(ranking_object)
             default_ranking_object = reshape_ranking_to_test_object(default_ranking_object)
 
@@ -1549,9 +1627,6 @@ if __name__ == "__main__":
             #random_rankings = create_random_results(44, 10, 10)
 
             if make_dist_figure: 
-                plt.style.use(['science', 'nature'])
-                plt.rcParams["font.family"] = "Times New Roman"
-                plt.rcParams["figure.dpi"] = 300
                 fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(4, 4))
 
                 test_interval = 1

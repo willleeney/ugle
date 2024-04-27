@@ -1436,14 +1436,14 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = False
-    make_big_figure = True
-    make_dist_figure = True
-    make_presentation_figures = True
+    make_ugle = True
+    make_big_figure = False
+    make_dist_figure = False
+    make_presentation_figures = False
     make_paper_figures =  True
     make_rankings_table = True
 
-    make_unsuper = True
+    make_unsuper = False
     calc_increases = False
     calc_synth_increases = False
 
@@ -1511,7 +1511,6 @@ if __name__ == "__main__":
             # calculate ranking of each metric
             ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=False)
             default_ranking_object = calculate_ranking_performance(default_result_object, datasets, metrics, seeds, calc_ave_first=False)
-
 
             # print the average rank 
             if make_rankings_table: 
@@ -1598,6 +1597,54 @@ if __name__ == "__main__":
                     print('')
                     print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
 
+
+                for a, algorithm in enumerate(algorithms):
+                    copyresult_object = np.expand_dims(deepcopy(result_object[:, a, :, :]), axis=0)
+                    copydefault_result_object = np.expand_dims(deepcopy(default_result_object[:, a, :, :]), axis=0)
+
+                    result_object_fcr = copyresult_object.flatten()
+                    default_result_object_fcr = copydefault_result_object.flatten()
+                    
+                    # make comparisons
+                    n_comparisons = result_object_fcr.shape[0]
+                    rankings = np.zeros((n_comparisons, 2))
+                    for i in range(n_comparisons):
+                        if result_object_fcr[i] > default_result_object_fcr[i]:
+                            rankings[i] = [1, 2]
+                        elif default_result_object_fcr[i] < result_object_fcr[i]:
+                            rankings[i] = [2, 1]
+                        else:
+                            rankings[i] = [1.5, 1.5]
+                    means_hpo = np.mean(rankings, axis=0)[0]
+                    means_def = np.mean(rankings, axis=0)[1]
+
+                    print(f'{algorithm} - MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+
+                for s, seed in enumerate(seeds):
+                    copyresult_object = np.expand_dims(deepcopy(result_object[:, :, :, s]), axis=0)
+                    copydefault_result_object = np.expand_dims(deepcopy(default_result_object[:, :, :, s]), axis=0)
+
+                    result_object_fcr = copyresult_object.flatten()
+                    default_result_object_fcr = copydefault_result_object.flatten()
+                    
+                    # make comparisons
+                    n_comparisons = result_object_fcr.shape[0]
+                    rankings = np.zeros((n_comparisons, 2))
+                    for i in range(n_comparisons):
+                        if result_object_fcr[i] > default_result_object_fcr[i]:
+                            rankings[i] = [1, 2]
+                        elif default_result_object_fcr[i] < result_object_fcr[i]:
+                            rankings[i] = [2, 1]
+                        else:
+                            rankings[i] = [1.5, 1.5]
+                    means_hpo = np.mean(rankings, axis=0)[0]
+                    means_def = np.mean(rankings, axis=0)[1]
+
+                    print(f'{seed} - MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+
+            # calculate ranking of each metric
+            ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=False)
+            default_ranking_object = calculate_ranking_performance(default_result_object, datasets, metrics, seeds, calc_ave_first=False)
 
             ranking_object = reshape_ranking_to_test_object(ranking_object)
             default_ranking_object = reshape_ranking_to_test_object(default_ranking_object)

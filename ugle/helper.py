@@ -1305,17 +1305,17 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
         total_w_order = np.mean(compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, [dataset]))
 
         if dataset == 'dblp':
-            ax.set_title("DBLP" + ' (' + r'$\mathcal{W}$' + f': {total_w_order:.2f})', fontsize=15)
+            ax.set_title("DBLP" + ' (' + r'$\mathcal{W}^w$' + f': {total_w_order:.2f})', fontsize=15)
         elif 'synth' in dataset:
-            dataset_name = r"$A$" + ": " + dataset.split("_")[1] + '  ' + r"$X$" ": " + dataset.split("_")[2]
+            dataset_name = r"$\textbf{A}$" + ": " + dataset.split("_")[1] + '  ' + r"$\textbf{X}$" ": " + dataset.split("_")[2]
             dataset_name = dataset_name.replace("disjoint", "Distinct")
             dataset_name = dataset_name.replace("random", "Random")
             dataset_name = dataset_name.replace("complete", "Null")
-            ax.set_title(dataset_name + ' (' + r'$\mathcal{W}$' + f': {total_w_order:.2f})', fontsize=12)
+            ax.set_title(dataset_name + ' (' + r'$\mathcal{W}^w$' + f': {total_w_order:.2f})', fontsize=12)
         elif dataset == 'citeseer':
-            ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}$' + f': {total_w_order:.2f})', fontsize=15)
+            ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}^w$' + f': {total_w_order:.2f})', fontsize=15)
         else:
-            ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}$' + f': {total_w_order:.2f})', fontsize=15)
+            ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}^w$' + f': {total_w_order:.2f})', fontsize=15)
 
 
         mod = []
@@ -1394,10 +1394,10 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
         handles = []
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[0], label=r'$\mathcal{M}$'))
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[3], label=r'$\mathcal{C}$'))
-        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[1], label=r'$\mathcal{M} \rightarrow F1$', edgecolor='black'))
-        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[4], label=r'$\mathcal{C} \rightarrow F1$', edgecolor='black'))
-        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[2], label=r'$\mathcal{M} \rightarrow NMI$', edgecolor='black'))
-        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[5], label=r'$\mathcal{C} \rightarrow NMI$',  edgecolor='black'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[1], label=r'$\mathcal{M} \rightarrow$ F1', edgecolor='black'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[4], label=r'$\mathcal{C} \rightarrow$ F1', edgecolor='black'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[2], label=r'$\mathcal{M} \rightarrow$ NMI', edgecolor='black'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[5], label=r'$\mathcal{C} \rightarrow$ NMI',  edgecolor='black'))
         blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3)
 
     save_name = f'{os.path.basename(os.path.normpath(folder))}'
@@ -1436,19 +1436,19 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = True
+    make_ugle = False
     make_big_figure = False
     make_dist_figure = False
     make_presentation_figures = False
     make_paper_figures =  True
     make_rankings_table = True
 
-    make_unsuper = False
+    make_unsuper = True
     calc_increases = False
     calc_synth_increases = False
 
-    make_abs = True
-    make_corr = True
+    make_abs = False
+    make_corr = False
     make_synth = True
 
     if make_ugle:

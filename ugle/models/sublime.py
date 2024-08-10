@@ -203,13 +203,14 @@ def get_feat_mask(features, mask_rate):
 
 
 class gclloss_obj:
-    def __init__(self, maskfeat_rate_anchor, maskfeat_rate_learner, contrast_batch_size, device, n_nodes):
+    def __init__(self, maskfeat_rate_anchor, maskfeat_rate_learner, contrast_batch_size, device, n_nodes, temperature):
         super(gclloss_obj, self).__init__()
         self.maskfeat_rate_anchor = maskfeat_rate_anchor
         self.maskfeat_rate_learner = maskfeat_rate_learner
         self.contrast_batch_size = contrast_batch_size
         self.device = device
         self.n_nodes = n_nodes
+        self.temperature = temperature
 
     def top_k(self, raw_graph, K):
         values, indices = raw_graph.topk(k=int(K), dim=-1)
@@ -265,9 +266,9 @@ class gclloss_obj:
             loss = 0
             for batch in batches:
                 weight = len(batch) / self.n_nodes
-                loss += model.calc_loss(z1[batch], z2[batch]) * weight
+                loss += model.calc_loss(z1[batch], z2[batch], temperature=self.temperature) * weight
         else:
-            loss = model.calc_loss(z1, z2)
+            loss = model.calc_loss(z1, z2, temperature=self.temperature)
 
         return loss, learned_adj
 
@@ -296,11 +297,12 @@ class sublime_trainer(ugleTrainer):
         optimizer_cl = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
         optimizer_learner = torch.optim.Adam(self.graph_learner.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
         self.optimizers = [optimizer_cl, optimizer_learner]
-        self.gcl_obj = gclloss_obj(self.cfg.args.maskfeat_rate_anchor, 
-                                   self.cfg.args.maskfeat_rate_learner, 
-                                   self.cfg.args.contrast_batch_size,
+        self.gcl_obj = gclloss_obj(args.maskfeat_rate_anchor, 
+                                   args.maskfeat_rate_learner, 
+                                   args.contrast_batch_size,
                                    self.device,
-                                   self.cfg.args.n_nodes)
+                                   args.n_nodes,
+                                   args.temperature)
 
         return
 

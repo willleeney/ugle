@@ -1,6 +1,6 @@
 seeds: [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
-datasets: ['bat', 'citeseer', 'cora', 'dblp', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
-algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'selfgnn', 'sublime', 'bgrl', 'vgaer', 'cagc', 'mvgrl']
+datasets: ['bat', 'citeseer', 'cora', 'dblp', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amap']
+algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer', 'mvgrl']
 
 study_override_cfg:
   trainer:

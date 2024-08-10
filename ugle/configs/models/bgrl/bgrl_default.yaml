@@ -2,7 +2,6 @@ args:
   max_epochs: 2000
   learning_rate: 0.0001
   weight_decay: 0.
-  patience: 500
 
   layer1: 512
   layer2: 256

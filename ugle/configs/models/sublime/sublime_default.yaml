@@ -1,6 +1,5 @@
 args:
   max_epoch: 1000
-  patience: 1000
   learning_rate: 0.01
   weight_decay: 0.
 
@@ -28,6 +27,7 @@ args:
   k: 30
   sim_function: 'cosine'
   activation_learner: 'relu'
+  temperature: 0.2
 
 trainer:
   only_testing: True

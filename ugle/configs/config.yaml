@@ -19,6 +19,7 @@ trainer:
   n_trials_hyperopt: 1
   max_n_pruned: 20
   suggest_hps_from_previous_seed: False
+  use_hps_on_all_seeds: False
 
   training_to_testing_split: 0.2
   train_to_valid_split: 0.2
@@ -34,7 +35,7 @@ args:
   random_seed: 42
   kmeans_init: 30
   max_epoch: 5000
-  patience: [25, 100, 500, 1000]
+  patience: 25
   learning_rate: [0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001]
   weight_decay: [0.05, 5e-3, 0.0005, 0.]
 

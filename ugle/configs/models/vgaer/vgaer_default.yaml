@@ -1,6 +1,5 @@
 args:
   max_epoch: 1500
-  patience: 1000
   learning_rate: 0.01
   weight_decay:  0.
 

@@ -1,11 +1,10 @@
 args:
   max_epoch: 1000
-  patience: 1000
   learning_rate: 0.001
   weight_decay: 0.
   architecture: 64
   cluster_size_regularization: 1.0
-  orthogonality_regularization: 1.0
+  orthogonality_regularization: 0.0
   dropout_rate: 0.
 
 trainer:

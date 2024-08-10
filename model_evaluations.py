@@ -66,7 +66,10 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
     return average_results
 
 
-def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str=None, gpu_override: str=None):
+def run_experiment(exp_cfg_name: str, 
+                   dataset_algorithm_override: str=None, 
+                   gpu_override: str=None,
+                   test_run: bool=False):
     """
     Run experiments which consists of multiple models and datasets
 
@@ -86,8 +89,12 @@ def run_experiment(exp_cfg_name: str, dataset_algorithm_override: str=None, gpu_
         exp_cfg.algorithms = []
     if gpu_override:
         exp_cfg.study_override_cfg.trainer.gpu = gpu_override
-    
+    if test_run: 
+        exp_cfg.study_override_cfg.args.max_epoch = 1
+        exp_cfg.study_override_cfg.trainer.n_trials_hyperopt = 2
+        exp_cfg.seeds = [42, 69]
 
+    
     save_path = exp_cfg.study_override_cfg.trainer.results_path
 
     # creating experiment iterator
@@ -149,5 +156,6 @@ if __name__ == "__main__":
     parser.add_argument('-da', '--dataset_algorithm_override', type=str, default=None,
                         help='dataset_algorithm override setting')
     parser.add_argument('--gpu', type=str, default=None)
+    parser.add_argument('--test_run', action='store_true')
     parsed = parser.parse_args()
-    run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override, parsed.gpu)
+    run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override, parsed.gpu, parsed.test_run)

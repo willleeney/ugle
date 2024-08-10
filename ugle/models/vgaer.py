@@ -119,6 +119,7 @@ class vgaer_trainer(ugleTrainer):
         feats = torch.concat((B, torch.tensor(features)), 1).to(dtype=torch.float32)
 
         self.cfg.args.n_features = feats.shape[1]
+        self.cfg.hypersaved_args = feats.shape[1]
 
         # compute A_hat matrix
         A = A + torch.eye(A.shape[0])

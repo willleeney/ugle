@@ -414,10 +414,10 @@ class ugleTrainer:
 
         # create training loop
         self.progress_bar = trange(self.cfg.args.max_epoch, desc='Training...', leave=True, position=0, bar_format='{l_bar}{bar:15}{r_bar}{bar:-15b}', file=open(devnull, 'w'))
-        best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics))) - 0.01
+        best_so_far = np.zeros(len((self.cfg.trainer.valid_metrics))) - 1.
         best_epochs = np.zeros(len((self.cfg.trainer.valid_metrics)), dtype=int)
         if 'conductance' in self.cfg.trainer.valid_metrics:
-            best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 1.01
+            best_so_far[self.cfg.trainer.valid_metrics.index('conductance')] = 2.
         patience_waiting = np.zeros((len(self.cfg.trainer.valid_metrics)), dtype=int)
 
         for self.current_epoch in self.progress_bar:

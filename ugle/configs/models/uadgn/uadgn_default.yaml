@@ -1,0 +1,14 @@
+args:
+  gcn_norm: False
+  epsilon: 1e-2
+  gamma: 1e-2
+  num_layers: 10
+  hidden_dim: 64
+
+  max_epoch: 2500
+  patience: 2500
+  learning_rate: 0.001
+  weight_decay: 0.
+
+trainer:
+  only_testing: True

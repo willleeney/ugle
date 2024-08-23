@@ -157,5 +157,5 @@ if __name__ == "__main__":
                         help='dataset_algorithm override setting')
     parser.add_argument('--gpu', type=str, default=None)
     parser.add_argument('--test_run', action='store_true')
-    parsed = parser.parse_args()
+    parsed, unknown = parser.parse_known_args()
     run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override, parsed.gpu, parsed.test_run)

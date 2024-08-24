@@ -250,7 +250,7 @@ class ugleTrainer:
             # adds the best hps from previous seeds to speed up optimisation
             if self.cfg.trainer.suggest_hps_from_previous_seed:
                 for hps in self.cfg.trainer.hps_found_so_far:
-                    study.enqueue_trial(hps)
+                    study.enqueue_trial(OmegaConf.to_container(hps))
             # perform the hpo
             study.optimize(lambda trial: self.train(trial,
                                                     label,

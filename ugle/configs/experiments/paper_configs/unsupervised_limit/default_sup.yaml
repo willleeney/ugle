@@ -5,6 +5,7 @@ algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 's
 study_override_cfg:
   trainer:
     results_path: './results/ul/default_sup/'
+    models_path: './models/ul/default_sup/'
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     valid_metrics: ['f1', 'nmi', 'modularity', 'conductance']
     gpu: '0'

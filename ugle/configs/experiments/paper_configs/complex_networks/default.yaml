@@ -5,6 +5,7 @@ algorithms: ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'm
 study_override_cfg:
   trainer:
     results_path: './results/cm/default/'
+    models_path: './models/cm/default/'
     n_trials_hyperopt: 0
     training_to_testing_split: 0.2
     train_to_valid_split: 0.2

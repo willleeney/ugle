@@ -8,6 +8,7 @@ study_override_cfg:
   trainer:
     n_trials_hyperopt: 250
     results_path: './results/ul/hpo_sup/'
+    models_path: './models/ul/hpo_sup/'
     save_hpo_study: True
     suggest_hps_from_previous_seed: True
     test_metrics: ['f1', 'nmi', 'modularity', 'conductance']

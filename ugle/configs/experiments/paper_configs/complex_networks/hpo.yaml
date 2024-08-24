@@ -5,6 +5,7 @@ algorithms: ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer', 'mvgrl
 study_override_cfg:
   trainer:
     results_path: './results/cm/hpo/'
+    models_path: './models/cm/hpo/'
     n_trials_hyperopt: 300
     training_to_testing_split: 0.2
     train_to_valid_split: 0.2

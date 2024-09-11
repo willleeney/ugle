@@ -32,3 +32,7 @@ tests/models/*
 build/*
 dist/*
 wandb/*
+super_save.sh
+run_extra_experiments.sh
+check_save/*
+post_viva_results/*

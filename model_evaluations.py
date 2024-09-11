@@ -6,8 +6,32 @@ from ugle.logger import log
 import pickle
 from os.path import exists
 from os import makedirs
+import pickle
+import re
 
-def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seeds: list):
+def identify_type(s):
+    # Check for boolean
+    if s.lower() in ('true', 'false'):
+        return bool
+    
+    # Check for float
+    try:
+        float(s)
+        return float
+    except ValueError:
+        pass
+
+    # Check for integer
+    try:
+        int(s)
+        return int
+    except ValueError:
+        pass
+
+    # If none of the above, it's a string
+    return str
+
+def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seeds: list, check_save):
     """
     Runs a study of one algorithm on one dataset over multiple seeds.
 
@@ -21,10 +45,19 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
     """
     study_cfg = study_override_cfg.copy()
     average_results = ugle.utils.create_study_tracker(len(seeds), study_cfg.trainer.test_metrics)
-    study_results = OmegaConf.create({'dataset': dataset,
-                                      'model': algorithm,
-                                      'average_results': {},
-                                      'results': []})
+    if check_save is not None:
+        study_results = OmegaConf.create({'dataset': dataset,
+                                        'model': algorithm,
+                                        'average_results': {},
+                                        'results': check_save})
+        for seed_res in check_save:
+            for res in seed_res['study_output']:
+                study_cfg.trainer.hps_found_so_far.append(res['args'])
+    else: 
+        study_results = OmegaConf.create({'dataset': dataset,
+                                        'model': algorithm,
+                                        'average_results': {},
+                                        'results': []})
     study_cfg.previous_results = None
     # repeat training over all seeds
     for idx, seed in enumerate(seeds):
@@ -69,7 +102,8 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
 def run_experiment(exp_cfg_name: str, 
                    dataset_algorithm_override: str=None, 
                    gpu_override: str=None,
-                   test_run: bool=False):
+                   test_run: bool=False,
+                   check_save: bool=False):
     """
     Run experiments which consists of multiple models and datasets
 
@@ -90,16 +124,99 @@ def run_experiment(exp_cfg_name: str,
     if gpu_override:
         exp_cfg.study_override_cfg.trainer.gpu = gpu_override
     if test_run: 
+        if not check_save :
+            exp_cfg.seeds = [42, 69]
         exp_cfg.study_override_cfg.args.max_epoch = 1
         exp_cfg.study_override_cfg.trainer.n_trials_hyperopt = 2
-        exp_cfg.seeds = [42, 69]
-
+        
     
     save_path = exp_cfg.study_override_cfg.trainer.results_path
 
+    if check_save is not None: 
+        
+        with open(f"./check_save/{check_save}", 'r') as content_file:
+            content = content_file.read()
+
+        trial_splits = content.split("Trial 249 finished")[1:-1]
+        dset = dataset_algorithm_override.split('_')[0]
+        algo = dataset_algorithm_override.split('_')[1]
+
+        loaded_results_dict = {'average_results': {},
+                               'dataset': dset,
+                               'model': algo,
+                               'results': []}
+
+        for sidx, str_content in enumerate(trial_splits):
+            seed_dict = {'seed': exp_cfg.seeds[sidx], 'study_output': []}
+
+            for match in re.finditer("Best hyperparameters for metric", str_content):
+                start_metrics_idx = match.end() + 5
+
+                end_of_potential_metrics_idx = str_content[start_metrics_idx:].find("\x1b")
+                pot_metrics = str_content[start_metrics_idx:start_metrics_idx+end_of_potential_metrics_idx-1]
+                pot_metrics = pot_metrics.split(",")
+                pot_metrics = [metric[1:] if idx > 0 else metric for idx, metric in enumerate(pot_metrics)]
+
+                for valid_metric in exp_cfg.study_override_cfg.trainer.valid_metrics:
+                    if valid_metric in pot_metrics:
+                        study_out_dict = {'args': {},
+                                          'metrics': valid_metric,
+                                          'results': {},
+                                          'validation_results': {}}
+                        metric_dict = {}
+                        for test_metric in exp_cfg.study_override_cfg.trainer.test_metrics:
+                            # find point where results start going metric=val
+                            start_idx = str_content[start_metrics_idx:].find(f"{test_metric}=")
+                            # find the end of the metric result
+                            if test_metric != 'conductance':
+                                stringtofind = ','
+                            else:
+                                stringtofind = "\x1b"
+                            end_idx = str_content[start_metrics_idx+start_idx:].find(stringtofind)
+                            end_idx = end_idx - len(test_metric) - 1
+                            startincontent = start_metrics_idx+len(test_metric)+1+start_idx
+                            metric_number = float(str_content[startincontent:startincontent+end_idx])
+                            metric_dict[test_metric] = metric_number
+                        
+                        all_args_stuff = str_content[start_metrics_idx+end_of_potential_metrics_idx-1:startincontent+end_idx]
+                        args_dict = {}
+                        for match in re.finditer(" : ", all_args_stuff):
+                            start_arg = all_args_stuff[:match.start()].rfind(']')
+                            arg = all_args_stuff[start_arg+2:match.start()]
+
+                            end_value = all_args_stuff[match.start():].find("\x1b")
+                            value = all_args_stuff[match.end():match.start() + end_value]
+
+                            # chcek if value is float, bool, int or str
+                            if identify_type(value) == float:
+                                args_dict[str(arg)] = float(value)
+
+                            elif identify_type(value) == bool:
+                                args_dict[str(arg)] = bool(value)
+                            
+                            elif identify_type(value) == int:
+                                args_dict[str(arg)] = int(value)
+                            
+                            elif identify_type(value) == str:
+                                args_dict[str(arg)] = str(value)
+                        
+                        study_out_dict['args'] = args_dict
+                        study_out_dict['results'] = metric_dict
+
+                        seed_dict['study_output'].append(study_out_dict)
+            loaded_results_dict['results'].append(seed_dict)
+
+            
     # creating experiment iterator
     experiment_tracker = ugle.utils.create_experiment_tracker(exp_cfg)
     experiments_cpu = []
+
+    if check_save: 
+        # change the seeds in exp_cfg
+        exp_cfg.seeds = exp_cfg.seeds[sidx+1:]
+        check_save = loaded_results_dict['results']
+    else:
+        check_save = None
 
     for experiment in experiment_tracker:
         log.debug(f'starting new experiment ... ...')
@@ -111,7 +228,8 @@ def run_experiment(exp_cfg_name: str,
             experiment_results = run_study(exp_cfg.study_override_cfg,
                                             experiment.algorithm,
                                             experiment.dataset,
-                                            exp_cfg.seeds)
+                                            exp_cfg.seeds,
+                                            check_save)
             # save result in experiment tracker
             experiment.results = experiment_results
             ugle.utils.save_experiment_tracker(experiment_tracker, save_path)
@@ -157,5 +275,16 @@ if __name__ == "__main__":
                         help='dataset_algorithm override setting')
     parser.add_argument('--gpu', type=str, default=None)
     parser.add_argument('--test_run', action='store_true')
+    parser.add_argument('-cs', type=str, default=None)
     parsed, unknown = parser.parse_known_args()
-    run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override, parsed.gpu, parsed.test_run)
+    run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override, parsed.gpu, parsed.test_run, parsed.cs)
+
+    # cant unpickle the optuna object
+    # need to check which runs are bad
+    # transfer them 
+    # at the check_save
+    # go thru seeds
+    # check which seeds have valid info, scrap thru them, get the result
+    # get the result and the args
+    # save them correctly, 
+    # override the necessary ones left to search 

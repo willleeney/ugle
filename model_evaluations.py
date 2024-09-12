@@ -75,7 +75,7 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
         average_results = ugle.utils.collate_study_results(average_results, results, idx)
 
         # use first seed hyperparameters and train/test on remaining
-        if idx == 0:
+        if idx == 0 and check_save is not None:
             study_cfg.previous_results = results
         
         # add all best hyperparameters if they don't exist to enque trial 
@@ -85,6 +85,11 @@ def run_study(study_override_cfg: DictConfig, algorithm: str, dataset: str, seed
 
         if study_cfg.trainer.use_hps_on_all_seeds:
             study_cfg.trainer.only_testing = True
+
+        if not exists(study_cfg.trainer.results_path):
+            makedirs(study_cfg.trainer.results_path)
+        save_path = f"{study_cfg.trainer.results_path}{dataset}_{algorithm}"
+        pickle.dump(study_results, open(f"{save_path}.pkl", "wb"))
 
     # average results stores the average calculation of statistics
     average_results = ugle.utils.calc_average_results(average_results)
@@ -278,13 +283,3 @@ if __name__ == "__main__":
     parser.add_argument('-cs', type=str, default=None)
     parsed, unknown = parser.parse_known_args()
     run_experiment(parsed.experiment_config, parsed.dataset_algorithm_override, parsed.gpu, parsed.test_run, parsed.cs)
-
-    # cant unpickle the optuna object
-    # need to check which runs are bad
-    # transfer them 
-    # at the check_save
-    # go thru seeds
-    # check which seeds have valid info, scrap thru them, get the result
-    # get the result and the args
-    # save them correctly, 
-    # override the necessary ones left to search 

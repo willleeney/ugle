@@ -14,17 +14,12 @@ def identify_type(s):
     if s.lower() in ('true', 'false'):
         return bool
     
+    elif s.isnumeric():
+        return int(s)
     # Check for float
     try:
         float(s)
         return float
-    except ValueError:
-        pass
-
-    # Check for integer
-    try:
-        int(s)
-        return int
     except ValueError:
         pass
 

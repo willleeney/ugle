@@ -1,4 +1,4 @@
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, ListConfig
 from ugle.process import euclidean_distance
 import pickle
 import numpy as np
@@ -20,6 +20,7 @@ import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
 import random
 import matplotlib.gridspec as gridspec
+from scipy.optimize import curve_fit
 
 plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams["figure.dpi"] = 300
@@ -28,6 +29,9 @@ plt.rcParams.update({
     "text.latex.preamble": r"\usepackage{amsmath}"
 })
 
+def mod_to_real(x):
+    return ((2/3)*x) + (1/3)
+
 def search_results(folder, filename):
 
     for root, dirs, files in os.walk(f'{ugle_path}/{folder}'):
@@ -35,7 +39,7 @@ def search_results(folder, filename):
             return os.path.join(root, filename)
     return None
 
-def get_all_results_from_storage(datasets: list, algorithms: list, folder: str, empty: str = 'minus_ten',
+def get_all_results_from_storage(datasets: list, algorithms: list, folder: str, search_first_folder: str, empty: str = 'minus_ten',
                                  collect_all: bool = False):
     if empty == 'minus_ten':
         empty_result = OmegaConf.create(
@@ -65,9 +69,13 @@ def get_all_results_from_storage(datasets: list, algorithms: list, folder: str, 
     for dataset in datasets:
         for algo in algorithms:
             filename = f"{dataset}_{algo}.pkl"
+            file_found1 = search_results(search_first_folder, filename)
             file_found = search_results(folder, filename)
-            if file_found:
-                result = pickle.load(open(file_found, "rb"))
+            if file_found or file_found1:
+                if file_found1:
+                    result = pickle.load(open(file_found1, "rb"))
+                elif file_found: 
+                    result = pickle.load(open(file_found, "rb"))
                 if collect_all:
                     # parse seed
                     return_results = np.zeros(shape=(4, 10))
@@ -76,16 +84,27 @@ def get_all_results_from_storage(datasets: list, algorithms: list, folder: str, 
                         # go thru every best hps configuration
                         for metric_result in seed_result.study_output:
                             # go thru each best metric in configuration
-                            for metric in metric_result.metrics:
-                                # add result to correct place
+                            if isinstance(metric_result.metrics, list) or isinstance(metric_result.metrics, ListConfig):
+                                for metric in metric_result.metrics:
+                                    # add result to correct place
+                                    if metric == 'f1':
+                                        return_results[0, i] = metric_result.results[metric]
+                                    elif metric == 'nmi':
+                                        return_results[1, i] = metric_result.results[metric]
+                                    elif metric == 'modularity':
+                                        return_results[2, i] = mod_to_real(metric_result.results[metric])
+                                    elif metric == 'conductance':
+                                        return_results[3, i] = 1. - metric_result.results[metric]
+                            elif isinstance(metric_result.metrics, str):
+                                metric = metric_result.metrics
                                 if metric == 'f1':
                                     return_results[0, i] = metric_result.results[metric]
                                 elif metric == 'nmi':
                                     return_results[1, i] = metric_result.results[metric]
                                 elif metric == 'modularity':
-                                    return_results[2, i] = metric_result.results[metric]
+                                    return_results[2, i] = mod_to_real(metric_result.results[metric])
                                 elif metric == 'conductance':
-                                    return_results[3, i] = metric_result.results[metric]
+                                    return_results[3, i] = 1. - metric_result.results[metric]
 
                     result_holder[f"{dataset}_{algo}"] = return_results.tolist()
 
@@ -119,11 +138,11 @@ def get_values_from_results_holder(result_holder, dataset_name, metric_name, ret
     else:
         return metric_values
 
-def make_test_performance_object(datasets, algorithms, metrics, seeds, folder):
+def make_test_performance_object(datasets, algorithms, metrics, seeds, folder, search_first_folder):
     # get results object
     result_object = np.zeros(shape=(len(datasets), len(algorithms), len(metrics), len(seeds)))
     try:
-        result_holder = get_all_results_from_storage(datasets, algorithms, folder, collect_all=True)
+        result_holder = get_all_results_from_storage(datasets, algorithms, folder, search_first_folder, collect_all=True)
     except:
         return result_object
     for d, dataset in enumerate(datasets):
@@ -149,10 +168,7 @@ def calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_
             for m, metric_name in enumerate(metrics):
                 metric_values = np.mean(result_object[d, :, m, :] , axis=1)
                 last_place_zero = np.argwhere(np.array(metric_values) == -10).flatten()
-                if metric_name != 'conductance':
-                    ranking_of_algorithms = np.flip(np.argsort(metric_values)) + 1
-                else:
-                    ranking_of_algorithms = np.argsort(metric_values) + 1
+                ranking_of_algorithms = np.flip(np.argsort(metric_values)) + 1
                 ranking_of_algorithms[last_place_zero] = len(ranking_of_algorithms)
                 ranking_object[d, :, m] = ranking_of_algorithms
     else:
@@ -163,17 +179,14 @@ def calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_
                 for s, _, in enumerate(seeds):
                     metric_values = result_object[d, :, m, s]
                     last_place_zero = np.argwhere(np.array(metric_values) == -10).flatten()
-                    if metric_name != 'conductance':
-                        ranking_of_algorithms = np.flip(np.argsort(metric_values)) + 1
-                    else:
-                        ranking_of_algorithms = np.argsort(metric_values) + 1
+                    ranking_of_algorithms = np.flip(np.argsort(metric_values)) + 1
                     ranking_of_algorithms[last_place_zero] = len(ranking_of_algorithms)
                     ranking_object[d, :, m, s] = ranking_of_algorithms
     
     return ranking_object
 
 
-def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax=None):
+def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax=None, search_first_hpo=None, search_first_default=None):
     """
     displays the results in matplotlib with dashed borders for original comparison on single dataset
     :param hpo_results: hyperparameter results
@@ -191,8 +204,13 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     alt_colours = ['C2', 'C0', 'C1', 'C3']
 
     # extract key arrays for results
-    result_holder = get_all_results_from_storage([dataset_name], algorithms, folder, empty='zeros')
-    default_result_holder = get_all_results_from_storage([dataset_name], default_algos, default_folder, empty='zeros')
+
+    ################## DIFFUCULT ##########################
+    #### CHANGE TO AVERAGE FROM THE OTHER RESULT THING? 
+    ### GET TEST OBJECT AND ACTUALLY DO THE AVERAGING?
+
+    result_holder = get_all_results_from_storage([dataset_name], algorithms, folder, empty='zeros', search_first_folder=search_first_hpo)
+    default_result_holder = get_all_results_from_storage([dataset_name], default_algos, default_folder, empty='zeros', search_first_folder=search_first_default)
 
     f1, f1_std = get_values_from_results_holder(result_holder, dataset_name, 'f1', return_std=True)
     nmi, nmi_std = get_values_from_results_holder(result_holder, dataset_name, 'nmi', return_std=True)
@@ -244,8 +262,8 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     black_width = 0.75
     e_width = 0.05
 
-    default_conductance = [1 - default_cond for default_cond in default_conductance ]
-    conductance = [1 - cond for cond in conductance]
+    # default_conductance = [1 - default_cond for default_cond in default_conductance ]
+    # conductance = [1 - cond for cond in conductance]
 
     # plot hyperparameter results in full colour
     ax.bar(x_axis_names, f1, yerr=f1_std, ecolor=alt_colours[0],
@@ -279,7 +297,7 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     # create the tick labels for axis
     ax.set_xticks(x_axis_names - 0.5 * bar_width)
     algorithms = [algo.upper() if algo != 'dmon' else 'DMoN' for algo in algorithms]
-    if dataset_name == 'cora':
+    if dataset_name == 'cora' or dataset_name == 'amap' or dataset_name == 'citeseer' or dataset_name == 'dblp' or dataset_name == 'bat' or dataset_name == 'texas':
         ax.set_xticklabels(algorithms,ha='left', position=(-0.15, 0))
     else:
         ax.set_xticklabels(algorithms, ha='left', rotation=-45, position=(-0.3, 0))
@@ -558,23 +576,16 @@ def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
     """
     cm = plt.get_cmap('tab10').colors
     #ax.set_prop_cycle(color=[cm(1.*i/len(algorithms)) for i in range(len(algorithms))])
-    x_axis = np.arange(0, len(algorithms), 0.001)
-    max_y = 0
-    for j, algo_ranks in enumerate(all_ranks_per_algo.T):
-        print(algorithms[j])
-        print(algo_ranks)
-        try:
-            kde = gaussian_kde(algo_ranks)
-            y_axis = kde(x_axis)
+    # x_axis = np.arange(0, len(algorithms), 0.001)
+    # max_y = 0
+    possible_ranks = np.arange(1, len(algorithms) + 1)
+    bar_width = 1 / len(algorithms)
 
-            print(kde.integrate_box_1d(1, 8))
-            ax.plot(x_axis, y_axis, label=algorithms[j], zorder=10, color=cm[j])
-            #print(f'{algorithms[j]}: {cm[j]}')
-            max_y = max(max_y, max(y_axis)) + 0.05
-        except:
-            ax.axvline(x=algo_ranks[0], label=algorithms[j], zorder=10, color=cm[j])
+    for alg, algo_ranks in enumerate(all_ranks_per_algo.T):
 
-        print('\n')
+        rank_counts = [np.sum(algo_ranks == rank) for rank in possible_ranks]
+        ax.bar(possible_ranks + (alg * bar_width), rank_counts, width=bar_width, label=algorithms[alg], color=cm[alg])
+
     if set_legend:
         #ax.legend(loc='best', fontsize=20, ncol=1, bbox_to_anchor=(1, -0.5))
         #ax.legend(loc='upper center', fontsize=15, ncol=3, bbox_to_anchor=(0.475, -0.5))
@@ -582,9 +593,23 @@ def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
         #ax.set_xlabel('algorithm rank distribution over all tests', fontsize=18)
 
     #ax.set_ybound(0, 3)
-    ax.set_xbound(0.9, 8)
-    ax.set_ybound(0, max_y)
-    ax.set_ylabel('Probability of Rank\n' + r'$P_{a^{*}}(r)$', fontsize=16) #kde estimatation of rank distribution
+    # Set major ticks at 0.5, 1.5, 2.5, ..., 7.5 and label them as 1, 2, 3, ..., 7
+    major_ticks = [(i+0.5) - (bar_width/2) for i in range(1, len(algorithms)+1)] # 0.5, 1.5, 2.5, ..., 7.5
+    ax.set_xticks(major_ticks)
+    ax.set_xticklabels(range(1, len(algorithms)+1)) # Labels 1, 2, 3, ..., 7
+
+    # Set minor ticks at 0, 1, 2, 3, ..., 7 with no labels
+    minor_ticks = [i * 1 - (bar_width/2) for i in range(1, len(algorithms)+2)] # 0, 1, 2, 3, ..., 7
+    ax.set_xticks(minor_ticks, minor=True)
+
+    # Optionally, show gridlines for minor ticks
+    ax.grid(True, which='minor', axis='x', linestyle='--', color='lightgrey', linewidth=0.5)
+   
+    ax.set_ylabel('Rank Occurences', fontsize=16) #kde estimatation of rank distribution
+    ax.set_xlim(1-(bar_width/2), len(algorithms)+1-(bar_width/2))
+    ax.set_yticks(range(0, all_ranks_per_algo.shape[0]+1))
+
+
 
     #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
     ax.tick_params(axis='x', labelsize=14)
@@ -593,7 +618,7 @@ def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
     return ax
 
 
-def create_big_figure(datasets, algorithms, folder, default_algos, default_folder):
+def create_big_figure(datasets, algorithms, folder, default_algos, default_folder, search_first_hpo, search_first_default):
     """
     creates figure for all datasets tested comparing default and hpo results
     """
@@ -603,21 +628,15 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
 
     # Define GridSpec: 2 rows and 2 columns for more precise control
     gs = gridspec.GridSpec(2, 2)
-
-    if 'cora' in datasets:
-        # Top row, one centered plots, centered by spanning middle columns
-        axs.append(fig.add_subplot(gs[0, 0:2]))  # Fourth plot spans columns 
+    axs.append(fig.add_subplot(gs[0, 0:2]))  
+    if 'cora' in datasets or 'amap' in datasets:
+        axs.append(fig.add_subplot(gs[1, 0:2]))
     else:
-         # Top row, two plots across the full width
-        axs.append(fig.add_subplot(gs[0, 0]))  # First plot spans columns 
-        axs.append(fig.add_subplot(gs[0, 1]))  # Second plot spans columns 
-
-    # Bottom row, three plots across the full width
-    axs.append(fig.add_subplot(gs[1, 0]))  # First plot spans columns 
-    axs.append(fig.add_subplot(gs[1, 1]))  # Second plot spans columns 
+        axs.append(fig.add_subplot(gs[1, 0]))  # First plot spans columns 
+        axs.append(fig.add_subplot(gs[1, 1]))  # Second plot spans columns 
 
     for dataset_name, ax in zip(datasets, axs):
-        ax = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax)
+        ax = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax, search_first_hpo, search_first_default)
 
     handles = []
     alt_colours = ['C2', 'C0', 'C1', 'C3']
@@ -633,16 +652,22 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
     #blank_ax.legend(handles=handles, bbox_to_anchor=(0.975, 0.2), fontsize=14)
     blank_ax.legend(handles=handles, loc='lower center', fontsize=14, ncols=5)
     fig.subplots_adjust(bottom=0.15)
+
+    if 'cora' in datasets or 'amap' in datasets:
+        fig.subplots_adjust(bottom=0.10, hspace=0.17, top=0.97)
+
     #axs[0].legend(loc='upper right', bbox_to_anchor=(1, 0.95))
     #for item in axs[0].get_legend().get_texts():
     #   item.set_fontsize(36)
 
     if 'cora' in datasets:
-        fig.savefig(f"{ugle_path}/figures/thesis/hpo_investigation.pdf", bbox_inches='tight')
-    elif 'amac' in datasets:
-        fig.savefig(f"{ugle_path}/figures/thesis/hpo_investigation_1.pdf", bbox_inches='tight')
+        fig.savefig(f"{ugle_path}/figures/postvivathesis/hpo_investigation_1.pdf", bbox_inches='tight')
     elif 'amap' in datasets:
-        fig.savefig(f"{ugle_path}/figures/thesis/hpo_investigation_2.pdf", bbox_inches='tight')
+        fig.savefig(f"{ugle_path}/figures/postvivathesis/hpo_investigation_2.pdf", bbox_inches='tight')
+    elif 'texas' in datasets:
+        fig.savefig(f"{ugle_path}/figures/postvivathesis/hpo_investigation_3.pdf", bbox_inches='tight')
+    elif 'eat' in datasets:
+        fig.savefig(f"{ugle_path}/figures/postvivathesis/hpo_investigation_4.pdf", bbox_inches='tight')
     return
 
 
@@ -702,14 +727,25 @@ def create_comparison_figures(datasets: list, algorithms: list, metrics: list, s
     return
 
 
-def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list, seeds: list, folder: str, default_algos: list, default_folder: str):
+def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list, seeds: list, folder: str, default_algos: list, default_folder: str, search_first_post_viva, search_first_post_viva_default):
 
     # create holder figure
     nrows, ncols = 2, 1
     fig, ax = plt.subplots(nrows, ncols, figsize=(9, 6))
 
-    result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
-    default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
+    # i think the answer is that you gotta try do the load in all cases there's a load with the both and overwrite where not minus 10 
+    # with the old results?
+    # maybe go thru all the bits that need to be changed here 
+
+    # 1. check every instance where results are loaded 
+    # if using the same function the just change range 0-1 in the load results
+    # make a note of real folder that needs to be used 
+
+    ################# ========== LOADED OBJECT ========== ###################
+    result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder, search_first_post_viva)
+
+    ################# ========== LOADED OBJECT ========== ###################
+    default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder,  search_first_post_viva_default)
     
     ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds).squeeze(0)[:, 0, :].T
     default_ranking_object = calculate_ranking_performance(default_result_object, datasets, metrics, seeds).squeeze(0)[:, 0, :].T
@@ -770,9 +806,9 @@ def create_rand_dist_comparison(datasets: list, algorithms: list, metrics: list,
     blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
     blank_ax.axis('off')
     blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=4)
-    fig.subplots_adjust(bottom=0.115)
+    fig.subplots_adjust(bottom=0.215, top=0.95)
     #fig.suptitle('Algorithm F1 Score Rank Distribution\n Estimation Comparison on Cora', fontsize=24)
-    fig.savefig(f'{ugle_path}/figures/thesis/le_rand_dist_comparison.pdf', bbox_inches='tight')
+    fig.savefig(f'{ugle_path}/figures/postvivathesis/le_rand_dist_comparison.pdf', bbox_inches='tight')
     return
 
 
@@ -799,7 +835,6 @@ def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, defau
     create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
     # print('done fats%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%o')
     return
-
 
 def reshape_ranking_to_test_object(ranking_object):
     # datasets, algorithms, metrics, seeds ->  tests(datasets+metrics), seeds, algorithms
@@ -937,6 +972,7 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
                 result = pickle.load(open(file_found, "rb"))
             
                 for seed_result in result.results:
+                    ################# ========== CHANGE BECOS STRING? ========== ###################
                     for metric_result in seed_result.study_output:
                         if 'modularity' in metric_result.metrics:
                             if extract_validation: 
@@ -964,6 +1000,7 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
                 print(f"did not find: {filename}")
                 # can only really do this because i know that there's 10 seeds
                 for seed in range(10):
+                    ################# ========== CHANGE TO MINUS 10 ========== ###################
                     mod_results.append([0., 0., 0.])
                     con_results.append([0., 0., 0.])
 
@@ -976,6 +1013,7 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
         return mod_results, con_results
 
 def extract_supervised_results(datasets, algorithms, folder):
+    ################# ========== CHANGE TO MINUS 10 ========== ###################
     f1_nmi_results = np.zeros((len(datasets)*len(algorithms)*10, 2))
     i = 0
     
@@ -988,6 +1026,7 @@ def extract_supervised_results(datasets, algorithms, folder):
             
                 for seed_result in result.results:
                     for metric_result in seed_result.study_output:
+                        ################# ========== CHANGE BECOS STRING? ========== ###################
                         if 'f1' in metric_result.metrics:
                             f1_nmi_results[i, 0] = metric_result.results['f1']
                         if 'nmi' in metric_result.metrics:
@@ -1130,8 +1169,9 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
         extract_validation = True
     else: 
         extract_validation = False
-    
+    ################# ========== LOADED OBJECT ========== ###################
     mod_results, con_results, df = extract_results(datasets, algorithms, folder, extract_validation=extract_validation, return_df=True)
+
     testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
 
     total_w_order = compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, datasets)
@@ -1300,7 +1340,10 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
 
     for i, ax in enumerate(axes.flat):
         dataset = datasets[i]
+        ################# ========== LOADED OBJECT ========== ###################
         mod_results, con_results = extract_results([dataset], algorithms, folder)
+
+
         testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
         total_w_order = np.mean(compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, [dataset]))
 
@@ -1333,7 +1376,10 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
         con_nmi_std = []
 
         for algo in algorithms:
+            ################# ========== LOADED OBJECT ========== ###################
             mod_results, con_results = extract_results([dataset], [algo], folder)
+
+
             con_results[:, 0] = [1 - con_res for con_res in con_results[:, 0]]
             mod.append(np.mean(mod_results[:, 0]))
             mod_f1.append(np.mean(mod_results[:, 1]))
@@ -1436,58 +1482,56 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = False
-    make_big_figure = False
-    make_dist_figure = False
-    make_presentation_figures = False
+    make_ugle = True
+    make_big_figure = True
+    make_dist_figure = True
+    make_presentation_figures = True
     make_paper_figures =  True
     make_rankings_table = True
 
     make_unsuper = True
-    calc_increases = False
+    calc_increases = True
     calc_synth_increases = False
 
-    make_abs = False
-    make_corr = False
-    make_synth = True
+    make_abs = True
+    make_corr = True
+    make_synth = False
 
     if make_ugle:
         algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'sublime', 'bgrl', 'vgaer']
         datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
         metrics = ['f1', 'nmi', 'modularity', 'conductance']
         folder = './results/legacy_results/progress_results/'
+        search_first_post_viva = './post_viva_results/cm/hpo/'
+
         seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
         default_algos = ['daegc_default', 'dgi_default', 'dmon_default', 'grace_default', 'mvgrl_default',
                         'sublime_default', 'bgrl_default', 'vgaer_default']
         default_folder = './results/legacy_results/default_results/'
+        search_first_post_viva_default = './post_viva_results/cm/default/'
 
         if make_presentation_figures: 
-            create_rand_dist_comparison(['cora'], algorithms, metrics, seeds, folder, default_algos, default_folder)
+            create_rand_dist_comparison(['cora'], algorithms, metrics, seeds, folder, default_algos, default_folder,
+                                        search_first_post_viva, search_first_post_viva_default)
 
         if make_paper_figures: 
             if make_big_figure:
-                create_big_figure(['cora', 'citeseer', 'dblp'], algorithms, folder, default_algos, default_folder)
-                create_big_figure(['amap', 'texas', 'wisc', 'cornell'], algorithms, folder, default_algos, default_folder)
-                create_big_figure(['amac', 'bat', 'eat', 'uat', 'texas', 'wisc', 'cornell'], algorithms, folder, default_algos, default_folder)
+                create_big_figure(['cora', 'citeseer'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
+                create_big_figure(['amap', 'dblp'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
+                create_big_figure(['texas', 'wisc', 'cornell'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
+                create_big_figure(['bat', 'eat', 'uat'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
 
 
 
             # =========== DO THE FOLLOWING + OUTPUT RANKINGS FOR ALL DIFFERENT TESTS ========= 
             # fetch absolute results
-            result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder)
-            default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder)
 
-            # change conductance to be one minus so that it works with FCR
-            con_out = np.array([1 - res if res != -10 else res for res in result_object[:, :, 3, :].flatten()])
-            dcon_out = np.array([1 - res if res != -10 else res for res in default_result_object[:, :, 3, :].flatten()])
 
-            # flatten object 
-            og_shape =  result_object[:, :, 3, :].shape
-            con_out2 = con_out.reshape(og_shape)
-            dcon_out2 = dcon_out.reshape(og_shape)
+            print('\n\n\n==================== PRINTING RANKING TABLE INFO ==========================\n\n\n')
+            ################# ========== LOADED OBJECT ========== ###################
+            result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder, search_first_post_viva)
+            default_result_object = make_test_performance_object(datasets, default_algos, metrics, seeds, default_folder, search_first_post_viva_default)
 
-            result_object[:, :, 3, :]  = con_out2
-            default_result_object[:, :, 3, :] = dcon_out2
 
             ## OVERALL MATHCAL R 
             ## RANK FOR EACH METHOD
@@ -1506,7 +1550,9 @@ if __name__ == "__main__":
                     else:
                         rankings[i] = [1.5, 1.5]
                 means_hpo = np.mean(rankings, axis=0)[0]
+                stds_hpo = np.std(rankings, axis=0)[0]
                 means_def = np.mean(rankings, axis=0)[1]
+                stds_def = np.std(rankings, axis=0)[1]
 
             # calculate ranking of each metric
             ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=False)
@@ -1517,13 +1563,17 @@ if __name__ == "__main__":
                 print('all')
                 
                 rank_order = np.argsort(np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)) 
+                
                 hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+
                 default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
 
                 for air, _ in enumerate(hpo_ranks):
-                    print(f'& {hpo_ranks[air]}/{default_ranks[air]}', end=' ')
+                    print(f'& {hpo_ranks[air]}$\pm${hpo_std[air]}/{default_ranks[air]}$\pm${default_std[air]}', end=' ')
                 print('')
-                print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+                print(f'MATCAL HPO/DEF: {means_hpo:.1f}$\pm${stds_hpo:.1f}/{means_def:.1f}$\pm${stds_def:.1f}')
                 print(np.array(algorithms)[rank_order])
                 print('\n')
 
@@ -1548,7 +1598,9 @@ if __name__ == "__main__":
                         else:
                             rankings[i] = [1.5, 1.5]
                     means_hpo = np.mean(rankings, axis=0)[0]
+                    stds_hpo = np.std(rankings, axis=0)[0]
                     means_def = np.mean(rankings, axis=0)[1]
+                    stds_def = np.std(rankings, axis=0)[1]
 
                     # calculate ranking of each metric
                     ranking_object = calculate_ranking_performance(copyresult_object, datasets, [metric], seeds, calc_ave_first=False)
@@ -1557,12 +1609,14 @@ if __name__ == "__main__":
                     # print the average rank 
                     print(f'{metric}')
                     hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
                     default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
 
                     for air, _ in enumerate(hpo_ranks):
-                        print(f'& {hpo_ranks[air]}/{default_ranks[air]}', end=' ')
+                        print(f'& {hpo_ranks[air]}$\pm${hpo_std[air]}/{default_ranks[air]}$\pm${default_std[air]}', end=' ')
                     print('')
-                    print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+                    print(f'MATCAL HPO/DEF: {means_hpo:.1f}$\pm${stds_hpo:.1f}/{means_def:.1f}$\pm${stds_def:.1f}')
           
                 for d, dataset in enumerate(datasets):
                     copyresult_object = np.expand_dims(deepcopy(result_object[d, :, :, :]), axis=0)
@@ -1582,7 +1636,9 @@ if __name__ == "__main__":
                         else:
                             rankings[i] = [1.5, 1.5]
                     means_hpo = np.mean(rankings, axis=0)[0]
+                    stds_hpo = np.std(rankings, axis=0)[0]
                     means_def = np.mean(rankings, axis=0)[1]
+                    stds_def = np.std(rankings, axis=0)[1]
 
                     # calculate ranking of each metric
                     ranking_object = calculate_ranking_performance(copyresult_object, [dataset], metrics, seeds, calc_ave_first=False)
@@ -1591,11 +1647,14 @@ if __name__ == "__main__":
                     # print the average rank 
                     print(f'{dataset}')
                     hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
                     default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    
                     for air, _ in enumerate(hpo_ranks):
-                        print(f'& {hpo_ranks[air]}/{default_ranks[air]}', end=' ')
+                        print(f'& {hpo_ranks[air]}$\pm${hpo_std[air]}/{default_ranks[air]}$\pm${default_std[air]}', end=' ')
                     print('')
-                    print(f'MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+                    print(f'MATCAL HPO/DEF: {means_hpo:.1f}$\pm${stds_hpo:.1f}/{means_def:.1f}$\pm${stds_def:.1f}')
 
 
                 for a, algorithm in enumerate(algorithms):
@@ -1616,31 +1675,33 @@ if __name__ == "__main__":
                         else:
                             rankings[i] = [1.5, 1.5]
                     means_hpo = np.mean(rankings, axis=0)[0]
+                    stds_hpo = np.std(rankings, axis=0)[0]
                     means_def = np.mean(rankings, axis=0)[1]
+                    stds_def = np.std(rankings, axis=0)[1]
 
-                    print(f'{algorithm} - MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+                    print(f'{algorithm} - MATCAL HPO/DEF: {means_hpo:.1f}$\pm${stds_hpo:.1f}/{means_def:.1f}$\pm${stds_def:.1f}')
 
-                for s, seed in enumerate(seeds):
-                    copyresult_object = np.expand_dims(deepcopy(result_object[:, :, :, s]), axis=0)
-                    copydefault_result_object = np.expand_dims(deepcopy(default_result_object[:, :, :, s]), axis=0)
+                # for s, seed in enumerate(seeds):
+                #     copyresult_object = np.expand_dims(deepcopy(result_object[:, :, :, s]), axis=0)
+                #     copydefault_result_object = np.expand_dims(deepcopy(default_result_object[:, :, :, s]), axis=0)
 
-                    result_object_fcr = copyresult_object.flatten()
-                    default_result_object_fcr = copydefault_result_object.flatten()
+                #     result_object_fcr = copyresult_object.flatten()
+                #     default_result_object_fcr = copydefault_result_object.flatten()
                     
-                    # make comparisons
-                    n_comparisons = result_object_fcr.shape[0]
-                    rankings = np.zeros((n_comparisons, 2))
-                    for i in range(n_comparisons):
-                        if result_object_fcr[i] > default_result_object_fcr[i]:
-                            rankings[i] = [1, 2]
-                        elif default_result_object_fcr[i] < result_object_fcr[i]:
-                            rankings[i] = [2, 1]
-                        else:
-                            rankings[i] = [1.5, 1.5]
-                    means_hpo = np.mean(rankings, axis=0)[0]
-                    means_def = np.mean(rankings, axis=0)[1]
+                #     # make comparisons
+                #     n_comparisons = result_object_fcr.shape[0]
+                #     rankings = np.zeros((n_comparisons, 2))
+                #     for i in range(n_comparisons):
+                #         if result_object_fcr[i] > default_result_object_fcr[i]:
+                #             rankings[i] = [1, 2]
+                #         elif default_result_object_fcr[i] < result_object_fcr[i]:
+                #             rankings[i] = [2, 1]
+                #         else:
+                #             rankings[i] = [1.5, 1.5]
+                #     means_hpo = np.mean(rankings, axis=0)[0]
+                #     means_def = np.mean(rankings, axis=0)[1]
 
-                    print(f'{seed} - MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
+                #     print(f'{seed} - MATCAL HPO/DEF: {means_hpo:.1f}/{means_def:.1f}')
 
             # calculate ranking of each metric
             ranking_object = calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_ave_first=False)
@@ -1654,8 +1715,8 @@ if __name__ == "__main__":
             og_w_def = og_randomness(default_ranking_object, print_draws=True)
             print(f"OG W Default: {og_w_def:.3f}")
 
-            result_object = np.concatenate((result_object[:, :, 0:3, :], con_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
-            default_result_object = np.concatenate((default_result_object[:, :, 0:3, :], dcon_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
+            # result_object = np.concatenate((result_object[:, :, 0:3, :], con_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
+            # default_result_object = np.concatenate((default_result_object[:, :, 0:3, :], dcon_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
             result_object = reshape_ranking_to_test_object(result_object)
             default_result_object = reshape_ranking_to_test_object(default_result_object)
 
@@ -1687,11 +1748,13 @@ if __name__ == "__main__":
 
                 test_interval = 1
                 n_tests = result_object.shape[0]
-                n_repeats = 10
+                n_repeats = 50
                 input_idxs = range(0, n_tests)
                 titles = ['Original ' + r'$\mathcal{W}$' + ' Randomness', 'Mean Ties ' + r'$\mathcal{W}^m$' + ' Randomness', 'Mean Ties ' + r'$\mathcal{W}^t$' + ' Randomness', r'$\mathcal{W}^w$' + ' Wasserstein Randomness']
                 w_fns = ['og_randomness', 'og_newOld_randomness', 'ties_randomness', 'wasserstein_randomness']
                 
+                wshpo_cov = np.zeros((4, n_tests-1))
+                wsdef_cov = np.zeros((4, n_tests-1))
 
                 for a, ax in enumerate(axes.flat):
                     print(f'axis: {a}')
@@ -1704,6 +1767,8 @@ if __name__ == "__main__":
                     cur_max = 0.
                     cur_min = 1.
                     for test_interval in range(1, n_tests):
+                        whpo = []
+                        wdef = []
                         for i in range(n_repeats):
                             test_idx = random.sample(input_idxs, test_interval)
 
@@ -1720,7 +1785,16 @@ if __name__ == "__main__":
 
                             cur_min = min(cur_min, WW_HPO)
                             cur_min = min(cur_min, WW_DEF)
+
+                            # FOR COVARIANCE STUFF
+                            whpo.append(WW_HPO)
+                            wdef.append(WW_DEF)
+                        
+                        wshpo_cov[a, test_interval-1] = np.std(whpo) / np.mean(whpo)
+                        wsdef_cov[a, test_interval-1] = np.std(wdef) / np.mean(wdef)
+
                     
+                    # PLOTTING FOR W RANDOMNESS FIGURE
                     handles = []
                     handles.append(mlines.Line2D([], [], label='HPO', color="C4", marker='x', linestyle='None', markersize=7, linewidth=2))
                     handles.append(mlines.Line2D([], [], label='Default', color="C3", marker='x', linestyle='None', markersize=7, linewidth=2))
@@ -1731,6 +1805,7 @@ if __name__ == "__main__":
 
                     ax.set_title(titles[a], fontsize=12)
                     ax.set_ylim(max(0, cur_min-0.1), min(1., cur_max+0.1))
+
                 
                 fig.tight_layout()
                 blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
@@ -1739,7 +1814,75 @@ if __name__ == "__main__":
                 blank_ax.legend(handles=handles, loc='lower center', fontsize=10, ncols=2)
                 fig.subplots_adjust(bottom=0.15)
                 
-                fig.savefig(f"{ugle_path}/figures/thesis/w_distribution_entropy.pdf", bbox_inches='tight')
+                fig.savefig(f"{ugle_path}/figures/postvivathesis/w_distribution_entropy.pdf", bbox_inches='tight')
+
+
+                fig2, axes2 = plt.subplots(nrows=2, ncols=2, figsize=(6, 5))
+                # PLOTTING CURVES
+                def decaying_exponential(t, a, b, c):
+                    return a * np.exp(-b * t) + c
+
+                # Initial guess for parameters a, b, c
+                initial_guess = [10, 0.5, 1]
+                b_fits = []
+                b_fitshpos = []
+
+                for a2, ax2 in enumerate(axes2.flat):
+                    t = np.array(list(range(1, n_tests)))
+                    wdef = wsdef_cov[a2]
+                    whpo = wshpo_cov[a2]
+
+                    # Fit the curve
+                    popt, pcov = curve_fit(decaying_exponential, t, wdef, p0=initial_guess)
+                    popt_hpo, pcov_hpo = curve_fit(decaying_exponential, t, whpo, p0=initial_guess)
+
+                    # Extract fitted coefficients: a, b, c
+                    a_fit, b_fit, c_fit = popt
+                    a_fithpo, b_fithpo, c_fithpo = popt_hpo
+
+                    print(f"Fitted parameters Default {w_fns[a2]}: a = {a_fit}, b = {b_fit}, c = {c_fit}")
+                    print(f"Fitted parameters HPO {w_fns[a2]}: a = {a_fithpo}, b = {b_fithpo}, c = {c_fithpo}")
+
+                    # Use the fitted coefficients to calculate the fitted w values
+                    w_fit = decaying_exponential(t, *popt)
+                    w_fithpo = decaying_exponential(t, *popt_hpo)
+
+                    # Plot the original data and the fitted curve
+                    ax2.scatter(t, wdef, color='C3', label="Default Covariance", linewidth=2, marker='.')
+                    ax2.plot(t, w_fit, color='salmon', label=f"Fitted Curve (b={b_fit:.2f}", linewidth=2)
+
+                    ax2.scatter(t, whpo, color='C4', label="HPO Covariance", linewidth=2, marker='.')
+                    ax2.plot(t, w_fithpo, color='plum', label=f"Fitted HPO Curve (b={b_fithpo:.2f}", linewidth=2)
+
+                    b_fits.append(b_fit)
+                    b_fitshpos.append(b_fithpo)
+                    
+                    if a2 != 1 and a2 != 3:
+                        ax2.set_ylabel(r'$CV$', fontsize=10)
+                    if a2 != 0 and a2 != 1:
+                        ax2.set_xlabel(r'$\vert \mathcal{T} \vert $', fontsize=10)
+
+                    ax2.set_title(titles[a2], fontsize=12)
+
+                handles = []
+                handles.append(mlines.Line2D([], [], label='HPO Coefficient of Variance', color="C4", marker='.', linestyle='None', markersize=7, linewidth=2))
+                handles.append(mlines.Line2D([], [], label='Default Coefficient of Variance', color="C3", marker='.', linestyle='None', markersize=7, linewidth=2))
+                handles.append(mlines.Line2D([], [], label='HPO Fitted Negative Exponetial', color="plum", marker=None, linestyle='-', markersize=7, linewidth=2))
+                handles.append(mlines.Line2D([], [], label='Default Fitted Negative Exponetial', color="salmon", marker=None, linestyle='-', markersize=7, linewidth=2))
+                # PLOTTING / FITTING NEGATIVE EXPONETIAL CURVE
+                fig2.tight_layout()
+                blank_ax = fig2.add_axes([0, 0, 1, 1], frameon=False)
+                blank_ax.axis('off')
+                #blank_ax.legend(handles=handles, bbox_to_anchor=(0.975, 0.2), fontsize=14)
+                blank_ax.legend(handles=handles, loc='lower center', fontsize=10, ncols=2)
+                fig2.subplots_adjust(bottom=0.2)
+                for a2, ax2 in enumerate(axes2.flat):
+                    ax2.text(s=r'Default $\omega$=' + f'{b_fits[a2]:.2f}', x=0.25, y=0.9, transform=ax2.transAxes)
+                    ax2.text(s=r'HPO $\omega$=' + f'{b_fitshpos[a2]:.2f}', x=0.25, y=0.8, transform=ax2.transAxes)
+
+                fig2.savefig(f"{ugle_path}/figures/postvivathesis/w_dist_covariance.pdf", bbox_inches='tight')
+                print('stop')
+                # PLOTTING LOOK NICE FUNCTIONS
 
 
     if make_unsuper:
@@ -1776,8 +1919,10 @@ if __name__ == "__main__":
             for norm, sup, algos, dset in extract_infos:
                 # calculate the percentage drops
                 print(sup.split("/")[-2])
+                ################# ========== LOADED OBJECT ========== ###################
                 f1_nmi_results = extract_supervised_results(dset, algos, sup)
                 print(norm.split("/")[-2])
+                ################# ========== LOADED OBJECT ========== ###################
                 dmod_results, dcon_results = extract_results(dset, algos, norm)
                 calc_percent_increase(f1_nmi_results, dmod_results, dcon_results)
 

@@ -21,12 +21,22 @@ import matplotlib.lines as mlines
 import random
 import matplotlib.gridspec as gridspec
 from scipy.optimize import curve_fit
+from matplotlib.ticker import IndexLocator
+
+random.seed(42)
+np.random.seed(42)
 
 plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams["figure.dpi"] = 300
 plt.rcParams.update({
     "text.usetex": True,
-    "text.latex.preamble": r"\usepackage{amsmath}"
+    "text.latex.preamble": [
+        r"\usepackage{amsmath}",]
+        # r"\usepackage[utf8]{inputenc}",
+        # r"\usepackage[svgnames]{xcolor}",
+        # r"\usepackage{dashbox}",
+        # r"\usepackage{mathtools, amssymb}",
+        # r"\newcommand\dashedph[1][H]{\setlength{\fboxsep}{0pt}\setlength{\dashlength}{2.2pt}\setlength{\dashdash}{1.1pt} \dbox{\phantom{#1}}}"]
 })
 
 def mod_to_real(x):
@@ -138,6 +148,7 @@ def get_values_from_results_holder(result_holder, dataset_name, metric_name, ret
     else:
         return metric_values
 
+
 def make_test_performance_object(datasets, algorithms, metrics, seeds, folder, search_first_folder):
     # get results object
     result_object = np.zeros(shape=(len(datasets), len(algorithms), len(metrics), len(seeds)))
@@ -186,7 +197,7 @@ def calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_
     return ranking_object
 
 
-def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax=None, search_first_hpo=None, search_first_default=None):
+def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax=None, search_first_hpo=None, search_first_default=None, include_defaults=True):
     """
     displays the results in matplotlib with dashed borders for original comparison on single dataset
     :param hpo_results: hyperparameter results
@@ -201,7 +212,8 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
         fig, ax = plt.subplots(figsize=(10, 10))
 
     #alt_colours = ['#dc143c', '#0bb5ff', '#2ca02c', '#800080']
-    alt_colours = ['C2', 'C0', 'C1', 'C3']
+    alt_colours = ["#2CA02C", '#BF699F', 'tab:red', 'tab:blue']
+    error_colours = ["#66D166" , "#E89BCC" ,"#D66363" , "#68B8ED"]
 
     # extract key arrays for results
 
@@ -210,7 +222,8 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     ### GET TEST OBJECT AND ACTUALLY DO THE AVERAGING?
 
     result_holder = get_all_results_from_storage([dataset_name], algorithms, folder, empty='zeros', search_first_folder=search_first_hpo)
-    default_result_holder = get_all_results_from_storage([dataset_name], default_algos, default_folder, empty='zeros', search_first_folder=search_first_default)
+    if include_defaults:
+        default_result_holder = get_all_results_from_storage([dataset_name], default_algos, default_folder, empty='zeros', search_first_folder=search_first_default)
 
     f1, f1_std = get_values_from_results_holder(result_holder, dataset_name, 'f1', return_std=True)
     nmi, nmi_std = get_values_from_results_holder(result_holder, dataset_name, 'nmi', return_std=True)
@@ -219,88 +232,104 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     conductance, conductance_std = get_values_from_results_holder(result_holder, dataset_name, 'conductance',
                                                                   return_std=True)
 
-    default_f1, default_f1_std = get_values_from_results_holder(default_result_holder, dataset_name, 'f1',
-                                                                return_std=True)
-    default_nmi, default_nmi_std = get_values_from_results_holder(default_result_holder, dataset_name, 'nmi',
-                                                                  return_std=True)
-    default_modularity, default_modularity_std = get_values_from_results_holder(default_result_holder, dataset_name,
-                                                                                'modularity',
-                                                                                return_std=True)
-    default_conductance, default_conductance_std = get_values_from_results_holder(default_result_holder, dataset_name,
-                                                                                  'conductance',
+    if include_defaults:
+        default_f1, default_f1_std = get_values_from_results_holder(default_result_holder, dataset_name, 'f1',
+                                                                    return_std=True)
+        default_nmi, default_nmi_std = get_values_from_results_holder(default_result_holder, dataset_name, 'nmi',
+                                                                    return_std=True)
+        default_modularity, default_modularity_std = get_values_from_results_holder(default_result_holder, dataset_name,
+                                                                                    'modularity',
+                                                                                    return_std=True)
+        default_conductance, default_conductance_std = get_values_from_results_holder(default_result_holder, dataset_name,
+                                                                                    'conductance',
                                                                                   return_std=True)
     
-    print(f'{dataset_name} & nmi & nmi-d & f1 & f1-d & modularity & modularity-d & conductance & conductance-d \\\\')
-    for a, algo in enumerate(algorithms):
-        print(f"{algo} &", end=" ")
-        if nmi[a] > default_nmi[a]: 
-            print(f'\\textbf{{{nmi[a]} $\pm${nmi_std[a]}}} & {default_nmi[a]}$\pm${default_nmi_std[a]} &', end=" ")
-        else:
-            print(f'{nmi[a]} $\pm${nmi_std[a]} & \\textbf{{{default_nmi[a]}$\pm${default_nmi_std[a]}}} &', end=" ")
+        print(f'{dataset_name} & nmi & nmi-d & f1 & f1-d & modularity & modularity-d & conductance & conductance-d \\\\')
+        for a, algo in enumerate(algorithms):
+            print(f"{algo} &", end=" ")
+            if nmi[a] > default_nmi[a]: 
+                print(f'\\textbf{{{nmi[a]} $\pm${nmi_std[a]}}} & {default_nmi[a]}$\pm${default_nmi_std[a]} &', end=" ")
+            else:
+                print(f'{nmi[a]} $\pm${nmi_std[a]} & \\textbf{{{default_nmi[a]}$\pm${default_nmi_std[a]}}} &', end=" ")
 
-        if f1[a] > default_f1[a]: 
-            print(f'\\textbf{{{f1[a]} $\pm${f1_std[a]}}} & {default_f1[a]}$\pm${default_f1_std[a]} &', end=" ")
-        else:
-            print(f'{f1[a]} $\pm${f1_std[a]} & \\textbf{{{default_f1[a]}$\pm${default_f1_std[a]}}} &', end=" ")
+            if f1[a] > default_f1[a]: 
+                print(f'\\textbf{{{f1[a]} $\pm${f1_std[a]}}} & {default_f1[a]}$\pm${default_f1_std[a]} &', end=" ")
+            else:
+                print(f'{f1[a]} $\pm${f1_std[a]} & \\textbf{{{default_f1[a]}$\pm${default_f1_std[a]}}} &', end=" ")
 
-        if modularity[a] > default_modularity[a]: 
-            print(f'\\textbf{{{modularity[a]} $\pm${modularity_std[a]}}} & {default_modularity[a]}$\pm${default_modularity_std[a]} &', end=" ")
-        else:
-            print(f'{modularity[a]} $\pm${modularity_std[a]} & \\textbf{{{default_modularity[a]}$\pm${default_modularity_std[a]}}} &', end=" ")
+            if modularity[a] > default_modularity[a]: 
+                print(f'\\textbf{{{modularity[a]} $\pm${modularity_std[a]}}} & {default_modularity[a]}$\pm${default_modularity_std[a]} &', end=" ")
+            else:
+                print(f'{modularity[a]} $\pm${modularity_std[a]} & \\textbf{{{default_modularity[a]}$\pm${default_modularity_std[a]}}} &', end=" ")
 
-        if conductance[a] > default_conductance[a]: 
-            print(f'\\textbf{{{conductance[a]} $\pm${conductance_std[a]}}} & {default_conductance[a]}$\pm${default_conductance_std[a]} &', end=" ")
-        else:
-            print(f'{conductance[a]} $\pm${conductance_std[a]} & \\textbf{{{default_conductance[a]}$\pm${default_conductance_std[a]}}} \\\\')
+            if conductance[a] > default_conductance[a]: 
+                print(f'\\textbf{{{conductance[a]} $\pm${conductance_std[a]}}} & {default_conductance[a]}$\pm${default_conductance_std[a]} &', end=" ")
+            else:
+                print(f'{conductance[a]} $\pm${conductance_std[a]} & \\textbf{{{default_conductance[a]}$\pm${default_conductance_std[a]}}} \\\\')
 
         # repeat for rest 
 
     bar_width = 1 / 4
     x_axis_names = np.arange(len(algorithms))
 
-    colour_width = 0.05
-    black_width = 0.75
-    e_width = 0.05
+    colour_width = 1.5
+    black_width = 1.
+    e_width = 0.1
 
     # default_conductance = [1 - default_cond for default_cond in default_conductance ]
     # conductance = [1 - cond for cond in conductance]
 
     # plot hyperparameter results in full colour
-    ax.bar(x_axis_names, f1, yerr=f1_std, ecolor=alt_colours[0],
-           width=bar_width, facecolor=alt_colours[0], alpha=0.8, linewidth=0, label='f1')
-    ax.errorbar(x_axis_names, f1, f1_std, ecolor=alt_colours[0], elinewidth=colour_width, linewidth=0)
-    ax.bar(x_axis_names + bar_width, nmi, yerr=nmi_std, ecolor=alt_colours[1],
-           width=bar_width, facecolor=alt_colours[1], alpha=0.8, linewidth=0, label='nmi')
-    ax.errorbar(x_axis_names + bar_width, nmi, nmi_std, ecolor=alt_colours[1], elinewidth=colour_width, linewidth=0)
-    ax.bar(x_axis_names + (2 * bar_width), modularity, yerr=modularity_std, ecolor=alt_colours[2],
-           width=bar_width, facecolor=alt_colours[2], alpha=0.8, linewidth=0, label='modularity')
-    ax.errorbar(x_axis_names + (2 * bar_width), modularity, modularity_std, ecolor=alt_colours[2], elinewidth=colour_width, linewidth=0)
-    ax.bar(x_axis_names + (3 * bar_width), conductance, yerr=conductance_std, ecolor=alt_colours[3],
-           width=bar_width, facecolor=alt_colours[3], alpha=0.8, linewidth=0, label='conductance')
-    ax.errorbar(x_axis_names + (3 * bar_width), conductance, conductance_std, ecolor=alt_colours[3], elinewidth=colour_width, linewidth=0)
+    ax.bar(x_axis_names, f1, ecolor=alt_colours[0],
+           width=bar_width, facecolor=alt_colours[0], alpha=1., linewidth=0, label='f1')
+    ax.errorbar(x_axis_names, f1, f1_std, ecolor=error_colours[0], elinewidth=colour_width, linewidth=0)
+    ax.bar(x_axis_names + bar_width, nmi, ecolor=alt_colours[1],
+           width=bar_width, facecolor=alt_colours[1], alpha=1., linewidth=0, label='nmi')
+    ax.errorbar(x_axis_names + bar_width, nmi, nmi_std, ecolor=error_colours[1], elinewidth=colour_width, linewidth=0)
+    ax.bar(x_axis_names + (2 * bar_width), modularity, ecolor=alt_colours[2],
+           width=bar_width, facecolor=alt_colours[2], alpha=1., linewidth=0, label='modularity')
+    ax.errorbar(x_axis_names + (2 * bar_width), modularity, modularity_std, ecolor=error_colours[2], elinewidth=colour_width, linewidth=0)
+    ax.bar(x_axis_names + (3 * bar_width), conductance, ecolor=alt_colours[3],
+           width=bar_width, facecolor=alt_colours[3], alpha=1., linewidth=0, label='conductance')
+    ax.errorbar(x_axis_names + (3 * bar_width), conductance, conductance_std, ecolor=error_colours[3], elinewidth=colour_width, linewidth=0)
 
-    # plot default parameters bars in dashed lines
-    blank_colours = np.zeros(4)
-    ax.bar(x_axis_names, default_f1, yerr=default_f1_std, width=bar_width,
-           facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--', label='default values')
-    ax.errorbar(x_axis_names, default_f1, default_f1_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
-    ax.bar(x_axis_names + bar_width, default_nmi, yerr=default_nmi_std, width=bar_width,
-           facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--')
-    ax.errorbar(x_axis_names + bar_width, default_nmi, default_nmi_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
-    ax.bar(x_axis_names + (2 * bar_width), default_modularity, yerr=default_modularity_std, width=bar_width, 
-           facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--')
-    ax.errorbar(x_axis_names + (2 * bar_width), default_modularity, default_modularity_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
-    ax.bar(x_axis_names + (3 * bar_width), default_conductance, yerr=default_conductance_std,
-           facecolor=blank_colours, width=bar_width, edgecolor='black', linewidth=black_width, linestyle='--')
-    ax.errorbar(x_axis_names + (3 * bar_width), default_conductance, default_conductance_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
+    if include_defaults:
+        # plot default parameters bars in dashed lines
+        blank_colours = np.zeros(4)
+        ax.bar(x_axis_names, default_f1, yerr=default_f1_std, width=bar_width,
+            facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--', label='default values')
+        ax.errorbar(x_axis_names, default_f1, default_f1_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
+        ax.bar(x_axis_names + bar_width, default_nmi, yerr=default_nmi_std, width=bar_width,
+            facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--')
+        ax.errorbar(x_axis_names + bar_width, default_nmi, default_nmi_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
+        ax.bar(x_axis_names + (2 * bar_width), default_modularity, yerr=default_modularity_std, width=bar_width, 
+            facecolor=blank_colours, edgecolor='black', linewidth=black_width, linestyle='--')
+        ax.errorbar(x_axis_names + (2 * bar_width), default_modularity, default_modularity_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
+        ax.bar(x_axis_names + (3 * bar_width), default_conductance, yerr=default_conductance_std,
+            facecolor=blank_colours, width=bar_width, edgecolor='black', linewidth=black_width, linestyle='--')
+        ax.errorbar(x_axis_names + (3 * bar_width), default_conductance, default_conductance_std, ecolor='black', elinewidth=e_width, linewidth=e_width, linestyle='none')
 
     # create the tick labels for axis
-    ax.set_xticks(x_axis_names - 0.5 * bar_width)
-    algorithms = [algo.upper() if algo != 'dmon' else 'DMoN' for algo in algorithms]
+    # ax.set_xticks(x_axis_names - 0.5 * bar_width)
+    # algorithms = [algo.upper() if algo != 'dmon' else 'DMoN' for algo in algorithms]
+    # if dataset_name == 'cora' or dataset_name == 'amap' or dataset_name == 'citeseer' or dataset_name == 'dblp' or dataset_name == 'bat' or dataset_name == 'texas':
+    #     ax.set_xticklabels(algorithms,ha='left', position=(-0.15, 0))
+    # else:
+    #     ax.set_xticklabels(algorithms, ha='left', rotation=-45, position=(-0.3, 0))
+    
     if dataset_name == 'cora' or dataset_name == 'amap' or dataset_name == 'citeseer' or dataset_name == 'dblp' or dataset_name == 'bat' or dataset_name == 'texas':
-        ax.set_xticklabels(algorithms,ha='left', position=(-0.15, 0))
+        ax.tick_params(which='major', length=0., color='black', axis='x', pad=7)
+        ax.xaxis.set_major_locator(IndexLocator(base=1, offset=0.5))
+        ax.set_xticklabels([algo.upper() if algo != 'dmon' else 'DMoN' for algo in algorithms], ha='center')
+
+        # ax.tick_params(which='major', length=0., color='black', axis='x')
+        ax.xaxis.set_major_locator(IndexLocator(base=1, offset=0.5))
+
+        ax.tick_params(which='minor', length=7, color='black', width=1)
+        ax.xaxis.set_minor_locator(IndexLocator(base=0.5, offset=0.))
     else:
-        ax.set_xticklabels(algorithms, ha='left', rotation=-45, position=(-0.3, 0))
+        ax.set_xticks(x_axis_names - 0.5 * bar_width)
+        ax.set_xticklabels([algo.upper() if algo != 'dmon' else 'DMoN' for algo in algorithms], ha='left', rotation=-45, position=(-0.3, 0))
 
     ax.set_axisbelow(True)
 
@@ -324,6 +353,7 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
         item.set_fontsize(12)
     
     ax.set_ylim(bottom=0)
+    ax.set_xlim(0.0-(bar_width/2), len(algorithms)-(bar_width/2))
     #ax.set_xlabel('Algorithm')
     #ax.set_ylabel('Test Metric Result')
 
@@ -609,8 +639,7 @@ def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
     ax.set_xlim(1-(bar_width/2), len(algorithms)+1-(bar_width/2))
     ax.set_yticks(range(0, all_ranks_per_algo.shape[0]+1))
 
-
-
+    ax.set_ylim(0, 10)
     #ax.text(0.4, 0.85, ave_overlap_text, fontsize=20, transform=ax.transAxes, zorder=1000)
     ax.tick_params(axis='x', labelsize=14)
     ax.tick_params(axis='y', labelsize=14)
@@ -626,6 +655,11 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
     fig = plt.figure(figsize=(9, 10))
     axs = []
 
+    if 'uadgn' in algorithms:
+        include_defaults = False
+    else:
+        include_defaults = True
+
     # Define GridSpec: 2 rows and 2 columns for more precise control
     gs = gridspec.GridSpec(2, 2)
     axs.append(fig.add_subplot(gs[0, 0:2]))  
@@ -636,21 +670,44 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
         axs.append(fig.add_subplot(gs[1, 1]))  # Second plot spans columns 
 
     for dataset_name, ax in zip(datasets, axs):
-        ax = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax, search_first_hpo, search_first_default)
+        ax = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax, search_first_hpo, search_first_default, include_defaults)
 
     handles = []
-    alt_colours = ['C2', 'C0', 'C1', 'C3']
+    alt_colours = ["#2CA02C", '#BF699F', 'tab:red', 'tab:blue']
     metrics = ['F1', 'NMI', r'$\mathcal{M}$', r'$\mathcal{C}$']
     fig.tight_layout()
     for i in range(len(alt_colours)):
         handles.append(mlines.Line2D([], [], color=alt_colours[i], linewidth=8, label=metrics[i]))
 
-    handles.append(mlines.Line2D([], [], color='black', linewidth=8, label='Default\nHyperparameters'))
+    if include_defaults:
+
+        class LabeledObject(object):
+            def __init__(self, label):
+                self.label = label
+            
+            def get_label(self):
+                return self.label
+
+        class CustomRectangleHandler(object):
+            def legend_artist(self, legend, orig_handle, fontsize, handlebox):
+                x0, y0 = handlebox.xdescent, handlebox.ydescent
+                width, height = handlebox.width, handlebox.height
+                patch = mpatches.Rectangle([x0, y0], width, height, facecolor='none',
+                                        edgecolor='black', linestyle='--', lw=1,
+                                        transform=handlebox.get_transform())
+                handlebox.add_artist(patch)
+                return patch
+
+        custom_rect = LabeledObject('Default\nHyperparameters')
+        handles.append(custom_rect)
+
+
+        # handles.append(mlines.Line2D([], [], color=[0,0,0,0], linewidth=1, markeredgewidth=1.5, marker="s", markersize=10, linestyle=':', markeredgecolor='black', label='Default\nHyperparameters'))
 
     blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
     blank_ax.axis('off')
     #blank_ax.legend(handles=handles, bbox_to_anchor=(0.975, 0.2), fontsize=14)
-    blank_ax.legend(handles=handles, loc='lower center', fontsize=14, ncols=5)
+    blank_ax.legend(handles=handles, loc='lower center', fontsize=14, ncols=5, handler_map={LabeledObject: CustomRectangleHandler()})
     fig.subplots_adjust(bottom=0.15)
 
     if 'cora' in datasets or 'amap' in datasets:
@@ -957,7 +1014,7 @@ def create_random_results(n_tests, n_seeds, n_algorithms):
         ranks.append(test)
     return np.asarray(ranks)
 
-def extract_results(datasets, algorithms, folder, extract_validation=False, return_df=False):
+def extract_results(datasets, algorithms, folder, sfirst_folder, extract_validation=False, return_df=False):
     # modularity and conductance may have different hyperparameters or model selection points 
     mod_results = []
     con_results = []
@@ -967,18 +1024,31 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
     for dataset in datasets:
         for algo in algorithms:
             filename = f"{dataset}_{algo}.pkl"
+            file_found1 = search_results(sfirst_folder, filename)
             file_found = search_results(folder, filename)
-            if file_found:
-                result = pickle.load(open(file_found, "rb"))
-            
+            if file_found or file_found1:
+                if file_found1:
+                    result = pickle.load(open(file_found1, "rb"))
+                    print(f'search first found: {filename}')
+                elif file_found: 
+                    result = pickle.load(open(file_found, "rb"))
+                    print(f'old result: {filename}')
+
+                if filename == 'cora_sublime.pkl':
+                    result = pickle.load(open(file_found, "rb"))
+                    
                 for seed_result in result.results:
                     ################# ========== CHANGE BECOS STRING? ========== ###################
+                    # print(f'{seed_result.seed}')
                     for metric_result in seed_result.study_output:
-                        if 'modularity' in metric_result.metrics:
+
+                        if 'modularity' in metric_result.metrics or 'modularity' == metric_result.metrics:
+                            # print('Mod')
                             if extract_validation: 
                                 mod = metric_result.validation_results['modularity']['modularity']
                             else: 
                                 mod = metric_result.results['modularity']
+                            mod = mod_to_real(mod)
                             f1 = metric_result.results['f1']
                             nmi = metric_result.results['nmi']
                             mod_results.append([mod, f1, nmi])
@@ -986,11 +1056,13 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
                             df.loc[len(df)] = {'Dataset': dataset, 'Algorithm': algo, 'Seed': seed_result.seed, 'A_Metric': 'Modularity', 'A_Metric_Value': mod, 'B_Metric': 'NMI', 'B_Metric_Value': nmi}
 
 
-                        if 'conductance' in metric_result.metrics:
+                        if 'conductance' in metric_result.metrics or 'conductance' == metric_result.metrics:
+                            # print('Con')
                             if extract_validation: 
                                 con = metric_result.validation_results['conductance']['conductance']
                             else:
                                 con = metric_result.results['conductance']
+                            con = 1 - con
                             f1 = metric_result.results['f1']
                             nmi = metric_result.results['nmi']
                             con_results.append([con, f1, nmi])
@@ -1012,7 +1084,7 @@ def extract_results(datasets, algorithms, folder, extract_validation=False, retu
     else: 
         return mod_results, con_results
 
-def extract_supervised_results(datasets, algorithms, folder):
+def extract_supervised_results(datasets, algorithms, folder, sfirst_folder):
     ################# ========== CHANGE TO MINUS 10 ========== ###################
     f1_nmi_results = np.zeros((len(datasets)*len(algorithms)*10, 2))
     i = 0
@@ -1020,16 +1092,22 @@ def extract_supervised_results(datasets, algorithms, folder):
     for dataset in datasets:
         for algo in algorithms:
             filename = f"{dataset}_{algo}.pkl"
+            file_found1 = search_results(sfirst_folder, filename)
             file_found = search_results(folder, filename)
-            if file_found:
-                result = pickle.load(open(file_found, "rb"))
+            if file_found or file_found1:
+                if file_found1:
+                    result = pickle.load(open(file_found1, "rb"))
+                    print(f'search first found: {filename}')
+                elif file_found: 
+                    result = pickle.load(open(file_found, "rb"))
+                    print(f'old result: {filename}')
             
                 for seed_result in result.results:
                     for metric_result in seed_result.study_output:
                         ################# ========== CHANGE BECOS STRING? ========== ###################
-                        if 'f1' in metric_result.metrics:
+                        if 'f1' in metric_result.metrics or 'f1' == metric_result.metrics:
                             f1_nmi_results[i, 0] = metric_result.results['f1']
-                        if 'nmi' in metric_result.metrics:
+                        if 'nmi' in metric_result.metrics or 'nmi' == metric_result.metrics:
                             f1_nmi_results[i, 1] = metric_result.results['nmi']
                     i += 1
             else:
@@ -1068,10 +1146,10 @@ def calc_percent_increase(f1_nmi_results, dmod_results, dcon_results):
     print(f'Abs Difference from using Conductance to select for NMI compared to just NMI: {con_nmi:.2f}')
     return
 
-def print_dataset_table(datasets, algorithms, folder, power_d=2):
+def print_dataset_table(datasets, algorithms, folder, sfirst_folder, power_d=2):
     # extract results
     for dataset in datasets:
-        mod_results, con_results = extract_results([dataset], algorithms, folder)
+        mod_results, con_results = extract_results([dataset], algorithms, folder, sfirst_folder)
         print(dataset, end = ' ')
         print(f'mod_f1_nmi: {np.mean(mod_results[:, 0]):.3f} & {np.mean(mod_results[:, 1]):.3f} & {np.mean(mod_results[:, 2]):.3f}', end=' ')
         print(f'con_f1_nmi: {np.mean(con_results[:, 0]):.3f} & {np.mean(con_results[:, 1]):.3f} & {np.mean(con_results[:, 2]):.3f}', end=' ')
@@ -1085,9 +1163,9 @@ def print_dataset_table(datasets, algorithms, folder, power_d=2):
             print(f'& {r_value_quad:.2f}', end=' ')
         print('')
 
-def print_algo_table(datasets, algorithms, folder, power_d=2):
+def print_algo_table(datasets, algorithms, folder, sfirst_folder, power_d=2):
     for algorithm in algorithms:
-        mod_results, con_results = extract_results(datasets, [algorithm], folder)
+        mod_results, con_results = extract_results(datasets, [algorithm], folder, sfirst_folder)
         print(algorithm, end = ' ')
         print(f'mod_f1_nmi: {np.mean(mod_results[:, 0]):.3f} & {np.mean(mod_results[:, 1]):.3f} & {np.mean(mod_results[:, 2]):.3f}', end=' ')
         print(f'con_f1_nmi: {np.mean(con_results[:, 0]):.3f} & {np.mean(con_results[:, 1]):.3f} & {np.mean(con_results[:, 2]):.3f}', end=' ')
@@ -1143,10 +1221,7 @@ def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorit
         ranking = np.zeros_like(tempresult)
         for d, dataset_res in enumerate(tempresult):
             for s, seed_res in enumerate(dataset_res):
-                if testname == 'Conductance':
-                    ranking[d, s, :] = rank_values(seed_res) + 1
-                else:
-                    ranking[d, s, :] = np.flip(rank_values(seed_res) + 1)
+                ranking[d, s, :] = np.flip(rank_values(seed_res) + 1)
 
         w_order = []
         for test in ranking:
@@ -1154,13 +1229,13 @@ def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorit
         w_order = np.array(w_order)
         total_w_order.append(w_order)
         # the W order of each metric tests
-        print(f"{testname} W_w Order: {np.mean(w_order):.3f} +- {np.std(w_order):.3f}")
+        print(f"{testname} W_m Order: {np.mean(w_order):.3f}")
     # the W order over the whole 66% experiment
     total_w_order = np.asarray(total_w_order)
     
     return total_w_order
 
-def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend=False):
+def unsupervised_prediction_graph(datasets, algorithms, folder, sfirst_folder, title, pltlegend=False):
     #plt.style.use(['science', 'nature'])
     nature_colours = ["#0C5DA5", "#00B945", "#FF9500", "#FF2C00", "#845B97", "#474747", "#9e9e9e"]
     algorithm_colors = ["#434982", "#00B945", "#EA907A", "#845B97", "#4F8A8B", "#FFCB74", "#B5DEFF"]
@@ -1170,7 +1245,7 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
     else: 
         extract_validation = False
     ################# ========== LOADED OBJECT ========== ###################
-    mod_results, con_results, df = extract_results(datasets, algorithms, folder, extract_validation=extract_validation, return_df=True)
+    mod_results, con_results, df = extract_results(datasets, algorithms, folder, sfirst_folder, extract_validation=extract_validation, return_df=True)
 
     testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
 
@@ -1223,7 +1298,9 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
         # Calculate predicted values
         predicted_y = poly(x)
         r_value_line = np.round(r2_score(y, predicted_y), 3)
-        print(f"Linear (R^2): {r_value_line}")
+        predictor_varibables = 1
+        r_value_line = 1 - (1-r_value_line) * (len(y)-1)/(len(y)-predictor_varibables-1)
+        print(f"Linear Adjusted (R^2): {r_value_line}")
         y_line = poly(x_space)
         
         # Fit a quadratic line
@@ -1232,7 +1309,9 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
         # Calculate predicted values
         predicted_y = poly(x)
         r_value_quad = np.round(r2_score(y, predicted_y), 3)
-        print(f"Quadratic (R^2): {r_value_quad}")
+        predictor_varibables = 2
+        r_value_quad = 1 - (1-r_value_quad) * (len(y)-1)/(len(y)-predictor_varibables-1)
+        print(f"Quadratic Adjusted (R^2): {r_value_quad}")
         y_line_quad = poly(x_space)
 
         # spearmans  
@@ -1259,7 +1338,10 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
                 else:
                     algo_name = algorithms[a]
                 if opt_in == 5:
-                    handles.append(mlines.Line2D([], [], label=algo_name.upper(), color=col, marker="s", linestyle='None', markersize=7))
+                    if algo_name == 'dmon':
+                        handles.append(mlines.Line2D([], [], label='DMoN', color=col, marker="s", linestyle='None', markersize=7))
+                    else:
+                        handles.append(mlines.Line2D([], [], label=algo_name.upper(), color=col, marker="s", linestyle='None', markersize=7))
 
                 ax.scatter(df_axis[df_axis['Algorithm'] == algorithms[a]]['A_Metric_Value'], df_axis[df_axis['Algorithm'] == algorithms[a]]['B_Metric_Value'], color=col, s=10, marker=markers[opt_in])
 
@@ -1295,8 +1377,8 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
         ax.tick_params(axis='y', labelsize=12)
         ax.tick_params(axis='x', labelsize=12)
        
-    print_algo_table(datasets, algorithms, folder)
-    print_dataset_table(datasets, algorithms, folder)
+    print_algo_table(datasets, algorithms, folder, sfirst_folder)
+    print_dataset_table(datasets, algorithms, folder, sfirst_folder)
     plt.tight_layout()
     if "Large" not in title:
         fig.suptitle(title, fontsize=18)
@@ -1319,17 +1401,19 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, title, pltlegend
             title_name = title.replace(" ", "_")
             title_name = title_name.replace("\'", "")
 
-        plt.savefig(f'./figures/thesis/{title_name}.pdf')
+        plt.savefig(f'./figures/postvivathesis/{title_name}.pdf')
     if pltlegend:
         return handles
 
-def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims, figsize, plot_legend=False):
+def create_abs_performance_figure(datasets, algorithms, folder, sfirst_folder, title, plot_dims, figsize, plot_legend=False, default_algos=None, default_folder=None, default_sfirst_folder=None):
     plt.rcParams["hatch.linewidth"] = 0.3
 
     nature_colours = ["#0C5DA5", "#00B945", "#FF9500", "#FF2C00", "#845B97", "#474747", "#9e9e9e"]
     my_colours2 = ["#FF9500", "gold", "#FF2C00", "#0C5DA5", "#B5DEFF", "#845B97"]
     my_colours1 = ['tab:red', 'tab:purple', 'tab:pink', 'tab:blue', 'tab:cyan', 'deepskyblue']
-    my_colours = ['tab:red', 'darkorange', '#FDC010', 'tab:blue', 'tab:purple', 'paleturquoise']
+    my_colours = ['tab:red', 'darkorange', '#FDC010', 'tab:blue', 'tab:purple', '#78C7FF']
+    error_colours = ["#D66363", "#F0A360", "#FCD668", "#68B8ED", "#C69DEB", "paleturquoise"]
+
 
     nrows, ncols = plot_dims[0], plot_dims[1]
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
@@ -1338,27 +1422,45 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
     x_axis_points = np.arange(len(x_axis_names))
     bar_width = 1/6
 
+    if default_algos != None:
+        include_defaults = True
+    else:
+        include_defaults = False
+
     for i, ax in enumerate(axes.flat):
         dataset = datasets[i]
+        print(f'\n\n{dataset}')
         ################# ========== LOADED OBJECT ========== ###################
-        mod_results, con_results = extract_results([dataset], algorithms, folder)
+        mod_results, con_results = extract_results([dataset], algorithms, folder, sfirst_folder)
+        if include_defaults:
+            def_mod_results, def_con_results = extract_results([dataset], default_algos, default_folder, default_sfirst_folder)
 
 
         testnames = ["Modularity", "Modularity F1", "Modularity NMI", "Conductance", "Conductance F1", "Conductance NMI"]
         total_w_order = np.mean(compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorithms, [dataset]))
+        if include_defaults:
+            def_total_w_order = np.mean(compute_w_order_for_mod_and_con(def_mod_results, def_con_results, testnames, default_algos, [dataset]))
 
-        if dataset == 'dblp':
-            ax.set_title("DBLP" + ' (' + r'$\mathcal{W}^w$' + f': {total_w_order:.2f})', fontsize=15)
-        elif 'synth' in dataset:
-            dataset_name = r"$\textbf{A}$" + ": " + dataset.split("_")[1] + '  ' + r"$\textbf{X}$" ": " + dataset.split("_")[2]
-            dataset_name = dataset_name.replace("disjoint", "Distinct")
-            dataset_name = dataset_name.replace("random", "Random")
-            dataset_name = dataset_name.replace("complete", "Null")
-            ax.set_title(dataset_name + ' (' + r'$\mathcal{W}^w$' + f': {total_w_order:.2f})', fontsize=12)
-        elif dataset == 'citeseer':
-            ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}^w$' + f': {total_w_order:.2f})', fontsize=15)
+        if not include_defaults:
+            if dataset == 'dblp':
+                ax.set_title("DBLP" + ' (' + r'$\mathcal{W}^{w}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
+            elif 'synth' in dataset:
+                dataset_name = r"$\textbf{A}$" + ": " + dataset.split("_")[1] + '  ' + r"$\textbf{X}$" ": " + dataset.split("_")[2]
+                dataset_name = dataset_name.replace("disjoint", "Distinct")
+                dataset_name = dataset_name.replace("random", "Random")
+                dataset_name = dataset_name.replace("complete", "Null")
+                ax.set_title(dataset_name + ' (' + r'$\mathcal{W}^{w}$' + f': {total_w_order:.2f})', fontsize=12, y=1.01)
+            elif dataset == 'citeseer':
+                ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}^{w}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
+            else:
+                ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}^{w}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
         else:
-            ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}^w$' + f': {total_w_order:.2f})', fontsize=15)
+            if dataset == 'dblp':
+                ax.set_title("DBLP" + ' (' + r'$\mathcal{W}^{w}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{w}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
+            elif dataset == 'citeseer':
+                ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}^{w}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{w}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
+            else:
+                ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}^{w}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{w}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
 
 
         mod = []
@@ -1377,10 +1479,10 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
 
         for algo in algorithms:
             ################# ========== LOADED OBJECT ========== ###################
-            mod_results, con_results = extract_results([dataset], [algo], folder)
+            mod_results, con_results = extract_results([dataset], [algo], folder, sfirst_folder)
 
 
-            con_results[:, 0] = [1 - con_res for con_res in con_results[:, 0]]
+            # con_results[:, 0] = [1 - con_res for con_res in con_results[:, 0]]
             mod.append(np.mean(mod_results[:, 0]))
             mod_f1.append(np.mean(mod_results[:, 1]))
             mod_nmi.append(np.mean(mod_results[:, 2]))
@@ -1397,67 +1499,191 @@ def create_abs_performance_figure(datasets, algorithms, folder, title, plot_dims
 
 
         ax.bar(x_axis_points, mod, width=bar_width, linewidth=0, facecolor=my_colours[0])
-        ax.errorbar(x_axis_points, mod, mod_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+        ax.errorbar(x_axis_points, mod, mod_std, ecolor=error_colours[0], elinewidth=1.5, linewidth=0)
 
         ax.bar(x_axis_points + 1/6, mod_f1, width=bar_width, linewidth=0, facecolor=my_colours[1])
-        ax.errorbar(x_axis_points + 1/6, mod_f1, mod_f1_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+        ax.errorbar(x_axis_points + 1/6, mod_f1, mod_f1_std, ecolor=error_colours[1], elinewidth=1.5, linewidth=0)
 
         ax.bar(x_axis_points + 1/3, mod_nmi, width=bar_width, linewidth=0, facecolor=my_colours[2])
-        ax.errorbar(x_axis_points + 1/3, mod_nmi, mod_nmi_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+        ax.errorbar(x_axis_points + 1/3, mod_nmi, mod_nmi_std, ecolor=error_colours[2], elinewidth=1.5, linewidth=0)
 
         ax.bar(x_axis_points + 1/2, con, width=bar_width, linewidth=0,  facecolor=my_colours[3])
-        ax.errorbar(x_axis_points + 1/2, con, con_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+        ax.errorbar(x_axis_points + 1/2, con, con_std, ecolor=error_colours[3], elinewidth=1.5, linewidth=0)
         
         ax.bar(x_axis_points + 2/3, con_f1, width=bar_width, linewidth=0, facecolor=my_colours[4])
-        ax.errorbar(x_axis_points + 2/3, con_f1, con_f1_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+        ax.errorbar(x_axis_points + 2/3, con_f1, con_f1_std, ecolor=error_colours[4], elinewidth=1.5, linewidth=0)
         
         ax.bar(x_axis_points + 5/6, con_nmi, width=bar_width, linewidth=0, facecolor=my_colours[5])
-        ax.errorbar(x_axis_points + 5/6, con_nmi, con_nmi_std, ecolor=nature_colours[5], elinewidth=0.75, linewidth=0)
+        ax.errorbar(x_axis_points + 5/6, con_nmi, con_nmi_std, ecolor=error_colours[5], elinewidth=1.5, linewidth=0)
+
+
+        if include_defaults:
+            blank_colours = np.zeros(4)
+            mod = []
+            mod_f1 = []
+            mod_nmi = []
+            con = []
+            con_f1 = []
+            con_nmi = []
+
+            mod_std = []
+            mod_f1_std = []
+            mod_nmi_std = []
+            con_std = []
+            con_f1_std = []
+            con_nmi_std = []
+
+            for algo in default_algos:
+                ################# ========== LOADED OBJECT ========== ###################
+                mod_results, con_results = extract_results([dataset], [algo], default_folder, default_sfirst_folder)
+
+
+                # con_results[:, 0] = [1 - con_res for con_res in con_results[:, 0]]
+                mod.append(np.mean(mod_results[:, 0]))
+                mod_f1.append(np.mean(mod_results[:, 1]))
+                mod_nmi.append(np.mean(mod_results[:, 2]))
+                con.append(np.mean(con_results[:, 0]))
+                con_f1.append(np.mean(con_results[:, 1]))
+                con_nmi.append(np.mean(con_results[:, 2]))
+
+                mod_std.append(np.std(mod_results[:, 0]))
+                mod_f1_std.append(np.std(mod_results[:, 1]))
+                mod_nmi_std.append(np.std(mod_results[:, 2]))
+                con_std.append(np.std(con_results[:, 0]))
+                con_f1_std.append(np.std(con_results[:, 1]))
+                con_nmi_std.append(np.std(con_results[:, 2]))
+
+
+            ax.bar(x_axis_points, mod, width=bar_width, linewidth=1., facecolor=blank_colours, linestyle='--', edgecolor='black')
+            ax.errorbar(x_axis_points, mod, mod_std, elinewidth=1., ecolor='black', linewidth=0.)
+
+            ax.bar(x_axis_points + 1/6, mod_f1, width=bar_width, linewidth=1., facecolor=blank_colours, linestyle='--', edgecolor='black')
+            ax.errorbar(x_axis_points + 1/6, mod_f1, mod_f1_std, elinewidth=1., ecolor='black', linewidth=0.)
+
+            ax.bar(x_axis_points + 1/3, mod_nmi, width=bar_width, linewidth=1., facecolor=blank_colours, linestyle='--', edgecolor='black')
+            ax.errorbar(x_axis_points + 1/3, mod_nmi, mod_nmi_std, elinewidth=1., ecolor='black', linewidth=0.)
+
+            ax.bar(x_axis_points + 1/2, con, width=bar_width, linewidth=1.,  facecolor=blank_colours, linestyle='--', edgecolor='black')
+            ax.errorbar(x_axis_points + 1/2, con, con_std, elinewidth=1., ecolor='black', linewidth=0.)
+            
+            ax.bar(x_axis_points + 2/3, con_f1, width=bar_width, linewidth=1., facecolor=blank_colours, linestyle='--', edgecolor='black')
+            ax.errorbar(x_axis_points + 2/3, con_f1, con_f1_std, elinewidth=1., ecolor='black', linewidth=0.)
+            
+            ax.bar(x_axis_points + 5/6, con_nmi, width=bar_width, linewidth=1., facecolor=blank_colours, linestyle='--', edgecolor='black')
+            ax.errorbar(x_axis_points + 5/6, con_nmi, con_nmi_std, elinewidth=1., ecolor='black', linewidth=0.)
+
 
         if "Large" not in title:
-            ax.set_xticks(x_axis_points - 0.5 * bar_width)
-            ax.set_xticklabels([name.upper() if name != 'dmon' else 'DMoN' for name in x_axis_names], ha='left', rotation=-45, position=(-0.5, 0.0), fontsize=9)
+            # ax.set_xticks(x_axis_points - 0.5 * bar_width)
+
+            ax.tick_params(which='major', length=0., color='black', axis='x', pad=7)
+            ax.xaxis.set_major_locator(IndexLocator(base=1, offset=0.5))
+            ax.set_xticklabels([name.upper() if name != 'dmon' else 'DMoN' for name in x_axis_names], ha='center', fontsize=12)
+
+            # ax.tick_params(which='major', length=0., color='black', axis='x')
+            ax.xaxis.set_major_locator(IndexLocator(base=1, offset=0.5))
+
+            ax.tick_params(which='minor', length=7, color='black', width=1)
+            ax.xaxis.set_minor_locator(IndexLocator(base=0.5, offset=0.))
+
+
+ 
+            # # Shift the labels by +0.5 on the x-axis
+            # #  Get current tick positions and labels
+            # tick_positions = ax.get_xticks()
+            # tick_labels = [tick.get_text() for tick in ax.get_xticklabels()]
+            # # Shift the tick labels by +0.5 on the x-axis
+            # new_tick_positions = tick_positions + 0.5
+            # # Set the ticks and new positions, reusing the original labels
+            # for mtl, myticklabel in enumerate(tick_labels):
+            #     ax.set_xticklabels(tick_labels, position=(new_tick_positions[mtl], 0))
+
         else:
             ax.set_xticks(x_axis_points + 0.4)
-            ax.set_xticklabels([name.upper() if name != 'dmon' else 'DMoN' for name in x_axis_names], fontsize=15)
+            ax.set_xticklabels([name.upper() if name != 'dmon' else 'DMoN' for name in x_axis_names], ha='left', fontsize=15)
+            
         
         ax.set_axisbelow(True)
         ax.set_ylim(0.0, 1.0)
+        ax.set_xlim(0.0-(bar_width/2), len(x_axis_points)-(bar_width/2))
+
 
     if "Large" not in title:
         fig.suptitle(title, fontsize=18)
     else:
         fig.suptitle(title, fontsize=18) 
-
     plt.tight_layout()
     if plot_legend:
         if "Synth" in title:
            plt.subplots_adjust(top=0.92, bottom=0.12, hspace=0.45)
         else:
-           plt.subplots_adjust(top=0.92, bottom=0.13, hspace=0.25)
+           plt.subplots_adjust(top=0.92, bottom=0.12, hspace=0.17)
         blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
         blank_ax.axis('off')
         handles = []
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[0], label=r'$\mathcal{M}$'))
-        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[3], label=r'$\mathcal{C}$'))
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[1], label=r'$\mathcal{M} \rightarrow$ F1', edgecolor='black'))
-        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[4], label=r'$\mathcal{C} \rightarrow$ F1', edgecolor='black'))
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[2], label=r'$\mathcal{M} \rightarrow$ NMI', edgecolor='black'))
+
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[3], label=r'$\mathcal{C}$'))
+        handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[4], label=r'$\mathcal{C} \rightarrow$ F1', edgecolor='black'))
         handles.append(mpatches.Patch(linewidth=0, facecolor=my_colours[5], label=r'$\mathcal{C} \rightarrow$ NMI',  edgecolor='black'))
-        blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3)
+        if include_defaults:
+            handles.append(mlines.Line2D([], [], color=[0,0,0,0], linewidth=0, label=''))
+
+            # # Define the font (Times New Roman)
+            # font_properties = fm.FontProperties(family='DejaVu Sans', size=20)
+            # # Create the text path for the custom symbol (U+26F6)
+            # symbol_path = TextPath((0, 0), '$\U00002B1A$', prop=font_properties)
+            # # Create a patch from the path
+            # symbol_patch = PathPatch(symbol_path, transform=IdentityTransform(), lw=1.5, edgecolor='black', facecolor='none')
+            # handles.append(mlines.Line2D([], [], color=[0,0,0,0], linewidth=1, markeredgewidth=1.5, marker=symbol_patch, markersize=10, linestyle=':', markeredgecolor='black', label='Default Hyperparameters'))
+            # handles.append(mlines.Line2D([0, 1, 1, 0, 0], [0, 0, 1, 1, 0], linestyle='--', color='black', linewidth=2, label='Default Hyperparameters'))
+            # handles.append(mlines.Line2D([], [], color=[0,0,0,0], linewidth=1, markeredgewidth=1.5, marker="s", markersize=10, linestyle=':', markeredgecolor='black', label='Default Hyperparameters'))
+            # handles.append(mlines.Line2D([], [], color=[0,0,0,0], linewidth=0, label='Default Hyperparameters'))
+            # handles.append(mlines.Line2D([], [], color=[0,0,0,0], linewidth=0, label=''))
+            class LabeledObject(object):
+                def __init__(self, label):
+                    self.label = label
+                
+                def get_label(self):
+                    return self.label
+
+            class CustomRectangleHandler(object):
+                def legend_artist(self, legend, orig_handle, fontsize, handlebox):
+                    x0, y0 = handlebox.xdescent, handlebox.ydescent
+                    width, height = handlebox.width, handlebox.height
+                    patch = mpatches.Rectangle([x0, y0], width, height, facecolor='none',
+                                            edgecolor='black', linestyle='--', lw=1,
+                                            transform=handlebox.get_transform())
+                    handlebox.add_artist(patch)
+                    return patch
+
+            custom_rect = LabeledObject('Default Hyperparameters')
+            handles.append(custom_rect)
+
+            blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3, handler_map={LabeledObject: CustomRectangleHandler()})
+        else:
+            blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3)
 
     save_name = f'{os.path.basename(os.path.normpath(folder))}'
     save_name = save_name.replace("\'", "")
-    plt.savefig(f'./figures/thesis/{save_name}.pdf')
+    print(f'Saving: {save_name}')
+    if 'citeseer' in datasets:
+        plt.savefig(f'./figures/postvivathesis/{save_name}.pdf')
+    elif 'texas' in datasets: 
+        plt.savefig(f'./figures/postvivathesis/{save_name}_1.pdf')    
+    elif 'wisc' in datasets: 
+        plt.savefig(f'./figures/postvivathesis/{save_name}_2.pdf')
     if plot_legend:
         return handles
 
-def calculate_framework_comparison_rank(datasets, algorithms, folder, default_algorithms, dfolder):
+def calculate_framework_comparison_rank(datasets, algorithms, folder, default_algorithms, dfolder, sfirst_folder, sfirst_dfolder):
     # get results for both
-    mod_results, con_results = extract_results(datasets, algorithms, folder)
-    dmod_results, dcon_results = extract_results(datasets, default_algorithms, dfolder)
-    dcon_results[:, 0] = 1 - dcon_results[:, 0]
-    con_results[:, 0] = 1 - con_results[:, 0]
+    mod_results, con_results = extract_results(datasets, algorithms, folder, sfirst_folder)
+    dmod_results, dcon_results = extract_results(datasets, default_algorithms, dfolder, sfirst_dfolder)
+    dcon_results[:, 0] = dcon_results[:, 0]
+    con_results[:, 0] = con_results[:, 0]
     result_object = np.concatenate((mod_results.flatten(), con_results.flatten()))
     default_result_object = np.concatenate((dmod_results.flatten(), dcon_results.flatten()))
 
@@ -1482,7 +1708,7 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = True
+    make_ugle = False
     make_big_figure = True
     make_dist_figure = True
     make_presentation_figures = True
@@ -1499,7 +1725,7 @@ if __name__ == "__main__":
 
     if make_ugle:
         algorithms = ['daegc', 'dgi', 'dmon', 'grace', 'mvgrl', 'sublime', 'bgrl', 'vgaer']
-        datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amac', 'amap']
+        datasets = ['cora', 'citeseer', 'dblp', 'bat', 'eat', 'texas', 'wisc', 'cornell', 'uat', 'amap']
         metrics = ['f1', 'nmi', 'modularity', 'conductance']
         folder = './results/legacy_results/progress_results/'
         search_first_post_viva = './post_viva_results/cm/hpo/'
@@ -1526,7 +1752,8 @@ if __name__ == "__main__":
             # =========== DO THE FOLLOWING + OUTPUT RANKINGS FOR ALL DIFFERENT TESTS ========= 
             # fetch absolute results
 
-
+            if 'uadgn' in algorithms: 
+                exit()
             print('\n\n\n==================== PRINTING RANKING TABLE INFO ==========================\n\n\n')
             ################# ========== LOADED OBJECT ========== ###################
             result_object = make_test_performance_object(datasets, algorithms, metrics, seeds, folder, search_first_post_viva)
@@ -1748,7 +1975,7 @@ if __name__ == "__main__":
 
                 test_interval = 1
                 n_tests = result_object.shape[0]
-                n_repeats = 50
+                n_repeats = 100
                 input_idxs = range(0, n_tests)
                 titles = ['Original ' + r'$\mathcal{W}$' + ' Randomness', 'Mean Ties ' + r'$\mathcal{W}^m$' + ' Randomness', 'Mean Ties ' + r'$\mathcal{W}^t$' + ' Randomness', r'$\mathcal{W}^w$' + ' Wasserstein Randomness']
                 w_fns = ['og_randomness', 'og_newOld_randomness', 'ties_randomness', 'wasserstein_randomness']
@@ -1792,6 +2019,9 @@ if __name__ == "__main__":
                         
                         wshpo_cov[a, test_interval-1] = np.std(whpo) / np.mean(whpo)
                         wsdef_cov[a, test_interval-1] = np.std(wdef) / np.mean(wdef)
+
+                    ax.set_xticks([1, 10, 20, 30, n_tests-1])
+                    ax.set_xlim(0.5, n_tests-0.5)
 
                     
                     # PLOTTING FOR W RANDOMNESS FIGURE
@@ -1864,6 +2094,10 @@ if __name__ == "__main__":
 
                     ax2.set_title(titles[a2], fontsize=12)
 
+                    ax2.set_xticks([1, 10, 20, 30, n_tests-1])
+                    ax2.set_xlim(0.5, n_tests-0.5)
+                    ax2.set_ylim(0, None)
+
                 handles = []
                 handles.append(mlines.Line2D([], [], label='HPO Coefficient of Variance', color="C4", marker='.', linestyle='None', markersize=7, linewidth=2))
                 handles.append(mlines.Line2D([], [], label='Default Coefficient of Variance', color="C3", marker='.', linestyle='None', markersize=7, linewidth=2))
@@ -1881,7 +2115,6 @@ if __name__ == "__main__":
                     ax2.text(s=r'HPO $\omega$=' + f'{b_fitshpos[a2]:.2f}', x=0.25, y=0.8, transform=ax2.transAxes)
 
                 fig2.savefig(f"{ugle_path}/figures/postvivathesis/w_dist_covariance.pdf", bbox_inches='tight')
-                print('stop')
                 # PLOTTING LOOK NICE FUNCTIONS
 
 
@@ -1889,16 +2122,20 @@ if __name__ == "__main__":
         q1_folder = './results/unsupervised_limit/default_q1/'
         q2_folder = './results/unsupervised_limit/hpo_q2/'
         qlarge_folder = './results/unsupervised_limit/hpo_large/'
-        q5_folder = './results/unsupervised_limit/synth_default_q5/'
+        # q5_folder = './results/unsupervised_limit/synth_default_q5/'
         q5_folder1 = './results/unsupervised_limit/33_default_q4/'
         q5_folder2 = './results/unsupervised_limit/66_default_q4/'
 
+
+        sfirst_q1_folder = './post_viva_results/ul/default/'
+        sfirst_q2_folder = './post_viva_results/ul/hpo/'
+        sfirst_qlarge_folder = './post_viva_results/ul/hpo_large/'
+        sfirst_q5_folder1 = './post_viva_results/ul/33_train/'
+        sfirst_q5_folder2 = './post_viva_results/ul/66_train/'
+   
+
         seeds = [42, 24, 976, 12345, 98765, 7, 856, 90, 672, 785]
         datasets = ['citeseer', 'cora', 'texas', 'dblp', 'wisc', 'cornell']
-        synth_datasets = ['synth_disjoint_disjoint_2', 'synth_disjoint_random_2', 'synth_disjoint_complete_2',
-                            'synth_random_disjoint_2', 'synth_random_random_2', 'synth_random_complete_2',
-                            'synth_complete_disjoint_2', 'synth_complete_random_2', 'synth_complete_complete_2']
-
         default_algorithms = ['dgi_default', 'daegc_default', 'dmon_default', 'grace_default', 'sublime_default', 'bgrl_default', 'vgaer_default']
         algorithms = ['dgi', 'daegc', 'dmon', 'grace', 'sublime', 'bgrl', 'vgaer']
 
@@ -1906,51 +2143,64 @@ if __name__ == "__main__":
         q1sup_folder = './results/unsupervised_limit/default_sup_select/'
         q2sup_folder = './results/unsupervised_limit/hpo_q2_sup/'
         qlargesup_folder = './results/unsupervised_limit/hpo_large_sup/'
-        synthsup_folder = './results/unsupervised_limit/synth_default_q5_sup/'
+        # synthsup_folder = './results/unsupervised_limit/synth_default_q5_sup/'
         q5sup_33 = './results/unsupervised_limit/default_33_sup/'
         q5sup_66 = './results/unsupervised_limit/default_66_sup/'
+
+
+        sfirst_q1sup_folder = './post_viva_results/ul/default_sup/'
+        sfirst_q2sup_folder = './post_viva_results/ul/hpo_sup/'
+        sfirst_qlargesup_folder = './post_viva_results/ul/hpo_large_sup/'
+        sfirst_q5sup_folder1 = './post_viva_results/ul/33_train_sup/'
+        sfirst_q5sup_folder2 = './post_viva_results/ul/66_train_sup/'
 
         extract_infos = zip([q1_folder, q2_folder, qlarge_folder, qlarge_folder, q5_folder1, q5_folder2], 
                             [q1sup_folder, q2sup_folder, qlargesup_folder, qlargesup_folder, q5sup_33, q5sup_66],
                             [default_algorithms, algorithms, ['dmon'], ['dmon'], default_algorithms, default_algorithms],
-                            [datasets, datasets, ['Photo'], ['Computers'], synth_datasets, datasets, datasets])
+                            [datasets, datasets, ['Photo'], ['Computers'], datasets, datasets],
+                            [sfirst_q1_folder, sfirst_q2_folder, sfirst_qlarge_folder, sfirst_qlarge_folder, sfirst_q5_folder1, sfirst_q5_folder2],
+                            [sfirst_q1sup_folder, sfirst_q2sup_folder, sfirst_qlargesup_folder, sfirst_qlargesup_folder, sfirst_q5sup_folder1, sfirst_q5sup_folder2])
 
         if calc_increases:
-            for norm, sup, algos, dset in extract_infos:
+            for norm, sup, algos, dset, normsfirst, supfirst in extract_infos:
                 # calculate the percentage drops
                 print(sup.split("/")[-2])
                 ################# ========== LOADED OBJECT ========== ###################
-                f1_nmi_results = extract_supervised_results(dset, algos, sup)
+                f1_nmi_results = extract_supervised_results(dset, algos, sup, supfirst)
                 print(norm.split("/")[-2])
                 ################# ========== LOADED OBJECT ========== ###################
-                dmod_results, dcon_results = extract_results(dset, algos, norm)
-                calc_percent_increase(f1_nmi_results, dmod_results, dcon_results)
-
-        if calc_synth_increases:
-            for dset in synth_datasets:
-                print(dset)
-                f1_nmi_results = extract_supervised_results([dset], default_algorithms, synthsup_folder)
-                dmod_results, dcon_results = extract_results([dset], default_algorithms, q5_folder)
+                dmod_results, dcon_results = extract_results(dset, algos, norm, normsfirst)
                 calc_percent_increase(f1_nmi_results, dmod_results, dcon_results)
 
 
-        #calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder)
+            calculate_framework_comparison_rank(datasets, algorithms, q2_folder, default_algorithms, q1_folder, sfirst_q2_folder, sfirst_q1_folder)
 
         if make_abs: 
-            handles = create_abs_performance_figure(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Performance", plot_dims=[2, 3], figsize=(9, 11), plot_legend=True)
-            create_abs_performance_figure(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Performance", plot_dims=[2, 3], figsize=(9, 11), plot_legend=True)
+            handles = create_abs_performance_figure(['citeseer', 'cora'], algorithms, q2_folder, sfirst_q2_folder, title="HPO vs Default HP Performance", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True, 
+                                                    default_algos=default_algorithms, default_folder=q1_folder, default_sfirst_folder=sfirst_q1_folder)
+            create_abs_performance_figure(['texas', 'dblp'], algorithms, q2_folder, sfirst_q2_folder, title="HPO vs Default HP Performance", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True,
+                                          default_algos=default_algorithms, default_folder=q1_folder, default_sfirst_folder=sfirst_q1_folder)
+            create_abs_performance_figure(['wisc', 'cornell'], algorithms, q2_folder, sfirst_q2_folder, title="HPO vs Default HP Performance", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True,
+                                          default_algos=default_algorithms, default_folder=q1_folder, default_sfirst_folder=sfirst_q1_folder)
+          
             #create_abs_performance_figure(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="DMoN Performance Large Datasets with HPO", plot_dims=[1, 2], figsize=(9, 10), plot_legend=True)
             
-            create_abs_performance_figure(datasets, default_algorithms, q5_folder2, title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 3], figsize=(9, 11), plot_legend=True)
-            create_abs_performance_figure(datasets, default_algorithms, q5_folder1, title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 3], figsize=(9, 11), plot_legend=True)
+            create_abs_performance_figure(['citeseer', 'cora'], default_algorithms, q5_folder2, sfirst_q5_folder2 , title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
+            create_abs_performance_figure(['texas', 'dblp'], default_algorithms, q5_folder2, sfirst_q5_folder2 , title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
+            create_abs_performance_figure(datasets, default_algorithms, q5_folder2, sfirst_q5_folder2 , title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
+
+            create_abs_performance_figure(['citeseer', 'cora'], default_algorithms, q5_folder1, sfirst_q5_folder1 , title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
+            create_abs_performance_figure(['texas', 'dblp'], default_algorithms, q5_folder1, sfirst_q5_folder1 , title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
+            create_abs_performance_figure(['wisc', 'cornell'], default_algorithms, q5_folder1, sfirst_q5_folder1 , title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
+
+
+
         if make_corr:
-            unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, title="Default Hyperparameter's Correlation", pltlegend=True)
-            handles2 = unsupervised_prediction_graph(datasets, algorithms, q2_folder, title="Hyperparameter Optimisation Correlation", pltlegend=True)
+            unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, sfirst_q1_folder, title="Default Hyperparameters Correlation", pltlegend=True)
+            handles2 = unsupervised_prediction_graph(datasets, algorithms, q2_folder, sfirst_q2_folder  ,title="Hyperparameter Optimisation Correlation", pltlegend=True)
         #unsupervised_prediction_graph(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="Large Dataset HPO")
         #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
         #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")
-        if make_synth:
-            create_abs_performance_figure(synth_datasets, default_algorithms, q5_folder, title="Default Hyperparameter's Performance on Synthetic Data", plot_dims=[3, 3], figsize=(9, 11), plot_legend=True)
 
 
         def create_handles_image(handles, name):
@@ -1970,7 +2220,8 @@ if __name__ == "__main__":
             else:
                 blank_ax.legend(handles=handles, loc='lower center', fontsize=12, ncols=3)
             
-            plt.savefig(f'./figures/unsupervised_limit/handles_{name}', format='png')
-        
-        #create_handles_image(handles, name='abs')
-        #create_handles_image(handles, name='corr')
+            plt.savefig(f'./figures/postvivathesis/handles_{name}.png', format='png')
+        # if make_abs: 
+        #     create_handles_image(handles, name='abs')
+        # if make_corr:
+        #     create_handles_image(handles, name='corr')

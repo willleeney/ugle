@@ -906,8 +906,8 @@ def og_randomness(ranking_object, print_draws=False):
     for test in ranking_object:
         for rs, rs_test in enumerate(test):
             unique_scores, counts = np.unique(rs_test, return_counts=True)
-            if len(unique_scores) != 10:
-                n_draws += 10 - len(unique_scores)
+            if len(unique_scores) != ranking_object.shape[2]:
+                n_draws += ranking_object.shape[2] - 1 - len(unique_scores)
         wills_order.append(kendall_w(test))
     wills_order = np.array(wills_order)
     if print_draws:
@@ -1034,8 +1034,8 @@ def extract_results(datasets, algorithms, folder, sfirst_folder, extract_validat
                     result = pickle.load(open(file_found, "rb"))
                     print(f'old result: {filename}')
 
-                if filename == 'cora_sublime.pkl':
-                    result = pickle.load(open(file_found, "rb"))
+                # if filename == 'cora_sublime.pkl':
+                #     result = pickle.load(open(file_found, "rb"))
                     
                 for seed_result in result.results:
                     ################# ========== CHANGE BECOS STRING? ========== ###################
@@ -1147,37 +1147,59 @@ def calc_percent_increase(f1_nmi_results, dmod_results, dcon_results):
     return
 
 def print_dataset_table(datasets, algorithms, folder, sfirst_folder, power_d=2):
+
+    result_return = np.zeros((len(datasets), 4))
     # extract results
-    for dataset in datasets:
+    for d, dataset in enumerate(datasets):
         mod_results, con_results = extract_results([dataset], algorithms, folder, sfirst_folder)
         print(dataset, end = ' ')
         print(f'mod_f1_nmi: {np.mean(mod_results[:, 0]):.3f} & {np.mean(mod_results[:, 1]):.3f} & {np.mean(mod_results[:, 2]):.3f}', end=' ')
         print(f'con_f1_nmi: {np.mean(con_results[:, 0]):.3f} & {np.mean(con_results[:, 1]):.3f} & {np.mean(con_results[:, 2]):.3f}', end=' ')
         print(f'correlations: ', end=' ')
+        pos_idx = 0 
         for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
             coefficients = np.polyfit(x, y, power_d)
             poly = np.poly1d(coefficients)
             # Calculate predicted values
             predicted_y = poly(x)
             r_value_quad = np.round(r2_score(y, predicted_y), 3)
+            predictor_varibables = 2
+            r_value_quad = 1 - (1-r_value_quad) * (len(y)-1)/(len(y)-predictor_varibables-1)
             print(f'& {r_value_quad:.2f}', end=' ')
+
+            result_return[d, pos_idx] = np.round(r_value_quad, 2)
+            pos_idx += 1
         print('')
 
+    return result_return
+
 def print_algo_table(datasets, algorithms, folder, sfirst_folder, power_d=2):
-    for algorithm in algorithms:
+
+    result_return = np.zeros((len(algorithms), 4))
+
+
+    for a, algorithm in enumerate(algorithms):
         mod_results, con_results = extract_results(datasets, [algorithm], folder, sfirst_folder)
         print(algorithm, end = ' ')
         print(f'mod_f1_nmi: {np.mean(mod_results[:, 0]):.3f} & {np.mean(mod_results[:, 1]):.3f} & {np.mean(mod_results[:, 2]):.3f}', end=' ')
         print(f'con_f1_nmi: {np.mean(con_results[:, 0]):.3f} & {np.mean(con_results[:, 1]):.3f} & {np.mean(con_results[:, 2]):.3f}', end=' ')
         print(f'correlations: ', end=' ')
+        pos_idx = 0 
         for x, y in [[mod_results[:, 0], mod_results[:, 1]], [mod_results[:, 0], mod_results[:, 2]], [con_results[:, 0], con_results[:, 1]], [con_results[:, 0], con_results[:, 2]]]:
             coefficients = np.polyfit(x, y, power_d)
             poly = np.poly1d(coefficients)
             # Calculate predicted values
             predicted_y = poly(x)
             r_value_quad = np.round(r2_score(y, predicted_y), 3)
+            predictor_varibables = 2
+            r_value_quad = 1 - (1-r_value_quad) * (len(y)-1)/(len(y)-predictor_varibables-1)
             print(f'& {r_value_quad:.2f}', end=' ')
+
+            result_return[a, pos_idx] = np.round(r_value_quad, 2)
+            pos_idx += 1
         print('')
+
+    return result_return 
 
 def kendall_w(expt_ratings):
     if expt_ratings.ndim!=2:
@@ -1221,11 +1243,11 @@ def compute_w_order_for_mod_and_con(mod_results, con_results, testnames, algorit
         ranking = np.zeros_like(tempresult)
         for d, dataset_res in enumerate(tempresult):
             for s, seed_res in enumerate(dataset_res):
-                ranking[d, s, :] = np.flip(rank_values(seed_res) + 1)
+                ranking[d, s, :] = rank_values(seed_res)
 
         w_order = []
         for test in ranking:
-            w_order.append(w_rand_wasserstein(test))
+            w_order.append(kendall_w(test))
         w_order = np.array(w_order)
         total_w_order.append(w_order)
         # the W order of each metric tests
@@ -1256,7 +1278,7 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, sfirst_folder, t
     moretestnames = [testnames[i] for i in indv_tests[:, 1]]
     more_w_orders = [np.mean(np.asarray(total_w_order[i])) for i in indv_tests]
     for n, w in zip(moretestnames, more_w_orders):
-        print(f"W Order {n}: {w:.2f}")
+        print(f"LOOky lOOKy man ->> W Order {n}: {w:.2f}")
    
     nrows, ncols = 2, 2
 
@@ -1300,7 +1322,7 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, sfirst_folder, t
         r_value_line = np.round(r2_score(y, predicted_y), 3)
         predictor_varibables = 1
         r_value_line = 1 - (1-r_value_line) * (len(y)-1)/(len(y)-predictor_varibables-1)
-        print(f"Linear Adjusted (R^2): {r_value_line}")
+        print(f"LOOky lOOKy man ->> Linear Adjusted (R^2): {r_value_line:.2f}")
         y_line = poly(x_space)
         
         # Fit a quadratic line
@@ -1311,7 +1333,7 @@ def unsupervised_prediction_graph(datasets, algorithms, folder, sfirst_folder, t
         r_value_quad = np.round(r2_score(y, predicted_y), 3)
         predictor_varibables = 2
         r_value_quad = 1 - (1-r_value_quad) * (len(y)-1)/(len(y)-predictor_varibables-1)
-        print(f"Quadratic Adjusted (R^2): {r_value_quad}")
+        print(f"LOOky lOOKy man ->> Quadratic Adjusted (R^2): {r_value_quad:.2f}")
         y_line_quad = poly(x_space)
 
         # spearmans  
@@ -1443,24 +1465,24 @@ def create_abs_performance_figure(datasets, algorithms, folder, sfirst_folder, t
 
         if not include_defaults:
             if dataset == 'dblp':
-                ax.set_title("DBLP" + ' (' + r'$\mathcal{W}^{w}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
+                ax.set_title("DBLP" + ' (' + r'$\mathcal{W}^{m}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
             elif 'synth' in dataset:
                 dataset_name = r"$\textbf{A}$" + ": " + dataset.split("_")[1] + '  ' + r"$\textbf{X}$" ": " + dataset.split("_")[2]
                 dataset_name = dataset_name.replace("disjoint", "Distinct")
                 dataset_name = dataset_name.replace("random", "Random")
                 dataset_name = dataset_name.replace("complete", "Null")
-                ax.set_title(dataset_name + ' (' + r'$\mathcal{W}^{w}$' + f': {total_w_order:.2f})', fontsize=12, y=1.01)
+                ax.set_title(dataset_name + ' (' + r'$\mathcal{W}^{m}$' + f': {total_w_order:.2f})', fontsize=12, y=1.01)
             elif dataset == 'citeseer':
-                ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}^{w}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
+                ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}^{m}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
             else:
-                ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}^{w}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
+                ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}^{m}$' + f': {total_w_order:.2f})', fontsize=15, y=1.01)
         else:
             if dataset == 'dblp':
-                ax.set_title("DBLP" + ' (' + r'$\mathcal{W}^{w}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{w}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
+                ax.set_title("DBLP" + ' (' + r'$\mathcal{W}^{m}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{m}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
             elif dataset == 'citeseer':
-                ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}^{w}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{w}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
+                ax.set_title('CiteSeer' + ' (' + r'$\mathcal{W}^{m}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{m}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
             else:
-                ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}^{w}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{w}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
+                ax.set_title(dataset.capitalize() + ' (' + r'$\mathcal{W}^{m}_{hpo}$' + f': {total_w_order:.2f}, ' + r'$\mathcal{W}^{m}_{def}$' + f': {def_total_w_order:.2f}' + ')', fontsize=15, y=1.01)
 
 
         mod = []
@@ -1701,8 +1723,11 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
     # calculate the average
     means_hpo = np.mean(rankings, axis=0)[0]
     means_def = np.mean(rankings, axis=0)[1]
-    print(f'HPO FCR: {means_hpo:.3f}')
-    print(f'Default FCR: {means_def:.3f}')
+
+    means_hpo_std = np.std(rankings, axis=0)[0]
+    means_def_std = np.std(rankings, axis=0)[1]
+    print(f'HPO FCR: {means_hpo:.3f}$\pm$ {means_hpo_std:.2f}')
+    print(f'Default FCR: {means_def:.3f}$\pm${means_def_std:.2f}')
     return 
 
 
@@ -1716,11 +1741,11 @@ if __name__ == "__main__":
     make_rankings_table = True
 
     make_unsuper = True
-    calc_increases = True
+    calc_increases = False
     calc_synth_increases = False
 
-    make_abs = True
-    make_corr = True
+    make_abs = False
+    make_corr = False
     make_synth = False
 
     if make_ugle:
@@ -1792,16 +1817,27 @@ if __name__ == "__main__":
                 rank_order = np.argsort(np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)) 
                 
                 hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-                hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 0)[rank_order]
 
-                default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-                default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                def_rank_order = np.argsort(np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)) 
+                default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[def_rank_order]
+                default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 0)[def_rank_order]
 
+                print('HPO')
+                print(f'{means_hpo:.1f}$\pm${stds_hpo:.1f}', end=' ')
                 for air, _ in enumerate(hpo_ranks):
-                    print(f'& {hpo_ranks[air]}$\pm${hpo_std[air]}/{default_ranks[air]}$\pm${default_std[air]}', end=' ')
+                    print(f'& {hpo_ranks[air]}$\pm${int(hpo_std[air])}', end=' ')
+                print('\nDEFAULT')
+                print(f'{means_def:.1f}$\pm${stds_def:.1f}', end=' ')
+                for air, _ in enumerate(default_ranks):
+                    print(f'& {default_ranks[air]}$\pm${int(default_std[air])}', end=' ')
+
+
                 print('')
-                print(f'MATCAL HPO/DEF: {means_hpo:.1f}$\pm${stds_hpo:.1f}/{means_def:.1f}$\pm${stds_def:.1f}')
+                print(f'MATCAL HPO: {means_hpo:.1f}$\pm${stds_hpo:.1f}')
+                print(f'MATCAL DEF: {means_def:.1f}$\pm${stds_def:.1f}')
                 print(np.array(algorithms)[rank_order])
+                print(np.array(algorithms)[def_rank_order])
                 print('\n')
 
 
@@ -1836,16 +1872,25 @@ if __name__ == "__main__":
                     # print the average rank 
                     print(f'{metric}')
                     hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-                    hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-                    default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-                    default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 0)[rank_order]
 
+
+                    default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[def_rank_order]
+                    default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 0)[def_rank_order]
+
+                    print('HPO')
+                    print(f'{means_hpo:.1f}$\pm${stds_hpo:.1f}', end=' ')
                     for air, _ in enumerate(hpo_ranks):
-                        print(f'& {hpo_ranks[air]}$\pm${hpo_std[air]}/{default_ranks[air]}$\pm${default_std[air]}', end=' ')
-                    print('')
-                    print(f'MATCAL HPO/DEF: {means_hpo:.1f}$\pm${stds_hpo:.1f}/{means_def:.1f}$\pm${stds_def:.1f}')
-          
+                        print(f'& {hpo_ranks[air]}$\pm${int(hpo_std[air])}', end=' ')
+                    print('\nDEFAULT')
+                    print(f'{means_def:.1f}$\pm${stds_def:.1f}', end=' ')
+                    for air, _ in enumerate(default_ranks):
+                        print(f'& {default_ranks[air]}$\pm${int(default_std[air])}', end=' ')
+                    print('\n')
+
+                print('\n')
                 for d, dataset in enumerate(datasets):
+            
                     copyresult_object = np.expand_dims(deepcopy(result_object[d, :, :, :]), axis=0)
                     copydefault_result_object = np.expand_dims(deepcopy(default_result_object[d, :, :, :]), axis=0)
 
@@ -1874,14 +1919,19 @@ if __name__ == "__main__":
                     # print the average rank 
                     print(f'{dataset}')
                     hpo_ranks = np.around(np.mean(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-                    hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-                    default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
-                    default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 1)[rank_order]
+                    hpo_std = np.around(np.std(ranking_object, axis=(0, 2, 3)), 0)[rank_order]
+                    default_ranks = np.around(np.mean(default_ranking_object, axis=(0, 2, 3)), 1)[def_rank_order]
+                    default_std = np.around(np.std(default_ranking_object, axis=(0, 2, 3)), 0)[def_rank_order]
                     
+                    print('HPO')
+                    print(f'{means_hpo:.1f}$\pm${stds_hpo:.1f}', end=' ')
                     for air, _ in enumerate(hpo_ranks):
-                        print(f'& {hpo_ranks[air]}$\pm${hpo_std[air]}/{default_ranks[air]}$\pm${default_std[air]}', end=' ')
-                    print('')
-                    print(f'MATCAL HPO/DEF: {means_hpo:.1f}$\pm${stds_hpo:.1f}/{means_def:.1f}$\pm${stds_def:.1f}')
+                        print(f'& {hpo_ranks[air]}$\pm${int(hpo_std[air])}', end=' ')
+                    print('\nDEFAULT')
+                    print(f'{means_def:.1f}$\pm${stds_def:.1f}', end=' ')
+                    for air, _ in enumerate(default_ranks):
+                        print(f'& {default_ranks[air]}$\pm${int(default_std[air])}', end=' ')
+                    print('\n')
 
 
                 for a, algorithm in enumerate(algorithms):
@@ -1906,7 +1956,9 @@ if __name__ == "__main__":
                     means_def = np.mean(rankings, axis=0)[1]
                     stds_def = np.std(rankings, axis=0)[1]
 
-                    print(f'{algorithm} - MATCAL HPO/DEF: {means_hpo:.1f}$\pm${stds_hpo:.1f}/{means_def:.1f}$\pm${stds_def:.1f}')
+                    print(f'{algorithm}')
+                    print(f'MATCAL HPO: {means_hpo:.1f}$\pm${stds_hpo:.1f}')
+                    print(f'MATCAL DEF: {means_def:.1f}$\pm${stds_def:.1f}')
 
                 # for s, seed in enumerate(seeds):
                 #     copyresult_object = np.expand_dims(deepcopy(result_object[:, :, :, s]), axis=0)
@@ -2070,8 +2122,8 @@ if __name__ == "__main__":
                     a_fit, b_fit, c_fit = popt
                     a_fithpo, b_fithpo, c_fithpo = popt_hpo
 
-                    print(f"Fitted parameters Default {w_fns[a2]}: a = {a_fit}, b = {b_fit}, c = {c_fit}")
-                    print(f"Fitted parameters HPO {w_fns[a2]}: a = {a_fithpo}, b = {b_fithpo}, c = {c_fithpo}")
+                    print(f"Fitted parameters Default {w_fns[a2]}: a = {a_fit:.2f}, b = {b_fit:.2f}, c = {c_fit:.2f}")
+                    print(f"Fitted parameters HPO {w_fns[a2]}: a = {a_fithpo:.2f}, b = {b_fithpo:.2f}, c = {c_fithpo:.2f}")
 
                     # Use the fitted coefficients to calculate the fitted w values
                     w_fit = decaying_exponential(t, *popt)
@@ -2187,7 +2239,7 @@ if __name__ == "__main__":
             
             create_abs_performance_figure(['citeseer', 'cora'], default_algorithms, q5_folder2, sfirst_q5_folder2 , title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
             create_abs_performance_figure(['texas', 'dblp'], default_algorithms, q5_folder2, sfirst_q5_folder2 , title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
-            create_abs_performance_figure(datasets, default_algorithms, q5_folder2, sfirst_q5_folder2 , title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
+            create_abs_performance_figure(['wisc', 'cornell'], default_algorithms, q5_folder2, sfirst_q5_folder2 , title="Default Hyperparameters with 66\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
 
             create_abs_performance_figure(['citeseer', 'cora'], default_algorithms, q5_folder1, sfirst_q5_folder1 , title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
             create_abs_performance_figure(['texas', 'dblp'], default_algorithms, q5_folder1, sfirst_q5_folder1 , title="Default Hyperparameters with 33\% of Training Data", plot_dims=[2, 1], figsize=(9, 11), plot_legend=True)
@@ -2196,11 +2248,47 @@ if __name__ == "__main__":
 
 
         if make_corr:
+            print("\n\n\n LARGE \n")
+            unsupervised_prediction_graph(['Computers', 'Photo'], ['dmon'], qlarge_folder, qlarge_folder, title="Large Dataset HPO")
+            print("\n\n\n 66% \n")
+            unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, sfirst_q5_folder2, title="q4: 66\% of the data")
+            print("\n\n\n 33% \n")
+            unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1,sfirst_q5_folder1, title="q4: 33\% of the data")
+            print("\n\n\n Default \n")
             unsupervised_prediction_graph(datasets, default_algorithms, q1_folder, sfirst_q1_folder, title="Default Hyperparameters Correlation", pltlegend=True)
+            print("\n\n\n HPO \n")
             handles2 = unsupervised_prediction_graph(datasets, algorithms, q2_folder, sfirst_q2_folder  ,title="Hyperparameter Optimisation Correlation", pltlegend=True)
-        #unsupervised_prediction_graph(['Computers', 'Photo'], ['dmon'], qlarge_folder, title="Large Dataset HPO")
-        #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder2, title="q4: 66\% of the data")
-        #unsupervised_prediction_graph(datasets, default_algorithms, q5_folder1, title="q4: 33\% of the data")
+
+
+        make_corr_tables = True
+        if make_corr_tables:
+                
+                hpo_res = print_algo_table(datasets, algorithms, q2_folder, sfirst_q2_folder)
+                def_res = print_algo_table(datasets, default_algorithms, q1_folder, sfirst_q1_folder)
+
+                print('ALGO TABLE')
+                for a in range(hpo_res.shape[0]):
+                    print(f'\n{algorithms[a]}')
+                    for idx in range(hpo_res.shape[1]):
+                        if hpo_res[a, idx] > def_res[a, idx]:
+                            print(f'{def_res[a, idx]}(\\textbf{{{hpo_res[a, idx]}}})', end =' & ')
+                        else:
+                            print(f'\\textbf{{{def_res[a, idx]}}}({hpo_res[a, idx]})', end =' & ')
+
+ 
+                hpo_res = print_dataset_table(datasets, algorithms, q2_folder, sfirst_q2_folder)
+                def_res = print_dataset_table(datasets, default_algorithms, q1_folder, sfirst_q1_folder)
+
+
+                print('\n\nDATASET TABLE')
+                for a in range(hpo_res.shape[0]):
+                    print(f'\n{datasets[a]}')
+                    for idx in range(hpo_res.shape[1]):
+                        if hpo_res[a, idx] > def_res[a, idx]:
+                            print(f'{def_res[a, idx]}(\\textbf{{{hpo_res[a, idx]}}})', end =' & ')
+                        else:
+                            print(f'\\textbf{{{def_res[a, idx]}}}({hpo_res[a, idx]})', end =' & ')
+                print('\n')
 
 
         def create_handles_image(handles, name):

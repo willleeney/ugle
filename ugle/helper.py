@@ -22,6 +22,8 @@ import random
 import matplotlib.gridspec as gridspec
 from scipy.optimize import curve_fit
 from matplotlib.ticker import IndexLocator
+import matplotlib
+matplotlib.use('macosx')
 
 random.seed(42)
 np.random.seed(42)
@@ -220,6 +222,8 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     ################## DIFFUCULT ##########################
     #### CHANGE TO AVERAGE FROM THE OTHER RESULT THING? 
     ### GET TEST OBJECT AND ACTUALLY DO THE AVERAGING?
+    if dataset_name == 'amap':
+        print('stop')
 
     result_holder = get_all_results_from_storage([dataset_name], algorithms, folder, empty='zeros', search_first_folder=search_first_hpo)
     if include_defaults:
@@ -635,7 +639,7 @@ def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
     # Optionally, show gridlines for minor ticks
     ax.grid(True, which='minor', axis='x', linestyle='--', color='lightgrey', linewidth=0.5)
    
-    ax.set_ylabel('Rank Occurences', fontsize=16) #kde estimatation of rank distribution
+    ax.set_ylabel('Rank Occurrences', fontsize=16) #kde estimatation of rank distribution
     ax.set_xlim(1-(bar_width/2), len(algorithms)+1-(bar_width/2))
     ax.set_yticks(range(0, all_ranks_per_algo.shape[0]+1))
 
@@ -915,15 +919,22 @@ def og_randomness(ranking_object, print_draws=False):
 
     return np.mean(wills_order)
 
-def og_newOld_randomness(ranking_object):
+def og_newOld_randomness(ranking_object, print_draws=False):
     # og W coefficient where draws are the average rank between those tied
+    n_draws = 0
     wills_order = []
     for test in ranking_object:
         rank_test = np.zeros_like(test)
         for rs, rs_test in enumerate(test):
-            rank_test[rs] = rank_scores(rs_test)
+            ranked_scores_w_means = rank_scores(rs_test)
+            unique_scores, counts = np.unique(ranked_scores_w_means, return_counts=True)
+            if len(unique_scores) != ranking_object.shape[2]:
+                n_draws += ranking_object.shape[2] - (len(unique_scores) - 1) 
+            rank_test[rs] = ranked_scores_w_means
         wills_order.append(kendall_w(rank_test))
     wills_order = np.array(wills_order)
+    if print_draws:
+        print(f'n_draws: {n_draws}')
     return np.mean(wills_order)
 
 def ties_randomness(ranking_object):
@@ -1733,14 +1744,15 @@ def calculate_framework_comparison_rank(datasets, algorithms, folder, default_al
 
 if __name__ == "__main__":
     matplotlib.use("macosx")
-    make_ugle = False
+    make_ugle = True
     make_big_figure = True
     make_dist_figure = True
-    make_presentation_figures = True
+    make_presentation_figures = False
     make_paper_figures =  True
     make_rankings_table = True
+    make_homophily = False
 
-    make_unsuper = True
+    make_unsuper = False
     calc_increases = False
     calc_synth_increases = False
 
@@ -1761,6 +1773,8 @@ if __name__ == "__main__":
         default_folder = './results/legacy_results/default_results/'
         search_first_post_viva_default = './post_viva_results/cm/default/'
 
+        performance = make_test_performance_object(['amap'], ['dmon'], metrics, seeds, folder, search_first_post_viva)
+
         if make_presentation_figures: 
             create_rand_dist_comparison(['cora'], algorithms, metrics, seeds, folder, default_algos, default_folder,
                                         search_first_post_viva, search_first_post_viva_default)
@@ -1771,6 +1785,77 @@ if __name__ == "__main__":
                 create_big_figure(['amap', 'dblp'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
                 create_big_figure(['texas', 'wisc', 'cornell'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
                 create_big_figure(['bat', 'eat', 'uat'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
+
+            if make_homophily: 
+                performance = make_test_performance_object(datasets, algorithms, metrics, seeds, folder, search_first_post_viva)
+                pickle.dump(performance, open("performance_results.pkl", "wb"))
+                performance = np.mean(performance, axis=3)
+                from torch_geometric.utils import homophily, from_scipy_sparse_matrix
+                from scipy import sparse
+                from ugle.datasets import load_real_graph_data
+                from tqdm import tqdm
+                import torch
+                # extract homophily for each method
+                d_homo = []
+                for dataset in tqdm(datasets):
+                    features, labels, train_adj, test_adj = load_real_graph_data(dataset_name=dataset, test_split=1.)
+                    sA = sparse.csr_matrix(test_adj)
+                    edge_index = from_scipy_sparse_matrix(sA)[0]
+                    d_homo.append(homophily(edge_index=edge_index, y=torch.Tensor(labels)))
+                dataset_homophily = np.array(d_homo)
+                
+                pickle.dump(dataset_homophily, open("dataset_homophily.pkl", "wb"))
+                # pickle.dump(performance, open("performance_results.pkl", "wb"))
+
+                fig, ax = plt.subplots(figsize=(5, 5))
+                cmap = matplotlib.colormaps.get_cmap("tab10").colors
+                blank_ax = fig.add_axes([0, 0, 1, 1], frameon=False)
+                blank_ax.axis('off')
+                d_homo_res = np.tile(d_homo, (4))
+                handles = []
+                # each method extract all scores associated with
+                # performance[dataset,algorithm,metric,seed]
+                for a_idx, method in enumerate(algorithms):
+                    # say just all metrics performance
+                    methods_res = performance[:, a_idx, 0]
+                    # flatten so its [dataset, metrics*seeds]
+                    # methods_res = methods_res.reshape(methods_res.shape[0], -1)
+                    # d_homo_res = np.tile(d_homo_res, (1, methods_res.shape[1]))
+
+                    # methods_res = methods_res.flatten()
+                    # d_homo_res = d_homo_res.flatten()
+                    # methods_res = methods_res.flatten(order='F')
+
+                    # then plot against 
+                    ax.scatter(d_homo_res, methods_res, color=cmap[a_idx])
+                    # then calculate r squared
+                    # compute regression and give correlation 
+
+                    x_space = np.linspace(np.min(d_homo_res), np.max(d_homo_res), 200)
+
+                    # Fit a linear line 
+                    coefficients = np.polyfit(d_homo_res, methods_res, 1)
+                    poly = np.poly1d(coefficients)
+                    # Calculate predicted values
+                    predicted_y = poly(d_homo_res)
+                    r_value_line = np.round(r2_score(methods_res, predicted_y), 3)
+                    predictor_varibables = 1
+                    r_value_line = 1 - (1-r_value_line) * (len(methods_res)-1)/(len(methods_res)-predictor_varibables-1)
+                    print(f"{method} R^2: {r_value_line:.2f}")
+                    y_line = poly(x_space)
+                    handles.append(mpatches.Patch(linewidth=0, facecolor=cmap[a_idx], label=f"{method} (" + r"$R^2$" + f"={r_value_line:.2f})"))
+                    ax.plot(x_space, y_line, color=cmap[a_idx])
+                    # print('pause')
+
+                ax.set_title("F1 Vs Homophily")
+                ax.set_xlabel("Homophily of Dataset")
+                ax.set_ylabel("F1 Performance")
+                plt.tight_layout()
+                plt.subplots_adjust(bottom=0.25)
+                blank_ax.legend(handles=handles, fontsize=9, loc='lower center', ncols=3)
+                print('done')
+                plt.savefig("uadgn_homophily_f1.pdf")
+                print('stop')
 
 
 
@@ -1989,9 +2074,9 @@ if __name__ == "__main__":
             ranking_object = reshape_ranking_to_test_object(ranking_object)
             default_ranking_object = reshape_ranking_to_test_object(default_ranking_object)
 
-            og_w = og_randomness(ranking_object, print_draws=True)
+            og_w = og_randomness(ranking_object)
             print(f"OG W HPO: {og_w:.3f}")
-            og_w_def = og_randomness(default_ranking_object, print_draws=True)
+            og_w_def = og_randomness(default_ranking_object)
             print(f"OG W Default: {og_w_def:.3f}")
 
             # result_object = np.concatenate((result_object[:, :, 0:3, :], con_out.reshape((result_object.shape[0], result_object.shape[1], 1, result_object.shape[3]))), axis=2)
@@ -1999,9 +2084,9 @@ if __name__ == "__main__":
             result_object = reshape_ranking_to_test_object(result_object)
             default_result_object = reshape_ranking_to_test_object(default_result_object)
 
-            ties_w = og_newOld_randomness(result_object)
+            ties_w = og_newOld_randomness(result_object, print_draws=True)
             print(f"New ranking system, OLD W HPO: {ties_w:.3f}")
-            ties_w_def = og_newOld_randomness(default_result_object)
+            ties_w_def = og_newOld_randomness(default_result_object, print_draws=True)
             print(f"New ranking system, OLD W Default: {ties_w_def:.3f}")
 
             ties_w = ties_randomness(result_object)

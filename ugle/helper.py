@@ -199,7 +199,7 @@ def calculate_ranking_performance(result_object, datasets, metrics, seeds, calc_
     return ranking_object
 
 
-def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax=None, search_first_hpo=None, search_first_default=None, include_defaults=True):
+def create_result_bar_chart(dataset_name, algorithms, metrics, seeds, folder, default_algos, default_folder, ax=None, search_first_hpo=None, search_first_default=None, include_defaults=True):
     """
     displays the results in matplotlib with dashed borders for original comparison on single dataset
     :param hpo_results: hyperparameter results
@@ -222,31 +222,61 @@ def create_result_bar_chart(dataset_name, algorithms, folder, default_algos, def
     ################## DIFFUCULT ##########################
     #### CHANGE TO AVERAGE FROM THE OTHER RESULT THING? 
     ### GET TEST OBJECT AND ACTUALLY DO THE AVERAGING?
-    if dataset_name == 'amap':
-        print('stop')
 
-    result_holder = get_all_results_from_storage([dataset_name], algorithms, folder, empty='zeros', search_first_folder=search_first_hpo)
+    result_holder = make_test_performance_object([dataset_name], algorithms, metrics, seeds, folder, search_first_hpo)
     if include_defaults:
-        default_result_holder = get_all_results_from_storage([dataset_name], default_algos, default_folder, empty='zeros', search_first_folder=search_first_default)
+        default_result_holder = make_test_performance_object([dataset_name], default_algos, metrics, seeds, default_folder, search_first_folder=search_first_default)
 
-    f1, f1_std = get_values_from_results_holder(result_holder, dataset_name, 'f1', return_std=True)
-    nmi, nmi_std = get_values_from_results_holder(result_holder, dataset_name, 'nmi', return_std=True)
-    modularity, modularity_std = get_values_from_results_holder(result_holder, dataset_name, 'modularity',
-                                                                return_std=True)
-    conductance, conductance_std = get_values_from_results_holder(result_holder, dataset_name, 'conductance',
-                                                                  return_std=True)
+    res_means = np.mean(result_holder, axis=3).squeeze(0)
+    res_stds = np.std(result_holder, axis=3).squeeze(0)
+
+    f1 = res_means[:, 0]
+    nmi = res_means[:, 1]
+    modularity = res_means[:, 2]
+    conductance = res_means[:, 3]
+
+    f1_std = res_stds[:, 0]
+    nmi_std = res_stds[:, 1]
+    modularity_std = res_stds[:, 2]
+    conductance_std = res_stds[:, 3]
 
     if include_defaults:
-        default_f1, default_f1_std = get_values_from_results_holder(default_result_holder, dataset_name, 'f1',
-                                                                    return_std=True)
-        default_nmi, default_nmi_std = get_values_from_results_holder(default_result_holder, dataset_name, 'nmi',
-                                                                    return_std=True)
-        default_modularity, default_modularity_std = get_values_from_results_holder(default_result_holder, dataset_name,
-                                                                                    'modularity',
-                                                                                    return_std=True)
-        default_conductance, default_conductance_std = get_values_from_results_holder(default_result_holder, dataset_name,
-                                                                                    'conductance',
-                                                                                  return_std=True)
+        default_res_means = np.mean(default_result_holder, axis=3).squeeze(0)
+        default_res_stds = np.std(default_result_holder, axis=3).squeeze(0)
+
+        default_f1 = default_res_means[:, 0]
+        default_nmi = default_res_means[:, 1]
+        default_modularity = default_res_means[:, 2]
+        default_conductance = default_res_means[:, 3]
+
+        default_f1_std = default_res_stds[:, 0]
+        default_nmi_std = default_res_stds[:, 1]
+        default_modularity_std = default_res_stds[:, 2]
+        default_conductance_std = default_res_stds[:, 3]
+
+
+    # result_holder = get_all_results_from_storage([dataset_name], algorithms, folder, empty='zeros', search_first_folder=search_first_hpo)
+    # if include_defaults:
+    #     default_result_holder = get_all_results_from_storage([dataset_name], default_algos, default_folder, empty='zeros', search_first_folder=search_first_default)
+
+    # f1, f1_std = get_values_from_results_holder(result_holder, dataset_name, 'f1', return_std=True)
+    # nmi, nmi_std = get_values_from_results_holder(result_holder, dataset_name, 'nmi', return_std=True)
+    # modularity, modularity_std = get_values_from_results_holder(result_holder, dataset_name, 'modularity',
+    #                                                             return_std=True)
+    # conductance, conductance_std = get_values_from_results_holder(result_holder, dataset_name, 'conductance',
+    #                                                               return_std=True)
+
+    # if include_defaults:
+    #     default_f1, default_f1_std = get_values_from_results_holder(default_result_holder, dataset_name, 'f1',
+    #                                                                 return_std=True)
+    #     default_nmi, default_nmi_std = get_values_from_results_holder(default_result_holder, dataset_name, 'nmi',
+    #                                                                 return_std=True)
+    #     default_modularity, default_modularity_std = get_values_from_results_holder(default_result_holder, dataset_name,
+    #                                                                                 'modularity',
+    #                                                                                 return_std=True)
+    #     default_conductance, default_conductance_std = get_values_from_results_holder(default_result_holder, dataset_name,
+    #                                                                                 'conductance',
+    #                                                                               return_std=True)
     
         print(f'{dataset_name} & nmi & nmi-d & f1 & f1-d & modularity & modularity-d & conductance & conductance-d \\\\')
         for a, algo in enumerate(algorithms):
@@ -651,7 +681,7 @@ def create_rand_dist_fig(ax, algorithms, all_ranks_per_algo, set_legend=False):
     return ax
 
 
-def create_big_figure(datasets, algorithms, folder, default_algos, default_folder, search_first_hpo, search_first_default):
+def create_big_figure(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder, search_first_hpo, search_first_default):
     """
     creates figure for all datasets tested comparing default and hpo results
     """
@@ -674,7 +704,7 @@ def create_big_figure(datasets, algorithms, folder, default_algos, default_folde
         axs.append(fig.add_subplot(gs[1, 1]))  # Second plot spans columns 
 
     for dataset_name, ax in zip(datasets, axs):
-        ax = create_result_bar_chart(dataset_name, algorithms, folder, default_algos, default_folder, ax, search_first_hpo, search_first_default, include_defaults)
+        ax = create_result_bar_chart(dataset_name, algorithms, metrics, seeds, folder, default_algos, default_folder, ax, search_first_hpo, search_first_default, include_defaults)
 
     handles = []
     alt_colours = ["#2CA02C", '#BF699F', 'tab:red', 'tab:blue']
@@ -893,7 +923,7 @@ def create_all_paper_figures(datasets, algorithms, metrics, seeds, folder, defau
     # fig1.savefig(f"{ugle_path}/figures/le_ranking_comparison_datasets.png", bbox_inches='tight')
 
     # print('done metric + dataset comparison')
-    create_big_figure(datasets, algorithms, folder, default_algos, default_folder)
+    create_big_figure(datasets, algorithms, metrics, seeds, folder, default_algos, default_folder)
     # print('done fats%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%o')
     return
 
@@ -1746,10 +1776,10 @@ if __name__ == "__main__":
     matplotlib.use("macosx")
     make_ugle = True
     make_big_figure = True
-    make_dist_figure = True
+    make_dist_figure = False
     make_presentation_figures = False
     make_paper_figures =  True
-    make_rankings_table = True
+    make_rankings_table = False
     make_homophily = False
 
     make_unsuper = False
@@ -1781,10 +1811,10 @@ if __name__ == "__main__":
 
         if make_paper_figures: 
             if make_big_figure:
-                create_big_figure(['cora', 'citeseer'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
-                create_big_figure(['amap', 'dblp'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
-                create_big_figure(['texas', 'wisc', 'cornell'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
-                create_big_figure(['bat', 'eat', 'uat'], algorithms, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
+                create_big_figure(['cora', 'citeseer'], algorithms, metrics, seeds, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
+                create_big_figure(['amap', 'dblp'], algorithms, metrics, seeds,folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
+                create_big_figure(['texas', 'wisc', 'cornell'], algorithms, metrics, seeds, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
+                create_big_figure(['bat', 'eat', 'uat'], algorithms, metrics, seeds, folder, default_algos, default_folder, search_first_post_viva, search_first_post_viva_default)
 
             if make_homophily: 
                 performance = make_test_performance_object(datasets, algorithms, metrics, seeds, folder, search_first_post_viva)
